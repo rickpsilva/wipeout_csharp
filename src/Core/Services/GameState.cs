@@ -1,0 +1,103 @@
+using System;
+using System.Collections.Generic;
+using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Infrastructure.Graphics;
+
+namespace WipeoutRewrite.Core.Services
+{
+    public enum GameMode
+    {
+        Intro,
+        SplashScreen,  // Title screen with "PRESS ENTER" and wiptitle.tim
+        Menu,          // Main menu with START GAME, OPTIONS, QUIT
+        AttractMode,
+        Loading,
+        Racing,
+        Paused,
+        GameOver,
+        Victory
+    }
+
+    public class GameState
+    {
+        public GameMode CurrentMode { get; set; }
+        public Track? CurrentTrack { get; set; }
+        public List<Ship> Ships { get; set; }
+        public Ship? PlayerShip { get; set; }
+
+        // Dados de corrida
+        public int LapNumber { get; set; }
+        public float RaceTime { get; set; }
+        public int Position { get; set; } // Posição do jogador na corrida
+        public int TotalPlayers { get; set; }
+
+        // Configurações
+        public int Difficulty { get; set; }
+        public int GameSpeed { get; set; }
+        public bool EnableAI { get; set; }
+
+        public GameState()
+        {
+            CurrentMode = GameMode.Menu;
+            Ships = new List<Ship>();
+            LapNumber = 1;
+            RaceTime = 0;
+            Position = 1;
+            TotalPlayers = 8;
+            Difficulty = 1;
+            GameSpeed = 1;
+            EnableAI = true;
+        }
+
+        public void Initialize(Track track, int playerShipId = 0)
+        {
+            CurrentTrack = track;
+            CurrentMode = GameMode.Loading;
+            Ships.Clear();
+            LapNumber = 1;
+            RaceTime = 0;
+
+            // Criar naves IA
+            for (int i = 0; i < TotalPlayers; i++)
+            {
+                var ship = new Ship($"Ship_{i}", i);
+                if (i == playerShipId)
+                {
+                    PlayerShip = ship;
+                }
+                Ships.Add(ship);
+            }
+
+            Console.WriteLine($"Game initialized with track: {track.Name}, {Ships.Count} ships");
+        }
+
+        public void Update(float deltaTime)
+        {
+            if (CurrentMode != GameMode.Racing)
+                return;
+
+            RaceTime += deltaTime;
+
+            // Atualizar todas as naves
+            foreach (var ship in Ships)
+            {
+                ship.Update(deltaTime);
+            }
+
+            // TODO: lógica de colisão, IA, checkpoints
+        }
+
+        public void Render(GLRenderer renderer)
+        {
+            if (CurrentTrack != null)
+            {
+                CurrentTrack.Render(renderer);
+            }
+
+            foreach (var ship in Ships)
+            {
+                ship.Render(renderer);
+            }
+        }
+    }
+}

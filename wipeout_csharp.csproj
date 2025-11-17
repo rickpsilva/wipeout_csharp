@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>11</LangVersion>
+    <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- OpenTK provides windowing, input and GL bindings. Good for a base port. -->
+    <!-- Removido GtkSharp 3.x. Usar gtk-sharp 2.x via referência manual. -->
+    <PackageReference Include="FFMpegCore" Version="5.1.0" />
+    <PackageReference Include="OpenTK" Version="4.8.6" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Excluir arquivos de teste e tools do projeto principal -->
+    <Compile Remove="wipeout_csharp.Tests/**/*.cs" />
+    <Compile Remove="tools/**/*.cs" />
+  </ItemGroup>
+</Project>
