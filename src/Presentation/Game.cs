@@ -86,12 +86,13 @@ namespace WipeoutRewrite
             _fontSystem.LoadFonts(assetsPath);
 
             // Carregar lista de tracks
-            if (_gameState != null && _assetLoader.LoadTrackList() is { Count: > 0 } tracks)
+            if (_assetLoader.LoadTrackList() is { Count: > 0 } tracks)
             {
                 _logger.LogInformation("Loaded tracks: {Tracks}", string.Join(", ", tracks));
 
                 // Inicializar GameState com primeira track
-                var track = new Track(tracks[0], null);
+                var trackLogger = _loggerFactory.CreateLogger<Track>();
+                var track = new Track(tracks[0], trackLogger);
                 _gameState.Initialize(track, playerShipId: 0);
             }
 
@@ -120,7 +121,7 @@ namespace WipeoutRewrite
 
             // Inicializar menu e title screen
             _menuRenderer = new MenuRenderer(Size.X, Size.Y, _renderer, _fontSystem);
-            _titleScreen = new TitleScreen(_fontSystem, _timLoader);
+            _titleScreen = new TitleScreen(_timLoader, _fontSystem);
             _creditsScreen = new CreditsScreen(_fontSystem);
             _attractMode = new AttractMode(_gameState);
 
@@ -188,7 +189,7 @@ namespace WipeoutRewrite
             bool enterIsPressed = KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Enter);
             
             // Saltar intro com Enter
-            if (_gameState?.CurrentMode == GameMode.Intro && _introPlayer != null)
+            if (_gameState.CurrentMode == GameMode.Intro && _introPlayer != null)
             {
                 if (enterIsPressed && !_enterWasPressed)
                 {
@@ -201,7 +202,7 @@ namespace WipeoutRewrite
             }
 
             // Splash screen logic
-            else if (_gameState?.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
+            else if (_gameState.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
             {
                 _titleScreen.Update((float)args.Time, out bool shouldStartAttract, out bool shouldStartMenu);
                 
@@ -228,7 +229,7 @@ namespace WipeoutRewrite
             }
 
             // Attract mode (credits) - qualquer tecla volta ao splash
-            if (_gameState?.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
+            if (_gameState.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
             {
                 _creditsScreen.Update((float)args.Time);
                 
@@ -245,7 +246,7 @@ namespace WipeoutRewrite
             }
 
             // Menu navigation
-            if (_gameState?.CurrentMode == GameMode.Menu && _menuManager != null)
+            if (_gameState.CurrentMode == GameMode.Menu && _menuManager != null)
             {
                 _menuManager.Update((float)args.Time);
                 
@@ -286,7 +287,7 @@ namespace WipeoutRewrite
             }
 
             // Attract mode update
-            if (_gameState?.CurrentMode == GameMode.AttractMode && _attractMode != null)
+            if (_gameState.CurrentMode == GameMode.AttractMode && _attractMode != null)
             {
                 _attractMode.Update((float)args.Time);
                 
@@ -342,7 +343,7 @@ namespace WipeoutRewrite
             if (_renderer == null) return;
 
             // Renderizar vídeo de intro se estiver a tocar
-            if (_gameState?.CurrentMode == GameMode.Intro && _introPlayer != null)
+            if (_gameState.CurrentMode == GameMode.Intro && _introPlayer != null)
             {
                 if (_introPlayer.IsPlaying)
                 {
@@ -367,17 +368,17 @@ namespace WipeoutRewrite
                     _logger.LogInformation("Intro terminada, a mostrar splash screen...");
                 }
             }
-            else if (_gameState?.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
+            else if (_gameState.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
             {
                 // Render title screen
                 _titleScreen.Render(_renderer, ClientSize.X, ClientSize.Y);
             }
-            else if (_gameState?.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
+            else if (_gameState.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
             {
                 // Render credits
                 _creditsScreen.Render(_renderer, ClientSize.X, ClientSize.Y);
             }
-            else if (_gameState?.CurrentMode == GameMode.Menu && _menuManager != null && _menuRenderer != null)
+            else if (_gameState.CurrentMode == GameMode.Menu && _menuManager != null && _menuRenderer != null)
             {
                 // Render menu
                 _renderer.BeginFrame();
@@ -390,7 +391,7 @@ namespace WipeoutRewrite
                 _menuRenderer.RenderMenu(_menuManager);
                 _renderer.EndFrame();
             }
-            else if (_gameState?.CurrentMode == GameMode.AttractMode && _attractMode != null)
+            else if (_gameState.CurrentMode == GameMode.AttractMode && _attractMode != null)
             {
                 // Render attract mode
                 _renderer.BeginFrame();

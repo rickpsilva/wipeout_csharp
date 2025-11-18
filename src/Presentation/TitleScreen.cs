@@ -25,7 +25,7 @@ public class TitleScreen
     private readonly IFontSystem? _fontSystem;
     private readonly TimImageLoader _timLoader;
     
-    public TitleScreen(IFontSystem? fontSystem, TimImageLoader timLoader)
+    public TitleScreen(TimImageLoader timLoader, IFontSystem? fontSystem = null)
     {
         _fontSystem = fontSystem;
         _timLoader = timLoader;
