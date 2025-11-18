@@ -129,7 +129,13 @@ namespace WipeoutRewrite
             _musicPlayer.LoadTracks(musicPath);
 
             // Carregar e iniciar o vídeo de introdução DEPOIS de tudo estar pronto
+            // Usar .mpeg (mais rápido) por padrão, .mp4 disponível mas mais lento
             string introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mpeg");
+            if (!File.Exists(introPath))
+            {
+                introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mp4");
+            }
+            
             if (File.Exists(introPath))
             {
                 _logger.LogInformation("Reproduzindo intro: {IntroPath}", introPath);
