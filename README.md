@@ -121,7 +121,7 @@ dotnet test --verbosity normal
 
 ## Fluxo do Jogo
 
-1. **Intro Video** - `intro.mpeg` com áudio sincronizado (Skip: Enter)
+1. **Intro Video** - `intro.mpeg` (recomendado por performance) ou `intro.mp4` como alternativa - com áudio sincronizado (Skip: Enter)
 2. **Splash Screen** - Imagem `wiptitle.tim` com "PRESS ENTER" a piscar continuamente
    - Música inicia automaticamente (modo Random)
    - Timeout de 10s para attract mode
@@ -175,7 +175,7 @@ dotnet test --verbosity normal
   - Transição automática entre faixas quando uma termina
   - Fallback para .qoa se WAV não existir (com aviso)
 - **IntroVideoPlayer**: Sincronização áudio/vídeo baseada em posição OpenAL
-- FFMpeg para extração de frames do intro.mpeg
+- FFMpeg para extração de frames do vídeo intro (.mpeg mais eficiente, .mp4 suportado)
 - Precisão de sync: <20ms (imperceptível)
 - Conversão QOA→WAV usando `tools/qoa2wav.c` (baseado em qoa.h do projecto C original)
 
