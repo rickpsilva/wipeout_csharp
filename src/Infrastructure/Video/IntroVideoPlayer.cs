@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using OpenTK.Graphics.OpenGL;
 using FFMpegCore;
 using SixLabors.ImageSharp;
@@ -17,6 +18,7 @@ namespace WipeoutRewrite.Infrastructure.Video
     /// </summary>
     public class IntroVideoPlayer : IVideoPlayer
     {
+        private readonly ILogger<IntroVideoPlayer> _logger;
         private int _textureId;
         private List<byte[]> _frames = new List<byte[]>();
         private int _videoWidth, _videoHeight;
@@ -33,14 +35,15 @@ namespace WipeoutRewrite.Infrastructure.Video
 
         public bool IsPlaying => _isPlaying && _currentFrameIndex < _frames.Count;
 
-        public IntroVideoPlayer(string videoPath)
+        public IntroVideoPlayer(string videoPath, ILogger<IntroVideoPlayer> logger)
         {
+            _logger = logger;
             if (!File.Exists(videoPath))
             {
                 throw new FileNotFoundException("Video file not found.", videoPath);
             }
 
-            Console.WriteLine("Carregando vídeo de introdução...");
+            _logger.LogInformation("Carregando vídeo de introdução...");
 
             // Obter informações do vídeo
             var mediaInfo = FFProbe.Analyse(videoPath);
@@ -60,7 +63,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             
             // Pré-carregar todos os frames (mais eficiente que decodificar em tempo real)
             LoadAllFrames(videoPath);
-            Console.WriteLine($"✓ {_frames.Count} frames carregados ({_videoWidth}x{_videoHeight} @ {_frameRate:F1}fps)");
+            _logger.LogInformation("{FrameCount} frames carregados ({VideoWidth}x{VideoHeight} @ {FrameRate:F1}fps)", _frames.Count, _videoWidth, _videoHeight, _frameRate);
             
             // Extrair e carregar áudio
             ExtractAndLoadAudio(videoPath);
@@ -106,7 +109,7 @@ namespace WipeoutRewrite.Infrastructure.Video
         {
             try
             {
-                Console.WriteLine("Extraindo áudio do vídeo...");
+                _logger.LogInformation("Extraindo áudio do vídeo...");
                 
                 // Criar arquivo temporário para o áudio
                 _audioTempPath = Path.Combine(Path.GetTempPath(), $"wipeout_intro_audio_{Guid.NewGuid()}.wav");
@@ -122,7 +125,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                 
                 if (!result)
                 {
-                    Console.WriteLine("⚠ FFmpeg falhou ao extrair áudio - continuando sem som");
+                    _logger.LogWarning("FFmpeg falhou ao extrair áudio - continuando sem som");
                     return;
                 }
                 
@@ -132,7 +135,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                     var fileInfo = new FileInfo(_audioTempPath);
                     if (fileInfo.Length < 1000)
                     {
-                        Console.WriteLine("⚠ Arquivo de áudio muito pequeno - possível falha na extração");
+                        _logger.LogWarning("Arquivo de áudio muito pequeno - possível falha na extração");
                         return;
                     }
                     
@@ -140,23 +143,23 @@ namespace WipeoutRewrite.Infrastructure.Video
                     _audioPlayer = new AudioPlayer();
                     if (_audioPlayer.LoadWav(_audioTempPath))
                     {
-                        Console.WriteLine("✓ Áudio carregado com sucesso");
+                        _logger.LogInformation("Áudio carregado com sucesso");
                     }
                     else
                     {
-                        Console.WriteLine("⚠ Falha ao carregar áudio - continuando sem som");
+                        _logger.LogWarning("Falha ao carregar áudio - continuando sem som");
                         _audioPlayer?.Dispose();
                         _audioPlayer = null;
                     }
                 }
                 else
                 {
-                    Console.WriteLine("⚠ Arquivo de áudio não foi criado - continuando sem som");
+                    _logger.LogWarning("Arquivo de áudio não foi criado - continuando sem som");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠ Erro ao extrair áudio: {ex.Message} - continuando sem som");
+                _logger.LogWarning(ex, "Erro ao extrair áudio - continuando sem som");
                 _audioPlayer = null;
             }
         }
@@ -165,7 +168,7 @@ namespace WipeoutRewrite.Infrastructure.Video
         {
             if (!_loadingComplete || _frames.Count == 0)
             {
-                Console.WriteLine("⚠ Sem frames para reproduzir");
+                _logger.LogWarning("Sem frames para reproduzir");
                 return;
             }
 
@@ -176,7 +179,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             // Iniciar áudio sincronizado com vídeo
             _audioPlayer?.Play();
             
-            Console.WriteLine("▶ Reproduzindo intro...");
+            _logger.LogInformation("Reproduzindo intro...");
         }
 
         public void Skip()
@@ -187,7 +190,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             // Parar áudio
             _audioPlayer?.Stop();
             
-            Console.WriteLine("⏩ Intro saltada");
+            _logger.LogInformation("Intro saltada");
         }
 
         public void Update()

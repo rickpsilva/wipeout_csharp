@@ -23,9 +23,12 @@ public class TitleScreen
     private int _titleHeight;
     private bool _textureLoaded;
     private readonly IFontSystem? _fontSystem;
+    private readonly TimImageLoader _timLoader;
     
-    public TitleScreen(IFontSystem? fontSystem = null)
+    public TitleScreen(IFontSystem? fontSystem, TimImageLoader timLoader)
     {
+        _fontSystem = fontSystem;
+        _timLoader = timLoader;
         _timer = 0f;
         _blinkTimer = 0f;
         _attractShown = false;
@@ -41,7 +44,7 @@ public class TitleScreen
             string timPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "textures", "wiptitle.tim");
             if (File.Exists(timPath))
             {
-                var (pixels, width, height) = TimImageLoader.LoadTim(timPath, false);
+                var (pixels, width, height) = _timLoader.LoadTim(timPath, false);
                 _titleWidth = width;
                 _titleHeight = height;
                 

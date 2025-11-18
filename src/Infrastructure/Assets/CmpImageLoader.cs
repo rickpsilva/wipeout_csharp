@@ -1,30 +1,37 @@
 using System;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Infrastructure.Assets
 {
     public class CmpImageLoader
     {
+        private readonly ILogger<CmpImageLoader> _logger;
         private const int LZSS_INDEX_BIT_COUNT = 13;
         private const int LZSS_LENGTH_BIT_COUNT = 4;
         private const int LZSS_WINDOW_SIZE = 1 << LZSS_INDEX_BIT_COUNT; // 8192
         private const int LZSS_BREAK_EVEN = (1 + LZSS_INDEX_BIT_COUNT + LZSS_LENGTH_BIT_COUNT) / 9; // 1
         private const int LZSS_END_OF_STREAM = 0;
 
-        public static byte[][] LoadCompressed(string filePath)
+        public CmpImageLoader(ILogger<CmpImageLoader> logger)
+        {
+            _logger = logger;
+        }
+
+        public byte[][] LoadCompressed(string filePath)
         {
             if (!File.Exists(filePath))
             {
-                Console.WriteLine($"CMP file not found: {filePath}");
+                _logger.LogWarning("CMP file not found: {FilePath}", filePath);
                 return Array.Empty<byte[]>();
             }
 
             byte[] compressedBytes = File.ReadAllBytes(filePath);
-            Console.WriteLine($"Loading CMP: {filePath}, size: {compressedBytes.Length} bytes");
+            _logger.LogDebug("Loading CMP: {FilePath}, size: {Size} bytes", filePath, compressedBytes.Length);
 
             int p = 0;
             int imageCount = GetInt32LE(compressedBytes, ref p);
-            Console.WriteLine($"CMP image count: {imageCount}");
+            _logger.LogDebug("CMP image count: {ImageCount}", imageCount);
 
             // Calculate total decompressed size
             int[] imageSizes = new int[imageCount];
@@ -33,12 +40,12 @@ namespace WipeoutRewrite.Infrastructure.Assets
             {
                 imageSizes[i] = GetInt32LE(compressedBytes, ref p);
                 totalDecompressedSize += imageSizes[i];
-                Console.WriteLine($"  Image {i}: {imageSizes[i]} bytes");
+                _logger.LogDebug("  Image {ImageIndex}: {ImageSize} bytes", i, imageSizes[i]);
             }
 
             // Decompress all data at once
             byte[] decompressedBytes = LzssDecompress(compressedBytes, p);
-            Console.WriteLine($"Decompressed {decompressedBytes.Length} bytes (expected {totalDecompressedSize})");
+            _logger.LogDebug("Decompressed {DecompressedSize} bytes (expected {ExpectedSize})", decompressedBytes.Length, totalDecompressedSize);
 
             // Split into individual images
             byte[][] images = new byte[imageCount][];
@@ -53,7 +60,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
             return images;
         }
 
-        private static byte[] LzssDecompress(byte[] inData, int startPos)
+        private byte[] LzssDecompress(byte[] inData, int startPos)
         {
             using (var output = new MemoryStream())
             {
@@ -143,7 +150,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
             return returnValue;
         }
 
-        private static int GetInt32LE(byte[] bytes, ref int position)
+        private int GetInt32LE(byte[] bytes, ref int position)
         {
             int value = bytes[position] |
                        (bytes[position + 1] << 8) |

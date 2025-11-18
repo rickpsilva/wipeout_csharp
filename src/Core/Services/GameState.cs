@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Infrastructure.Graphics;
 
@@ -20,6 +21,8 @@ namespace WipeoutRewrite.Core.Services
 
     public class GameState
     {
+        private readonly ILogger<GameState> _logger;
+        
         public GameMode CurrentMode { get; set; }
         public Track? CurrentTrack { get; set; }
         public List<Ship> Ships { get; set; }
@@ -36,8 +39,9 @@ namespace WipeoutRewrite.Core.Services
         public int GameSpeed { get; set; }
         public bool EnableAI { get; set; }
 
-        public GameState()
+        public GameState(ILogger<GameState> logger)
         {
+            _logger = logger;
             CurrentMode = GameMode.Menu;
             Ships = new List<Ship>();
             LapNumber = 1;
@@ -68,7 +72,7 @@ namespace WipeoutRewrite.Core.Services
                 Ships.Add(ship);
             }
 
-            Console.WriteLine($"Game initialized with track: {track.Name}, {Ships.Count} ships");
+            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, Ships.Count);
         }
 
         public void Update(float deltaTime)

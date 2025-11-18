@@ -1,28 +1,35 @@
 using System;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Infrastructure.Assets;
 
 public class TimImageLoader
 {
+    private readonly ILogger<TimImageLoader> _logger;
     private const int TIM_TYPE_PALETTED_4_BPP = 0x08;
     private const int TIM_TYPE_PALETTED_8_BPP = 0x09;
     private const int TIM_TYPE_TRUE_COLOR_16_BPP = 0x02;
 
-    public static (byte[] pixels, int width, int height) LoadTim(string filePath, bool transparent = false)
+    public TimImageLoader(ILogger<TimImageLoader> logger)
+    {
+        _logger = logger;
+    }
+
+    public (byte[] pixels, int width, int height) LoadTim(string filePath, bool transparent = false)
     {
         byte[] bytes = File.ReadAllBytes(filePath);
-        Console.WriteLine($"Loading TIM: {filePath}, size: {bytes.Length} bytes");
+        _logger.LogDebug("Loading TIM: {FilePath}, size: {Size} bytes", filePath, bytes.Length);
         return LoadTimFromBytes(bytes, transparent);
     }
 
-    public static (byte[] pixels, int width, int height) LoadTimFromBytes(byte[] bytes, bool transparent = false)
+    public (byte[] pixels, int width, int height) LoadTimFromBytes(byte[] bytes, bool transparent = false)
     {
         int p = 0;
 
         int magic = GetI32LE(bytes, ref p);
         int type = GetI32LE(bytes, ref p);
-        Console.WriteLine($"TIM magic: 0x{magic:X8}, type: 0x{type:X8}");
+        _logger.LogDebug("TIM magic: 0x{Magic:X8}, type: 0x{Type:X8}", magic, type);
         
         byte[] palette = new byte[256 * 4]; // RGBA
 
@@ -63,7 +70,7 @@ public class TimImageLoader
         int height = rows;
         int entries = entriesPerRow * rows;
         
-        Console.WriteLine($"TIM dimensions: {width}x{height}, entries: {entries}, pixelsPer16Bit: {pixelsPer16Bit}");
+        _logger.LogDebug("TIM dimensions: {Width}x{Height}, entries: {Entries}, pixelsPer16Bit: {PixelsPer16Bit}", width, height, entries, pixelsPer16Bit);
 
         byte[] pixels = new byte[width * height * 4]; // RGBA
         int pixelPos = 0;
@@ -130,21 +137,21 @@ public class TimImageLoader
         return (r, g, b, a);
     }
 
-    private static int GetI32LE(byte[] bytes, ref int p)
+    private int GetI32LE(byte[] bytes, ref int p)
     {
         int value = bytes[p] | (bytes[p + 1] << 8) | (bytes[p + 2] << 16) | (bytes[p + 3] << 24);
         p += 4;
         return value;
     }
 
-    private static short GetI16LE(byte[] bytes, ref int p)
+    private short GetI16LE(byte[] bytes, ref int p)
     {
         short value = (short)(bytes[p] | (bytes[p + 1] << 8));
         p += 2;
         return value;
     }
 
-    private static ushort GetU16LE(byte[] bytes, ref int p)
+    private ushort GetU16LE(byte[] bytes, ref int p)
     {
         ushort value = (ushort)(bytes[p] | (bytes[p + 1] << 8));
         p += 2;

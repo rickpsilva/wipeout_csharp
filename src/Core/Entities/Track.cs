@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Core.Entities
@@ -64,6 +65,8 @@ namespace WipeoutRewrite.Core.Entities
     // Dados principais da pista
     public class Track
     {
+        private readonly ILogger<Track>? _logger;
+        
         public string Name { get; set; } = "";
         public int VertexCount { get; set; }
         public int FaceCount { get; set; }
@@ -77,8 +80,9 @@ namespace WipeoutRewrite.Core.Entities
         // Metadados
         public string BasePath { get; set; } = "";
 
-        public Track(string name)
+        public Track(string name, ILogger<Track>? logger = null)
         {
+            _logger = logger;
             Name = name;
         }
 
