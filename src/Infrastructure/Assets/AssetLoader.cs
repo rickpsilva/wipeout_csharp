@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Infrastructure.Assets
 {
@@ -9,17 +10,23 @@ namespace WipeoutRewrite.Infrastructure.Assets
     /// </summary>
     public class AssetLoader : IAssetLoader
     {
+        private readonly ILogger<AssetLoader> _logger;
         private string _basePath = "";
         private Dictionary<string, string> _assetCache = new();
+
+        public AssetLoader(ILogger<AssetLoader> logger)
+        {
+            _logger = logger;
+        }
 
         public void Initialize(string basePath)
         {
             _basePath = basePath;
-            Console.WriteLine($"AssetLoader initialized with base path: {_basePath}");
+            _logger.LogInformation("AssetLoader initialized with base path: {BasePath}", _basePath);
             
             if (!Directory.Exists(_basePath))
             {
-                Console.WriteLine($"⚠ Warning: Asset path does not exist: {_basePath}");
+                _logger.LogWarning("Asset path does not exist: {BasePath}", _basePath);
             }
         }
 
@@ -33,14 +40,14 @@ namespace WipeoutRewrite.Infrastructure.Assets
                 string fullPath = Path.Combine(_basePath, relativePath);
                 if (!File.Exists(fullPath))
                 {
-                    Console.WriteLine($"⚠ File not found: {fullPath}");
+                    _logger.LogWarning("File not found: {FullPath}", fullPath);
                     return null;
                 }
                 return File.ReadAllText(fullPath);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Error loading text file {relativePath}: {ex.Message}");
+                _logger.LogError(ex, "Error loading text file {RelativePath}", relativePath);
                 return null;
             }
         }
@@ -55,14 +62,14 @@ namespace WipeoutRewrite.Infrastructure.Assets
                 string fullPath = Path.Combine(_basePath, relativePath);
                 if (!File.Exists(fullPath))
                 {
-                    Console.WriteLine($"⚠ File not found: {fullPath}");
+                    _logger.LogWarning("File not found: {FullPath}", fullPath);
                     return null;
                 }
                 return File.ReadAllBytes(fullPath);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Error loading binary file {relativePath}: {ex.Message}");
+                _logger.LogError(ex, "Error loading binary file {RelativePath}", relativePath);
                 return null;
             }
         }
@@ -78,7 +85,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
                 string fullPath = Path.Combine(_basePath, relativePath);
                 if (!Directory.Exists(fullPath))
                 {
-                    Console.WriteLine($"⚠ Directory not found: {fullPath}");
+                    _logger.LogWarning("Directory not found: {FullPath}", fullPath);
                     return files;
                 }
 
@@ -90,7 +97,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Error listing files in {relativePath}: {ex.Message}");
+                _logger.LogError(ex, "Error listing files in {RelativePath}", relativePath);
             }
             return files;
         }
@@ -112,11 +119,11 @@ namespace WipeoutRewrite.Infrastructure.Assets
                         tracks.Add(trackName);
                     }
                 }
-                Console.WriteLine($"✓ Loaded {tracks.Count} tracks");
+                _logger.LogInformation("Loaded {TrackCount} tracks", tracks.Count);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Error loading track list: {ex.Message}");
+                _logger.LogError(ex, "Error loading track list");
             }
             return tracks;
         }

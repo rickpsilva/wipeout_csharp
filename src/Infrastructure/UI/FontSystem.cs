@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using WipeoutRewrite.Infrastructure.Graphics;
@@ -34,11 +35,17 @@ namespace WipeoutRewrite.Infrastructure.UI
 
     public class FontSystem : IFontSystem
     {
+        private readonly ILogger<FontSystem> _logger;
+        private readonly CmpImageLoader _cmpLoader;
+        private readonly TimImageLoader _timLoader;
         private readonly CharSet[] _charSets = new CharSet[3];
         private bool _loaded = false;
 
-        public FontSystem()
+        public FontSystem(ILogger<FontSystem> logger, CmpImageLoader cmpLoader, TimImageLoader timLoader)
         {
+            _logger = logger;
+            _cmpLoader = cmpLoader;
+            _timLoader = timLoader;
             // Initialize char sets with data from C code
             _charSets[(int)TextSize.Size16] = new CharSet
             {
@@ -87,33 +94,33 @@ namespace WipeoutRewrite.Infrastructure.UI
             try
             {
                 string cmpPath = $"{assetsPath}/wipeout/textures/drfonts.cmp";
-                Console.WriteLine($"Loading fonts from: {cmpPath}");
+                _logger.LogInformation("Loading fonts from: {CmpPath}", cmpPath);
 
-                byte[][] images = CmpImageLoader.LoadCompressed(cmpPath);
+                byte[][] images = _cmpLoader.LoadCompressed(cmpPath);
                 
                 if (images.Length < 3)
                 {
-                    Console.WriteLine($"ERROR: drfonts.cmp should have at least 3 images, got {images.Length}");
+                    _logger.LogError("drfonts.cmp should have at least 3 images, got {ImageCount}", images.Length);
                     return;
                 }
 
                 // Load the 3 font textures (Size16, Size12, Size8)
                 for (int i = 0; i < 3 && i < images.Length; i++)
                 {
-                    (byte[] pixels, int width, int height) = TimImageLoader.LoadTimFromBytes(images[i], false);
+                    (byte[] pixels, int width, int height) = _timLoader.LoadTimFromBytes(images[i], false);
                     if (pixels != null)
                     {
                         _charSets[i].Texture = CreateTexture(pixels, width, height);
-                        Console.WriteLine($"✓ Loaded font texture {i}: {width}x{height}");
+                        _logger.LogInformation("Loaded font texture {TextureIndex}: {Width}x{Height}", i, width, height);
                     }
                 }
 
                 _loaded = true;
-                Console.WriteLine("✓ Fonts loaded successfully");
+                _logger.LogInformation("Fonts loaded successfully");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR loading fonts: {ex.Message}");
+                _logger.LogError(ex, "Error loading fonts");
             }
         }
 
@@ -164,7 +171,7 @@ namespace WipeoutRewrite.Infrastructure.UI
     {
         if (!_loaded)
         {
-            Console.WriteLine("WARNING: Fonts not loaded, skipping text draw");
+            _logger.LogWarning("Fonts not loaded, skipping text draw");
             return;
         }
 

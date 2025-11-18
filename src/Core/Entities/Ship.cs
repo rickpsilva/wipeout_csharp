@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Core.Entities
@@ -8,6 +9,8 @@ namespace WipeoutRewrite.Core.Entities
     /// </summary>
     public class Ship
     {
+        private readonly ILogger<Ship>? _logger;
+        
         // Identificação
         public string Name { get; set; } = "";
         public int ShipId { get; set; }
@@ -56,8 +59,9 @@ namespace WipeoutRewrite.Core.Entities
         // Propriedades da nave (baseadas no tipo)
         public ShipClass ShipClass { get; set; }
 
-        public Ship(string name, int shipId)
+        public Ship(string name, int shipId, ILogger<Ship>? logger = null)
         {
+            _logger = logger;
             Name = name;
             ShipId = shipId;
 
@@ -104,7 +108,7 @@ namespace WipeoutRewrite.Core.Entities
             if (Shield <= 0)
             {
                 IsDestroyed = true;
-                Console.WriteLine($"{Name} foi destruída!");
+                _logger?.LogWarning("{ShipName} foi destruída!", Name);
             }
         }
 

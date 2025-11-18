@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Infrastructure.Audio;
 
@@ -13,6 +14,7 @@ public enum MusicMode
 
 public class MusicPlayer : IMusicPlayer
 {
+    private readonly ILogger<MusicPlayer> _logger;
     private AudioPlayer? _audioPlayer;
     private string[] _tracks;
     private int _currentTrackIndex = -1;
@@ -21,8 +23,9 @@ public class MusicPlayer : IMusicPlayer
     private bool _isInitialized = false;
     private bool _isPlaying = false;
 
-    public MusicPlayer()
+    public MusicPlayer(ILogger<MusicPlayer> logger)
     {
+        _logger = logger;
         _tracks = Array.Empty<string>();
     }
 
@@ -40,7 +43,7 @@ public class MusicPlayer : IMusicPlayer
                 {
                     _tracks = wavFiles;
                     _isInitialized = true;
-                    Console.WriteLine($"✓ Loaded {_tracks.Length} music tracks (WAV)");
+                    _logger.LogInformation("Loaded {TrackCount} music tracks (WAV)", _tracks.Length);
                     return;
                 }
             }
@@ -48,24 +51,24 @@ public class MusicPlayer : IMusicPlayer
             // Fallback para QOA (não funcional ainda)
             if (!Directory.Exists(musicPath))
             {
-                Console.WriteLine($"⚠ Music directory not found: {musicPath}");
+                _logger.LogWarning("Music directory not found: {MusicPath}", musicPath);
                 return;
             }
 
             var qoaFiles = Directory.GetFiles(musicPath, "*.qoa");
             if (qoaFiles.Length == 0)
             {
-                Console.WriteLine($"⚠ No music files found in: {musicPath}_wav");
+                _logger.LogWarning("No music files found in: {WavPath}", wavPath);
                 return;
             }
 
             _tracks = qoaFiles;
             _isInitialized = true;
-            Console.WriteLine($"⚠ Loaded {_tracks.Length} .qoa tracks (playback not supported - convert to WAV)");
+            _logger.LogWarning("Loaded {TrackCount} .qoa tracks (playback not supported - convert to WAV)", _tracks.Length);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠ Error loading music tracks: {ex.Message}");
+            _logger.LogError(ex, "Error loading music tracks");
         }
     }
 
@@ -110,23 +113,23 @@ public class MusicPlayer : IMusicPlayer
                     _audioPlayer.Play();
                     _currentTrackIndex = index;
                     _isPlaying = true;
-                    Console.WriteLine($"♪ Playing: {trackName}");
+                    _logger.LogInformation("Playing: {TrackName}", trackName);
                 }
                 else
                 {
-                    Console.WriteLine($"⚠ Failed to load: {trackName}");
+                    _logger.LogWarning("Failed to load: {TrackName}", trackName);
                     _audioPlayer?.Dispose();
                     _audioPlayer = null;
                 }
             }
             else
             {
-                Console.WriteLine($"⚠ Cannot play {trackName} - only WAV supported");
+                _logger.LogWarning("Cannot play {TrackName} - only WAV supported", trackName);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠ Error playing track {index}: {ex.Message}");
+            _logger.LogError(ex, "Error playing track {TrackIndex}", index);
         }
     }
 

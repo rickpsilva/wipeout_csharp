@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Microsoft.Extensions.Logging;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Graphics.OpenGL4;
@@ -18,14 +19,17 @@ namespace WipeoutRewrite
 {
     public class Game : GameWindow
     {
+        private readonly ILogger<Game> _logger;
+        private readonly ILoggerFactory _loggerFactory;
         private IntroVideoPlayer? _introPlayer;
         private readonly IRenderer _renderer;
         private IMenuRenderer? _menuRenderer;
         private readonly IFontSystem _fontSystem;
         private float _spriteX, _spriteY;
-        private GameState? _gameState;
         private readonly IAssetLoader _assetLoader;
         private readonly IMenuManager _menuManager;
+        private readonly GameState _gameState;
+        private readonly TimImageLoader _timLoader;
         private TitleScreen? _titleScreen;
         private AttractMode? _attractMode;
         private CreditsScreen? _creditsScreen;
@@ -33,7 +37,7 @@ namespace WipeoutRewrite
         private bool _enterWasPressed; // Para evitar processar Enter em modos consecutivos
 
         /// <summary>
-        /// Construtor com Dependency Injection (RECOMENDADO).
+        /// Construtor com Dependency Injection.
         /// Todas as dependências são injetadas via construtor.
         /// </summary>
         public Game(
@@ -43,40 +47,30 @@ namespace WipeoutRewrite
             IMusicPlayer musicPlayer,
             IAssetLoader assetLoader,
             IFontSystem fontSystem,
-            IMenuManager menuManager)
+            IMenuManager menuManager,
+            GameState gameState,
+            TimImageLoader timLoader,
+            ILogger<Game> logger,
+            ILoggerFactory loggerFactory)
             : base(gws, nws)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _musicPlayer = musicPlayer ?? throw new ArgumentNullException(nameof(musicPlayer));
             _assetLoader = assetLoader ?? throw new ArgumentNullException(nameof(assetLoader));
             _fontSystem = fontSystem ?? throw new ArgumentNullException(nameof(fontSystem));
             _menuManager = menuManager ?? throw new ArgumentNullException(nameof(menuManager));
+            _gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
+            _timLoader = timLoader ?? throw new ArgumentNullException(nameof(timLoader));
             
             _spriteX = 0;
             _spriteY = 0;
         }
 
-        /// <summary>
-        /// Construtor legado (DEPRECATED - manter por compatibilidade).
-        /// Cria dependências internamente. Use o construtor com DI.
-        /// </summary>
-        [Obsolete("Use o construtor com Dependency Injection")]
-        public Game(GameWindowSettings gws, NativeWindowSettings nws)
-            : this(gws, nws, 
-                   new GLRenderer(), 
-                   new MusicPlayer(), 
-                   new AssetLoader(), 
-                   new FontSystem(), 
-                   new MenuManager())
-        {
-        }
-
         protected override void OnLoad()
         {
             base.OnLoad();
-
-            // Inicializar o estado do jogo
-            _gameState = new GameState();
 
             // Inicializar subsistemas
             Renderer.Init(); // O seu Renderer.Init()
@@ -94,40 +88,39 @@ namespace WipeoutRewrite
             // Carregar lista de tracks
             if (_gameState != null && _assetLoader.LoadTrackList() is { Count: > 0 } tracks)
             {
-                Console.WriteLine($"✓ Loaded tracks: {string.Join(", ", tracks)}");
+                _logger.LogInformation("Loaded tracks: {Tracks}", string.Join(", ", tracks));
 
                 // Inicializar GameState com primeira track
-                _gameState = new GameState();
-                var track = new Track(tracks[0]);
+                var track = new Track(tracks[0], null);
                 _gameState.Initialize(track, playerShipId: 0);
             }
 
             // Carregar textura de exemplo (assets/sprite.png)
             string workDir = System.IO.Directory.GetCurrentDirectory();
-            Console.WriteLine($"Working directory: {workDir}");
+            _logger.LogDebug("Working directory: {WorkDir}", workDir);
             string spritePath = System.IO.Path.Combine(workDir, "assets", "sprite.png");
-            Console.WriteLine($"Looking for sprite at: {spritePath}");
+            _logger.LogDebug("Looking for sprite at: {SpritePath}", spritePath);
             if (System.IO.File.Exists(spritePath))
             {
                 try
                 {
                     _renderer.LoadSpriteTexture(spritePath);
-                    Console.WriteLine($"✓ Sprite texture loaded successfully!");
+                    _logger.LogInformation("Sprite texture loaded successfully!");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"✗ Error loading sprite: {ex.Message}");
+                    _logger.LogError(ex, "Error loading sprite");
                 }
             }
             else
             {
-                Console.WriteLine($"✗ Sprite texture not found at: {spritePath}");
+                _logger.LogWarning("Sprite texture not found at: {SpritePath}", spritePath);
             }
-            Console.WriteLine($"Game loaded. Window: {Size.X}x{Size.Y}");
+            _logger.LogInformation("Game loaded. Window: {Width}x{Height}", Size.X, Size.Y);
 
             // Inicializar menu e title screen
             _menuRenderer = new MenuRenderer(Size.X, Size.Y, _renderer, _fontSystem);
-            _titleScreen = new TitleScreen(_fontSystem);
+            _titleScreen = new TitleScreen(_fontSystem, _timLoader);
             _creditsScreen = new CreditsScreen(_fontSystem);
             _attractMode = new AttractMode(_gameState);
 
@@ -139,22 +132,23 @@ namespace WipeoutRewrite
             string introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mpeg");
             if (File.Exists(introPath))
             {
-                Console.WriteLine($"Reproduzindo intro: {introPath}");
+                _logger.LogInformation("Reproduzindo intro: {IntroPath}", introPath);
                 try
                 {
-                    _introPlayer = new IntroVideoPlayer(introPath);
+                    var introLogger = _loggerFactory.CreateLogger<IntroVideoPlayer>();
+                    _introPlayer = new IntroVideoPlayer(introPath, introLogger);
                     _introPlayer.Play();
                     _gameState.CurrentMode = GameMode.Intro;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Erro ao carregar vídeo: {ex.Message}");
+                    _logger.LogError(ex, "Erro ao carregar vídeo");
                     _gameState.CurrentMode = GameMode.SplashScreen;
                 }
             }
             else
             {
-                Console.WriteLine($"Intro não encontrado: {introPath}");
+                _logger.LogWarning("Intro não encontrado: {IntroPath}", introPath);
                 _gameState.CurrentMode = GameMode.SplashScreen;
                 _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música no splash
             }
@@ -181,12 +175,12 @@ namespace WipeoutRewrite
                 if (WindowState == OpenTK.Windowing.Common.WindowState.Fullscreen)
                 {
                     WindowState = OpenTK.Windowing.Common.WindowState.Normal;
-                    Console.WriteLine("Modo janela");
+                    _logger.LogInformation("Modo janela");
                 }
                 else
                 {
                     WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
-                    Console.WriteLine("Modo fullscreen");
+                    _logger.LogInformation("Modo fullscreen");
                 }
             }
 
@@ -202,7 +196,7 @@ namespace WipeoutRewrite
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música ao saltar intro
                     _enterWasPressed = true; // Marcar como processado
-                    Console.WriteLine("✓ Saltando para splash screen...");
+                    _logger.LogInformation("Saltando para splash screen...");
                 }
             }
 
@@ -216,13 +210,13 @@ namespace WipeoutRewrite
                     _gameState.CurrentMode = GameMode.Menu;
                     _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
                     _enterWasPressed = true; // Marcar como processado
-                    Console.WriteLine("✓ Entrando no menu principal...");
+                    _logger.LogInformation("Entrando no menu principal...");
                 }
                 else if (shouldStartAttract)
                 {
                     _gameState.CurrentMode = GameMode.AttractMode;
                     _creditsScreen?.Reset();
-                    Console.WriteLine("✓ Iniciando attract mode (credits)...");
+                    _logger.LogInformation("Iniciando attract mode (credits)...");
                     // TODO: Quando o racing engine estiver implementado, iniciar corrida com AI + créditos
                 }
             }
@@ -246,7 +240,7 @@ namespace WipeoutRewrite
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _titleScreen?.Reset();
                     _enterWasPressed = true; // Marcar como processado para evitar duplo trigger
-                    Console.WriteLine("✓ Voltando ao splash screen...");
+                    _logger.LogInformation("Voltando ao splash screen...");
                 }
             }
 
@@ -286,7 +280,7 @@ namespace WipeoutRewrite
                         // No more pages, go back to title
                         _gameState.CurrentMode = GameMode.SplashScreen;
                         _titleScreen?.Reset();
-                        Console.WriteLine("✓ Voltando para title screen...");
+                        _logger.LogInformation("Voltando para title screen...");
                     }
                 }
             }
@@ -301,7 +295,7 @@ namespace WipeoutRewrite
                 {
                     _attractMode.Stop();
                     _titleScreen?.OnAttractComplete();
-                    Console.WriteLine("✓ Saindo do attract mode...");
+                    _logger.LogInformation("Saindo do attract mode...");
                 }
             }
 
@@ -370,7 +364,7 @@ namespace WipeoutRewrite
                     _introPlayer = null;
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música no splash
-                    Console.WriteLine("✓ Intro terminada, a mostrar splash screen...");
+                    _logger.LogInformation("Intro terminada, a mostrar splash screen...");
                 }
             }
             else if (_gameState?.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
