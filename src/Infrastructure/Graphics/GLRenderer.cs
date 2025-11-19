@@ -69,9 +69,9 @@ namespace WipeoutRewrite.Infrastructure.Graphics
         }
 
 
-        // Buffer para triângulos (vertex data)
+        // Buffer for triangles (vertex data)
         private const int MaxTris = 2048;
-        private float[] _vertexBuffer = new float[MaxTris * 3 * 9]; // 3 vértices x 9 floats (pos[3], uv[2], color[4])
+        private float[] _vertexBuffer = new float[MaxTris * 3 * 9]; // 3 vertices x 9 floats (pos[3], uv[2], color[4])
         private int _trisLen = 0;
 
         // Textura simples para sprites
@@ -175,14 +175,14 @@ namespace WipeoutRewrite.Infrastructure.Graphics
 
         public void RenderVideoFrame(int videoTextureId, int videoWidth, int videoHeight, int windowWidth, int windowHeight)
         {
-            // Calcular aspect ratio do vídeo e da janela
+            // Calculate video and window aspect ratio
             float videoAspect = (float)videoWidth / videoHeight;
             float windowAspect = (float)windowWidth / windowHeight;
             
             float renderWidth, renderHeight;
             float offsetX = 0, offsetY = 0;
             
-            // COVER MODE: Preencher toda a janela (pode cortar bordas do vídeo)
+            // COVER MODE: Fill entire window (may crop video edges)
             if (windowAspect > videoAspect)
             {
                 // Janela mais larga - escalar pela largura
@@ -201,7 +201,7 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             // Salvar textura atual
             int oldTexture = _spriteTexture;
             
-            // Usar textura do vídeo temporariamente
+            // Use video texture temporarily
             _spriteTexture = videoTextureId;
             
             // Desenhar usando o sistema que JÁ FUNCIONA
@@ -277,7 +277,7 @@ namespace WipeoutRewrite.Infrastructure.Graphics
         {
             if (_trisLen >= MaxTris) Flush();
             int baseIdx = _trisLen * 3 * 9;
-            // Vértice 1
+            // Vertex 1
             _vertexBuffer[baseIdx + 0] = p1.X;
             _vertexBuffer[baseIdx + 1] = p1.Y;
             _vertexBuffer[baseIdx + 2] = p1.Z;
@@ -287,7 +287,7 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             _vertexBuffer[baseIdx + 6] = color1.Y;
             _vertexBuffer[baseIdx + 7] = color1.Z;
             _vertexBuffer[baseIdx + 8] = color1.W;
-            // Vértice 2
+            // Vertex 2
             _vertexBuffer[baseIdx + 9] = p2.X;
             _vertexBuffer[baseIdx + 10] = p2.Y;
             _vertexBuffer[baseIdx + 11] = p2.Z;
@@ -297,7 +297,7 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             _vertexBuffer[baseIdx + 15] = color2.Y;
             _vertexBuffer[baseIdx + 16] = color2.Z;
             _vertexBuffer[baseIdx + 17] = color2.W;
-            // Vértice 3
+            // Vertex 3
             _vertexBuffer[baseIdx + 18] = p3.X;
             _vertexBuffer[baseIdx + 19] = p3.Y;
             _vertexBuffer[baseIdx + 20] = p3.Z;

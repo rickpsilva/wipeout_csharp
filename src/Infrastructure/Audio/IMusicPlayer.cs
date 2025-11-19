@@ -3,32 +3,32 @@ using System;
 namespace WipeoutRewrite.Infrastructure.Audio;
 
 /// <summary>
-/// Interface para gestão de reprodução de música.
+/// Interface for music playback management.
 /// </summary>
 public interface IMusicPlayer : IDisposable
 {
     /// <summary>
-    /// Carrega lista de faixas de um diretório.
+    /// Loads track list from directory.
     /// </summary>
     void LoadTracks(string musicPath);
 
     /// <summary>
-    /// Define o modo de reprodução.
+    /// Sets playback mode.
     /// </summary>
     void SetMode(MusicMode mode);
 
     /// <summary>
-    /// Reproduz uma faixa aleatória.
+    /// Plays a random track.
     /// </summary>
     void PlayRandomTrack();
 
     /// <summary>
-    /// Reproduz uma faixa específica pelo índice.
+    /// Plays a specific track by index.
     /// </summary>
     void PlayTrack(int index);
 
     /// <summary>
-    /// Para a reprodução atual.
+    /// Stops current playback.
     /// </summary>
     void Stop();
 

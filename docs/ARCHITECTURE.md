@@ -1,10 +1,10 @@
 # WipeoutRewrite C# - Arquitetura do Projeto
 
-## Visão Geral
+## Overview
 
 Este é um port em C# do jogo Wipeout original (PlayStation 1), usando .NET 8 e OpenTK para rendering OpenGL moderno.
 
-## Estrutura de Diretórios
+## Structure de Diretórios
 
 ```
 wipeout_csharp/
@@ -53,7 +53,7 @@ wipeout_csharp/
 └── run.sh
 ```
 
-## Componentes Principais
+## Components Principais
 
 ### 1. Game.cs - Loop Principal
 
@@ -581,9 +581,9 @@ gameState.Render(mockRenderer.Object);
 mockRenderer.Verify(r => r.BeginFrame(), Times.Once);
 ```
 
-## Testes Unitários
+## Tests Unitários
 
-### Estrutura
+### Structure
 
 ```
 wipeout_csharp.Tests/
@@ -616,7 +616,7 @@ dotnet test
 - Foco em lógica de negócio pura (Core layer)
 - Testes de entidades sem dependências externas
 
-## Próximos Passos
+## Next Steps
 
 ### ✅ Áudio do Vídeo (COMPLETO)
 

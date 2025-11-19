@@ -1,6 +1,6 @@
-# Sistema de Logging
+# Logging System
 
-## Visão Geral
+## Overview
 
 O WipeoutRewrite usa `Microsoft.Extensions.Logging` como sistema de logging abstrato, permitindo múltiplos destinos (console, ficheiro, database) de forma flexível e configurável.
 
@@ -15,7 +15,7 @@ O WipeoutRewrite usa `Microsoft.Extensions.Logging` como sistema de logging abst
 
 ---
 
-## Configuração (Program.cs)
+## Configuration (Program.cs)
 
 ```csharp
 services.AddLogging(builder =>
@@ -148,7 +148,7 @@ builder.AddSerilog(new LoggerConfiguration()
 
 ---
 
-## Configuração Avançada
+## Configuration Avançada
 
 ### appsettings.json (futuro)
 
@@ -289,14 +289,14 @@ using (_logger.BeginScope("Loading track {TrackName}", trackName))
 
 ## Migração de Console.WriteLine para ILogger
 
-### Antes:
+### Before:
 ```csharp
 Console.WriteLine($"✓ Loaded {count} tracks");
 Console.WriteLine($"⚠ Warning: {message}");
 Console.WriteLine($"✗ Error: {ex.Message}");
 ```
 
-### Depois:
+### After:
 ```csharp
 _logger.LogInformation("Loaded {TrackCount} tracks", count);
 _logger.LogWarning("{Message}", message);
@@ -305,7 +305,7 @@ _logger.LogError(ex, "Error occurred");
 
 ---
 
-## Testes com Logging
+## Tests com Logging
 
 ### Opção 1: Mock ILogger
 ```csharp
@@ -368,7 +368,7 @@ Com Serilog:
 
 ---
 
-## Próximos Passos
+## Next Steps
 
 ### Curto Prazo
 - ✅ Console logging implementado
@@ -387,7 +387,7 @@ Com Serilog:
 
 ---
 
-## Benefícios Alcançados
+## Benefits Alcançados
 
 ### ✅ Flexibilidade
 Trocar de console para ficheiro/database sem mudar código

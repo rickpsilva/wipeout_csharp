@@ -41,7 +41,7 @@ namespace WipeoutRewrite
 
         /// <summary>
         /// Construtor com Dependency Injection.
-        /// Todas as dependências são injetadas via construtor.
+        /// All dependencies are injected via constructor.
         /// </summary>
         public Game(
             GameWindowSettings gws,
@@ -131,12 +131,12 @@ namespace WipeoutRewrite
             // Load menu background texture (wipeout1.tim)
             LoadMenuBackground();
 
-            // Inicializar música
+            // Initialize music
             string musicPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "music");
             _musicPlayer.LoadTracks(musicPath);
 
-            // Carregar e iniciar o vídeo de introdução DEPOIS de tudo estar pronto
-            // Usar .mpeg (mais rápido) por padrão, .mp4 disponível mas mais lento
+            // Load and start intro video AFTER everything is ready
+            // Use .mpeg (faster) by default, .mp4 available but slower
             string introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mpeg");
             if (!File.Exists(introPath))
             {
@@ -163,7 +163,7 @@ namespace WipeoutRewrite
             {
                 _logger.LogWarning("Intro não encontrado: {IntroPath}", introPath);
                 _gameState.CurrentMode = GameMode.SplashScreen;
-                _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música no splash
+                _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash
             }
         }
 
@@ -174,10 +174,10 @@ namespace WipeoutRewrite
             // NOTE: InputManager.Update() is called at the END of this method
             // so _previousState stores the state from the PREVIOUS frame
 
-            // Atualizar música
+            // Update music
             _musicPlayer?.Update((float)args.Time);
 
-            // Processar ações do jogo - Exit only when NOT in menu (menu uses ESC for back)
+            // Process game actions - Exit only when NOT in menu (menu uses ESC for back)
             if (_gameState?.CurrentMode != GameMode.Menu && InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
             {
                 Close();
@@ -205,7 +205,7 @@ namespace WipeoutRewrite
                 {
                     _introPlayer.Skip();
                     _gameState.CurrentMode = GameMode.SplashScreen;
-                    _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música ao saltar intro
+                    _musicPlayer?.SetMode(MusicMode.Random); // Start music when skipping intro
                     _logger.LogInformation("Saltando para splash screen...");
                 }
             }
@@ -229,7 +229,7 @@ namespace WipeoutRewrite
                     _gameState.CurrentMode = GameMode.AttractMode;
                     _creditsScreen?.Reset();
                     _logger.LogInformation("Iniciando attract mode (credits)...");
-                    // TODO: Quando o racing engine estiver implementado, iniciar corrida com AI + créditos
+                    // TODO: When racing engine is implemented, start race with AI + credits
                 }
             }
 
@@ -351,7 +351,7 @@ namespace WipeoutRewrite
             _spriteX = Math.Max(0, Math.Min(_spriteX, Size.X - spriteSize));
             _spriteY = Math.Max(0, Math.Min(_spriteY, Size.Y - spriteSize));
 
-            // TODO: Atualizar lógica do jogo aqui (física, IA)
+            // TODO: Update game logic here (physics, AI)
             
             // Update input state at the END of frame for next frame's comparison
             InputManager.Update(KeyboardState);
@@ -363,14 +363,14 @@ namespace WipeoutRewrite
 
             if (_renderer == null) return;
 
-            // Renderizar vídeo de intro se estiver a tocar
+            // Render intro video if playing
             if (_gameState.CurrentMode == GameMode.Intro && _introPlayer != null)
             {
                 if (_introPlayer.IsPlaying)
                 {
                     _introPlayer.Update(); // Atualiza frame
                     
-                    // Desenhar vídeo centrado com aspect ratio correto
+                    // Draw video centered with correct aspect ratio
                     _renderer.RenderVideoFrame(
                         _introPlayer.GetTextureId(),
                         _introPlayer.GetWidth(),
@@ -381,11 +381,11 @@ namespace WipeoutRewrite
                 }
                 else
                 {
-                    // Vídeo terminou, ir para splash screen
+                    // Video ended, go to splash screen
                     _introPlayer.Dispose();
                     _introPlayer = null;
                     _gameState.CurrentMode = GameMode.SplashScreen;
-                    _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música no splash
+                    _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash
                     _logger.LogInformation("Intro terminada, a mostrar splash screen...");
                 }
             }
@@ -434,7 +434,7 @@ namespace WipeoutRewrite
             // Atualizar viewport do OpenGL
             GL.Viewport(0, 0, e.Width, e.Height);
             
-            // Atualizar dimensões do renderer
+            // Update renderer dimensions
             if (_renderer != null)
             {
                 _renderer.UpdateScreenSize(e.Width, e.Height);

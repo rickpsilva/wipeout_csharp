@@ -9,22 +9,22 @@ namespace WipeoutRewrite.Infrastructure.UI;
 public interface IFontSystem
 {
     /// <summary>
-    /// Carrega fontes do diretório de assets.
+    /// Loads fonts from assets directory.
     /// </summary>
     void LoadFonts(string assetsPath);
     
     /// <summary>
-    /// Desenha texto na tela.
+    /// Draws text on screen.
     /// </summary>
     void DrawText(IRenderer renderer, string text, Vector2 pos, TextSize textSize, Color4 color);
     
     /// <summary>
-    /// Desenha texto centralizado na tela.
+    /// Draws centered text on screen.
     /// </summary>
     void DrawTextCentered(IRenderer renderer, string text, Vector2 pos, TextSize textSize, Color4 color);
     
     /// <summary>
-    /// Retorna largura do texto em pixels.
+    /// Returns text width in pixels.
     /// </summary>
     int GetTextWidth(string text, TextSize textSize);
 }

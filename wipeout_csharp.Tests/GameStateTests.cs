@@ -7,8 +7,8 @@ using WipeoutRewrite.Core.Entities;
 namespace WipeoutRewrite.Tests;
 
 /// <summary>
-/// Testes unitários para GameState.
-/// Demonstra como testar lógica de negócio isoladamente.
+/// Unit tests for GameState.
+/// Demonstrates how to test business logic in isolation.
 /// </summary>
 public class GameStateTests
 {

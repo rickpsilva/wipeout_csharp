@@ -4,6 +4,6 @@ namespace WipeoutRewrite
     {
         public float[] M;
         public Mat4(float[] m) { M = m; }
-        // Métodos utilitários podem ser adicionados conforme necessário
+        // Utility methods can be added as needed
     }
 }

@@ -3,8 +3,8 @@ using OpenTK.Mathematics;
 namespace WipeoutRewrite.Infrastructure.UI;
 
 /// <summary>
-/// Constantes centralizadas para UI (fontes, cores, espaçamentos).
-/// Facilita manutenção e futuras traduções/localizações.
+/// Centralized constants for UI (fonts, colors, spacing).
+/// Facilitates maintenance and future translations/localizations.
 /// </summary>
 public static class UIConstants
 {

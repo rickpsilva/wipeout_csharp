@@ -1,28 +1,28 @@
 namespace WipeoutRewrite.Infrastructure.Video;
 
 /// <summary>
-/// Interface para reprodução de vídeo.
-/// Permite trocar implementações (FFmpeg, LibVLC, MediaFoundation) e facilita testes.
+/// Interface for video playback.
+/// Allows swapping implementations (FFmpeg, LibVLC, MediaFoundation) and facilitates testing.
 /// </summary>
 public interface IVideoPlayer : IDisposable
 {
     /// <summary>
-    /// Verifica se o vídeo está tocando.
+    /// Checks if video is playing.
     /// </summary>
     bool IsPlaying { get; }
     
     /// <summary>
-    /// Inicia reprodução do vídeo.
+    /// Starts video playback.
     /// </summary>
     void Play();
     
     /// <summary>
-    /// Para reprodução do vídeo (skip).
+    /// Stops video playback (skip).
     /// </summary>
     void Skip();
     
     /// <summary>
-    /// Atualiza frame do vídeo (deve ser chamado a cada frame do jogo).
+    /// Updates video frame (should be called every game frame).
     /// </summary>
     void Update();
     
@@ -32,12 +32,12 @@ public interface IVideoPlayer : IDisposable
     int GetTextureId();
     
     /// <summary>
-    /// Retorna largura do vídeo.
+    /// Returns video width.
     /// </summary>
     int GetWidth();
     
     /// <summary>
-    /// Retorna altura do vídeo.
+    /// Returns video height.
     /// </summary>
     int GetHeight();
 }

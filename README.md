@@ -1,212 +1,72 @@
-# WipeoutRewrite (C#)
+# Wipeout Rewrite - C# Port
 
-Projeto convertido para C# e .NET 8, compatível com Linux.
+C# port of the Wipeout (PSX 1995) game engine.
 
-## Estrutura
-- `src/` - Código-fonte do jogo (arquitetura em camadas)
-  - `Core/` - Lógica de negócio pura (sem dependências externas)
-    - `Entities/` - Ship, Track (domain entities)
-    - `Services/` - GameState, MenuManager, IMenuManager (gerenciamento de estado e menus)
-  - `Infrastructure/` - Implementações de infraestrutura
-    - `Graphics/` - GLRenderer (OpenGL), IRenderer
-    - `Audio/` - AudioPlayer (OpenAL), IAudioPlayer
-    - `Video/` - IntroVideoPlayer, IVideoPlayer
-    - `Input/` - InputManager, IInputManager (input de jogo + navegação de menu)
-    - `Assets/` - AssetLoader, IAssetLoader
-    - `UI/` - MenuRenderer, IMenuRenderer (renderização de menus)
-  - `Presentation/` - Game.cs (game loop), TitleScreen, AttractMode, Menus/MainMenuPages
-  - Math utilities (`Vec2.cs`, `Vec3.cs`, `Mat4.cs`)
-- `wipeout_csharp.Tests/` - Testes unitários (xUnit + Moq)
-- `assets/` - Recursos do jogo (texturas, som, vídeo intro, dados)
-- `docs/` - Documentação técnica
+## About
 
-## Dependências
-- .NET 8 SDK
-- OpenTK 4.9.0 (renderização e input)
-- OpenTK.Audio.OpenAL 4.9.1 (áudio - reprodução WAV)
-- SixLabors.ImageSharp 3.1.4 (carregamento de PNG)
-- FFMpegCore 5.1.0 (processamento de vídeo intro)
-- xUnit 2.9.2 (testes unitários)
-- Moq 4.20.72 (mocking para testes)
-- **gcc** (para compilar conversor QOA→WAV)
+This project is a rewrite of the original Wipeout game for PlayStation (1995) using C# and modern game development practices.
 
-### Conversão de Música QOA para WAV
+## Features
 
-O jogo original usa ficheiros `.qoa` (Quite OK Audio) que precisam ser convertidos para WAV. Um conversor está incluído em `tools/qoa2wav.c`:
+- Full game logic implementation
+- OpenGL rendering via Silk.NET
+- SDL2 audio system
+- Complete menu system with UI constants
+- Ship physics and AI
+- Track rendering and collision detection
 
-```bash
-# Compilar o conversor (apenas uma vez)
-cd tools
-gcc -O2 -o qoa2wav qoa2wav.c -lm
+## Requirements
 
-# Converter todos os ficheiros QOA para WAV
-cd ../assets/wipeout/music
-for f in *.qoa; do ../../../tools/qoa2wav "$f" "../music_wav/${f%.qoa}.wav"; done
-```
+- .NET 8.0 SDK
+- Linux (tested on Ubuntu/Debian)
+- OpenGL 3.3+ compatible GPU
+- SDL2 (for audio)
 
-Os ficheiros WAV convertidos ficam em `assets/wipeout/music_wav/` e são automaticamente carregados pelo `MusicPlayer`.
-
-## Como compilar e executar
-
-1. Instale o .NET 8 SDK (ex.: `sudo apt install dotnet-sdk-8.0`).
-2. No directório `wipeout_csharp`, execute:
-
-```bash
-dotnet build
-dotnet run
-```
-
-Alternativamente use os scripts de conveniência:
+## Building
 
 ```bash
 ./build.sh
+```
+
+## Running
+
+```bash
 ./run.sh
 ```
 
-### Executar Testes Unitários
+## Testing
 
 ```bash
-cd wipeout_csharp.Tests
 dotnet test
 ```
 
-Ou para ver mais detalhes:
-```bash
-dotnet test --verbosity normal
+## Project Structure
+
+```
+src/
+  Application/     - Application layer (services, game loop)
+  Core/           - Domain entities (Ship, Track, GameState)
+  Infrastructure/ - External dependencies (rendering, audio, input)
+  Presentation/   - UI/Menu system
 ```
 
-## Funcionalidades Implementadas
+## Documentation
 
-✅ **Vídeo de Introdução** com sincronização áudio/vídeo (<0.02s drift)
-✅ **Splash Screen** com imagem wiptitle.tim e texto "PRESS ENTER" a piscar
-✅ **Attract Mode** com créditos em scroll após 10s de inactividade
-✅ **Sistema de Música** com reprodução aleatória de 11 faixas WAV
-✅ **Game loop** com 60 FPS (OpenTK GameWindow)
-✅ **Renderização 2D/3D** com OpenGL 3.3 (sprite + projeção ortográfica)
-✅ **Sistema de áudio** com OpenAL (reprodução WAV, controlo de estado)
-✅ **Sistema de input** com mapeamento de keybinds (10 actions)
-✅ **Carregamento de assets** do projeto original (14 pistas, 8 naves)
-✅ **Carregamento de texturas** CMP (LZSS) e TIM (PlayStation 1)
-✅ **Sistema de fontes** com 3 tamanhos (drfonts.cmp)
-✅ **Arquitetura SOLID** com injeção de dependências e interfaces
-✅ **Testes unitários** (xUnit + Moq) - 10 testes passando
-✅ Estruturas de dados (Track, Ship, GameState)
+See the `docs/` folder for detailed documentation:
 
-## Correções Recentes (Rendering Pipeline)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Audio System](docs/AUDIO_SYSTEM.md)
+- [Video System](docs/VIDEO_SYSTEM.md)
+- [Logging System](docs/LOGGING_SYSTEM.md)
+- [Development Guide](docs/DEVELOPMENT_GUIDE.md)
+- [Testing Status](docs/TESTING_STATUS.md)
+- [UI Constants](docs/UI_CONSTANTS.md)
 
-**Problema**: Ecra preto apesar de código de renderização estar a funcionar.
+## Original Project
 
-**Causa**: Vertex shader não estava a aplicar a transformação de projeção ortográfica.
+Based on the C rewrite by Dominic Szablewski: https://github.com/phoboslab/wipeout-rewrite
 
-**Solução**:
-1. Adicionado uniforme `mat4 projection` ao vertex shader
-2. Transformação: `gl_Position = projection * vec4(pos, 1.0);`
-3. Matriz de projeção ortográfica configurada em `Flush()`:
-   ```csharp
-   var projection = Matrix4.CreateOrthographicOffCenter(0, width, height, 0, -1, 1);
-   GL.UniformMatrix4(projLoc, false, ref projection);
-   ```
-4. Atributos de vértices (posição, UV, cor) configurados corretamente com stride e offset
+## License
 
-**Resultado**: Sprites agora aparecem na tela com movimento controlado por teclado
+See original project license.
 
-## Controles
-- `↑` `↓` - Acelerar/Travar
-- `←` `→` - Virar esquerda/direita
-- `Z` `X` - Boost esquerda/direita
-- `Space` - Disparo
-- `V` - Mudar arma
-- `P` - Pausa
-- `ESC` - Sair
-
-## Fluxo do Jogo
-
-1. **Intro Video** - `intro.mpeg` (recomendado por performance) ou `intro.mp4` como alternativa - com áudio sincronizado (Skip: Enter)
-2. **Splash Screen** - Imagem `wiptitle.tim` com "PRESS ENTER" a piscar continuamente
-   - Música inicia automaticamente (modo Random)
-   - Timeout de 10s para attract mode
-3. **Attract Mode** - Créditos em scroll com fundo escurecido
-   - Música continua a tocar
-   - Qualquer tecla volta ao splash screen
-4. **Main Menu** - Navegação completa:
-   - START GAME → Race Class → Race Type → Team → Pilot → Circuit → Race
-   - OPTIONS → Controls / Video / Audio / Best Times
-   - QUIT (com confirmação)
-
-### Controles de Menu
-- `↑` `↓` - Navegação vertical
-- `←` `→` - Navegação horizontal / Ajustar toggles
-- `Enter` - Selecionar
-- `ESC` - Voltar
-
-### Controles de Jogo
-- `↑` `↓` - Acelerar/Travar
-- `←` `→` - Virar esquerda/direita
-- `Z` `X` - Boost esquerda/direita
-- `Space` - Disparo
-- `V` - Mudar arma
-- `P` - Pausa
-- `F11` - Toggle fullscreen
-
-## Próximos passos da conversão
-
-- [x] Sistema de menu (title screen, attract mode, menu principal)
-- [x] Sistema de música (conversão QOA→WAV, reprodução aleatória)
-- [x] Splash screen com textura wiptitle.tim
-- [x] Attract mode com créditos em scroll
-- [ ] Parser binário de dados de pista (TrackFace, geometria 3D)
-- [ ] Renderização de pista em 3D
-- [ ] Sistema de física e colisão
-- [ ] IA de naves opponent
-- [ ] Sistema de armas e potenciadores
-- [ ] Som de efeitos (SFX_MENU_MOVE, etc)
-
-## Notas Técnicas
-
-### Renderização
-- Immediate-mode rendering (PushSprite, PushTri, Flush)
-- Buffer de vértices dinâmico (2048 triângulos max)
-- ImageSharp para carregamento de PNG (compatibilidade WSL2)
-
-### Áudio/Vídeo
-- **AudioPlayer**: OpenAL para reprodução WAV (LoadWav, Play, Stop, Pause, IsPlaying)
-- **MusicPlayer**: Gestão de faixas musicais com modos Random/Sequential/Loop
-  - Carrega automaticamente ficheiros WAV de `assets/wipeout/music_wav/`
-  - Transição automática entre faixas quando uma termina
-  - Fallback para .qoa se WAV não existir (com aviso)
-- **IntroVideoPlayer**: Sincronização áudio/vídeo baseada em posição OpenAL
-- FFMpeg para extração de frames do vídeo intro (.mpeg mais eficiente, .mp4 suportado)
-- Precisão de sync: <20ms (imperceptível)
-- Conversão QOA→WAV usando `tools/qoa2wav.c` (baseado em qoa.h do projecto C original)
-
-### Arquitetura
-- **Separação de responsabilidades**: Core (business logic) isolado da Infrastructure
-- **Dependency Injection**: Interfaces para todas as dependências externas
-- **Testabilidade**: Lógica de negócio testável sem OpenGL/OpenAL
-- Assets carregados de `assets/wipeout/`
-
-### Sistema de Menu
-- **MenuManager**: Stack-based page navigation (push/pop)
-- **MenuPage**: Title, items (buttons/toggles), layout flags (vertical/horizontal/fixed)
-- **MenuRenderer**: Text rendering, blink animation, anchor-based positioning
-- **TitleScreen**: Timeout para attract mode (10s first time, 5s depois)
-- **AttractMode**: Random pilot/circuit/class, auto-play demo
-- **MainMenuPages**: Hierarquia completa de páginas (8 níveis de navegação)
-
-### Testes
-- **ShipTests**: 7 testes (criação, dano, destruição, física)
-- **GameStateTests**: 3 testes (estados, inicialização, tempo)
-- Cobertura focada em lógica pura sem dependências gráficas
-
-## Debugging
-
-Para verificar o estado da renderização:
-```bash
-# Ver carregamento de assets
-timeout 5 dotnet run 2>&1 | grep "✓"
-
-# Compilação com warnings
-dotnet build
-```
-
-Janela esperada: 1280x720, fundo azul, sprites brancos móveis com setas do teclado.
