@@ -196,21 +196,90 @@ namespace WipeoutRewrite.Core.Entities
         }
 
         /// <summary>
+        /// Calculate transformation matrix from position and rotation.
+        /// Used for rendering the ship model at the correct position/orientation.
+        /// </summary>
+        public Mat4 CalculateTransformMatrix()
+        {
+            return Mat4.FromPositionAndAngles(Position, Angle);
+        }
+        
+        /// <summary>
+        /// Calculate cockpit position (for camera positioning).
+        /// From ship.c: ship_cockpit()
+        /// </summary>
+        public Vec3 GetCockpitPosition()
+        {
+            // Cockpit is 150 units forward and 60 units up from ship center
+            return Position + DirForward * 150.0f + DirUp * 60.0f;
+        }
+        
+        /// <summary>
+        /// Calculate nose position (front of ship).
+        /// From ship.c: ship_nose()
+        /// </summary>
+        public Vec3 GetNosePosition()
+        {
+            return Position + DirForward * 384.0f;
+        }
+        
+        /// <summary>
+        /// Calculate left wing position.
+        /// From ship.c: ship_wing_left()
+        /// </summary>
+        public Vec3 GetWingLeftPosition()
+        {
+            return Position - DirRight * 256.0f - DirForward * 384.0f;
+        }
+        
+        /// <summary>
+        /// Calculate right wing position.
+        /// From ship.c: ship_wing_right()
+        /// </summary>
+        public Vec3 GetWingRightPosition()
+        {
+            return Position + DirRight * 256.0f - DirForward * 384.0f;
+        }
+        
+        /// <summary>
         /// Render the ship 3D model.
-        /// TODO: Load and render actual 3D model from PRM file
+        /// Based on ship_draw() from ship.c
         /// </summary>
         public void Render(IRenderer renderer)
         {
             if (!IsVisible)
                 return;
                 
-            // TODO: Implement 3D model rendering
-            // 1. Load ship model from allsh.prm
-            // 2. Apply transformation matrix from position + angle
-            // 3. Render model with textures
-            // 4. Render exhaust plume effect
+            // Calculate transformation matrix
+            Mat4 transformMatrix = CalculateTransformMatrix();
             
-            _logger?.LogDebug("Rendering ship {Name} at {Pos}", Name, Position);
+            // TODO: When model loading is implemented:
+            // 1. Load ship model from allsh.prm (done once at startup)
+            // 2. Call object_draw(model, &transformMatrix)
+            // 3. Render exhaust plume effect
+            
+            _logger?.LogDebug("Rendering ship {Name} at {Pos} with transform matrix", 
+                Name, Position);
+        }
+        
+        /// <summary>
+        /// Render ship shadow projected onto track surface.
+        /// Based on ship_draw_shadow() from ship.c
+        /// </summary>
+        public void RenderShadow(IRenderer renderer)
+        {
+            if (!IsVisible || IsFlying)
+                return;
+                
+            // Calculate shadow vertices (nose + two wings projected onto track)
+            Vec3 nose = GetNosePosition();
+            Vec3 wingLeft = GetWingLeftPosition();
+            Vec3 wingRight = GetWingRightPosition();
+            
+            // TODO: Project these positions onto track face
+            // TODO: Render shadow triangle with semi-transparent texture
+            
+            _logger?.LogDebug("Rendering shadow for ship {Name}", Name);
         }
     }
 

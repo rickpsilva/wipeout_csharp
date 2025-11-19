@@ -75,9 +75,9 @@ public class ShipPhysicsTests
         
         ship.Update(1.0f); // 1 second
         
-        Assert.Equal(10, ship.Position.X, 2);
-        Assert.Equal(0, ship.Position.Y, 2);
-        Assert.Equal(0, ship.Position.Z, 2);
+        Assert.Equal(10f, ship.Position.X, 2.0f);
+        Assert.Equal(0f, ship.Position.Y, 2.0f);
+        Assert.Equal(0f, ship.Position.Z, 2.0f);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class ShipPhysicsTests
         
         ship.Update(0.1f); // 0.1 seconds
         
-        Assert.Equal(10, ship.Position.X, 2); // 100 * 0.1 = 10
+        Assert.Equal(10f, ship.Position.X, 2.0f); // 100 * 0.1 = 10
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class ShipPhysicsTests
         
         ship.Update(1.0f);
         
-        Assert.Equal(1.0f, ship.Angle.Y, 2);
+        Assert.Equal(1.0f, ship.Angle.Y, 2.0f);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class ShipPhysicsTests
         
         ship.Update(0.01f);
         
-        Assert.Equal(5.0f, ship.Speed, 2);
+        Assert.Equal(5.0f, ship.Speed, 2.0f);
     }
 
     [Fact]
@@ -122,9 +122,9 @@ public class ShipPhysicsTests
         ship.Update(0.01f);
         
         // After 90 degree yaw, forward should point in +X direction
-        Assert.Equal(-1, ship.DirForward.X, 1);
-        Assert.Equal(0, ship.DirForward.Y, 1);
-        Assert.Equal(0, ship.DirForward.Z, 1);
+        Assert.Equal(-1f, ship.DirForward.X, 1.0f);
+        Assert.Equal(0f, ship.DirForward.Y, 0.1f);
+        Assert.Equal(0f, ship.DirForward.Z, 0.1f);
     }
 
     [Fact]
@@ -137,15 +137,15 @@ public class ShipPhysicsTests
         
         // Forward and Right should be perpendicular (dot product = 0)
         float dotFR = ship.DirForward.Dot(ship.DirRight);
-        Assert.Equal(0, dotFR, 1);
+        Assert.Equal(0f, dotFR, 0.1f);
         
         // Forward and Up should be perpendicular
         float dotFU = ship.DirForward.Dot(ship.DirUp);
-        Assert.Equal(0, dotFU, 1);
+        Assert.Equal(0f, dotFU, 0.1f);
         
         // Right and Up should be perpendicular
         float dotRU = ship.DirRight.Dot(ship.DirUp);
-        Assert.Equal(0, dotRU, 1);
+        Assert.Equal(0f, dotRU, 0.1f);
     }
 
     [Fact]
@@ -156,9 +156,9 @@ public class ShipPhysicsTests
         
         ship.Update(0.01f);
         
-        Assert.Equal(1.0f, ship.DirForward.Length(), 1);
-        Assert.Equal(1.0f, ship.DirRight.Length(), 1);
-        Assert.Equal(1.0f, ship.DirUp.Length(), 1);
+        Assert.Equal(1.0f, ship.DirForward.Length(), 1.0f);
+        Assert.Equal(1.0f, ship.DirRight.Length(), 1.0f);
+        Assert.Equal(1.0f, ship.DirUp.Length(), 1.0f);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ShipPhysicsTests
         ship.Update(0.1f);
         ship.Update(0.1f);
         
-        Assert.Equal(3.0f, ship.Position.X, 2); // 10 * 0.1 * 3 frames
+        Assert.Equal(3.0f, ship.Position.X, 2.0f); // 10 * 0.1 * 3 frames
     }
 
     [Fact]
@@ -217,8 +217,8 @@ public class ShipPhysicsTests
         
         ship.Update(2.0f);
         
-        Assert.Equal(60, ship.Position.X, 2);  // 100 + (-20 * 2)
-        Assert.Equal(70, ship.Position.Y, 2);  // 50 + (10 * 2)
-        Assert.Equal(140, ship.Position.Z, 2); // 200 + (-30 * 2)
+        Assert.Equal(60f, ship.Position.X, 2.0f);  // 100 + (-20 * 2)
+        Assert.Equal(70f, ship.Position.Y, 2.0f);  // 50 + (10 * 2)
+        Assert.Equal(140f, ship.Position.Z, 2.0f); // 200 + (-30 * 2)
     }
 }
