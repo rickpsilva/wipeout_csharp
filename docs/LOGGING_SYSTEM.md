@@ -243,13 +243,47 @@ using (_logger.BeginScope("Loading track {TrackName}", trackName))
 - Construtor aceita `ILogger<MusicPlayer>`
 - Logs estruturados com placeholders
 
+### ✅ FontSystem
+- Construtor aceita `ILogger<FontSystem>`
+- Substituição de `Console.WriteLine` por `_logger.LogInformation/LogWarning/LogError`
+
+### ✅ IntroVideoPlayer
+- Construtor aceita `ILogger<IntroVideoPlayer>`
+- Uso de logging para eventos de vídeo e erros
+
+### ✅ GameState
+- Construtor aceita `ILogger<GameState>`
+- Logging para transições de estado e eventos importantes
+
+### ✅ Game
+- Construtor aceita `ILogger<Game>` e `ILoggerFactory`
+- Logging para inicialização, ciclo principal e erros
+
+### ✅ TitleScreen
+- Construtor aceita `ILogger<TitleScreen>`
+- Logging para navegação e eventos de tela
+
+### ✅ CmpImageLoader
+- Construtor aceita `ILogger<CmpImageLoader>`
+- Logging para carregamento de imagens e erros
+
+### ✅ TimImageLoader
+- Construtor aceita `ILogger<TimImageLoader>`
+- Logging para carregamento de imagens e erros
+
+### ✅ Track
+- Construtor aceita `ILogger<Track>` (opcional)
+- Logging para carregamento de pistas e eventos
+
+### ✅ Ship
+- Construtor aceita `ILogger<Ship>` (opcional)
+- Logging para inicialização e eventos de navegação
+
 ### 🔄 Pendentes (próximas)
-- FontSystem
 - GLRenderer
 - MenuRenderer
-- TitleScreen
 - CreditsScreen
-- Game
+- AttractMode
 
 ---
 
