@@ -6,6 +6,7 @@ using WipeoutRewrite.Core.Services;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Infrastructure.Assets;
 using WipeoutRewrite.Infrastructure.UI;
+using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
 namespace WipeoutRewrite.Presentation;
 
@@ -124,12 +125,11 @@ public class TitleScreen
             
             if (shouldShowText)
             {
-                string text = "PRESS ENTER";
-                // UI_COLOR_DEFAULT = rgba(128, 128, 128, 255) = gray
-                var color = new Color4(0.5f, 0.5f, 0.5f, 1.0f);
+                string text = Strings.SplashPressEnter;
+                var color = Colors.SplashText;
                 Vector2 pos = new Vector2(screenWidth / 2, screenHeight - 40);
                 
-                _fontSystem.DrawTextCentered(renderer, text, pos, TextSize.Size8, color);
+                _fontSystem.DrawTextCentered(renderer, text, pos, TextSize.Size16, color);
             }
         }
         

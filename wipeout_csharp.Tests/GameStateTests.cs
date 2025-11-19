@@ -1,4 +1,6 @@
 using Xunit;
+using Moq;
+using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Core.Services;
 using WipeoutRewrite.Core.Entities;
 
@@ -10,11 +12,18 @@ namespace WipeoutRewrite.Tests;
 /// </summary>
 public class GameStateTests
 {
+    private readonly Mock<ILogger<GameState>> _mockLogger;
+
+    public GameStateTests()
+    {
+        _mockLogger = new Mock<ILogger<GameState>>();
+    }
+
     [Fact]
     public void GameState_ShouldStartInMenuMode()
     {
         // Arrange & Act
-        var gameState = new GameState();
+        var gameState = new GameState(_mockLogger.Object);
         
         // Assert
         Assert.Equal(GameMode.Menu, gameState.CurrentMode);
@@ -24,7 +33,7 @@ public class GameStateTests
     public void Initialize_ShouldSetTrackAndCreateShips()
     {
         // Arrange
-        var gameState = new GameState();
+        var gameState = new GameState(_mockLogger.Object);
         var track = new Track("track01");
         
         // Act
@@ -41,7 +50,7 @@ public class GameStateTests
     public void Update_ShouldAdvanceTime_WhenRacing()
     {
         // Arrange
-        var gameState = new GameState();
+        var gameState = new GameState(_mockLogger.Object);
         var track = new Track("track01");
         gameState.Initialize(track, playerShipId: 0);
         gameState.CurrentMode = GameMode.Racing; // Mudar para modo racing

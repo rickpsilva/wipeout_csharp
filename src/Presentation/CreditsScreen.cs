@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Infrastructure.UI;
+using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
 namespace WipeoutRewrite.Presentation;
 
@@ -11,43 +12,7 @@ public class CreditsScreen
     private float _scrollY;
     private const float ScrollSpeed = 30.0f; // pixels por segundo
     private readonly IFontSystem? _fontSystem;
-    
-    private readonly string[] _creditsLines = 
-    {
-        "",
-        "",
-        "WIPEOUT",
-        "",
-        "ORIGINAL GAME",
-        "PSYGNOSIS 1995",
-        "",
-        "",
-        "C# REWRITE",
-        "",
-        "PROGRAMMING",
-        "COMMUNITY PROJECT",
-        "",
-        "",
-        "GRAPHICS",
-        "THE DESIGNERS REPUBLIC",
-        "",
-        "",
-        "MUSIC",
-        "COLD STORAGE",
-        "ORBITAL",
-        "LEFTFIELD",
-        "CHEMICAL BROTHERS",
-        "",
-        "",
-        "SPECIAL THANKS",
-        "DOMINIC SZABLEWSKI",
-        "PHOBOSLAB",
-        "",
-        "",
-        "",
-        "",
-        ""
-    };
+    private readonly string[] _creditsLines = Strings.CreditsLines;
     
     public CreditsScreen(IFontSystem? fontSystem = null)
     {
@@ -81,7 +46,7 @@ public class CreditsScreen
         if (_fontSystem != null)
         {
             float startY = screenHeight - _scrollY;
-            int lineHeight = 30;
+            int lineHeight = Spacing.CreditsLineHeight;
             
             for (int i = 0; i < _creditsLines.Length; i++)
             {
@@ -94,20 +59,12 @@ public class CreditsScreen
                     if (!string.IsNullOrEmpty(line))
                     {
                         // Títulos em branco, resto em cinzento
-                        bool isTitle = line == "WIPEOUT" || 
-                                     line == "ORIGINAL GAME" ||
-                                     line == "C# REWRITE" ||
-                                     line == "PROGRAMMING" ||
-                                     line == "GRAPHICS" ||
-                                     line == "MUSIC" ||
-                                     line == "SPECIAL THANKS";
+                        bool isTitle = Array.Exists(Strings.CreditsTitles, t => t == line);
                         
-                        var color = isTitle 
-                            ? new Color4(1.0f, 1.0f, 1.0f, 1.0f) // Branco
-                            : new Color4(0.7f, 0.7f, 0.7f, 1.0f); // Cinzento claro
+                        var color = isTitle ? Colors.CreditsTitle : Colors.CreditsText;
                         
                         Vector2 pos = new Vector2(screenWidth / 2, y);
-                        _fontSystem.DrawTextCentered(renderer, line, pos, TextSize.Size8, color);
+                        _fontSystem.DrawTextCentered(renderer, line, pos, TextSize.Size16, color);
                     }
                 }
             }

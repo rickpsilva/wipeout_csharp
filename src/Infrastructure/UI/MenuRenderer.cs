@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using WipeoutRewrite.Core.Services;
 using WipeoutRewrite.Infrastructure.Graphics;
+using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
 namespace WipeoutRewrite.Infrastructure.UI;
 
@@ -27,33 +28,81 @@ public class MenuRenderer : IMenuRenderer
         if (page == null)
             return;
         
-        // Draw title
-        DrawTextCentered(page.Title, GetScaledPosition(page.TitleAnchor, page.TitlePos), 16, UIColor.Accent);
+        // Draw title (support multi-line with \n)
+        var titleLines = page.Title.Split('\n');
+        Vec2i titleBasePos = GetScaledPosition(page.TitleAnchor, page.TitlePos);
+        int lineHeight = Spacing.MenuTitleLineHeight;
+        int titleOffsetY = -(titleLines.Length - 1) * lineHeight / 2; // Center vertically
+        
+        for (int i = 0; i < titleLines.Length; i++)
+        {
+            Vec2i linePos = new Vec2i(titleBasePos.X, titleBasePos.Y + titleOffsetY + i * lineHeight);
+            DrawTextCentered(titleLines[i], linePos, FontSizes.MenuTitle, UIColor.Default);
+        }
         
         // Draw items
+        bool isHorizontal = page.LayoutFlags.HasFlag(MenuLayoutFlags.Horizontal);
+        bool isVertical = page.LayoutFlags.HasFlag(MenuLayoutFlags.Vertical);
+        
+        // For horizontal menus, calculate total width to center items properly
+        int totalWidth = 0;
+        int itemSpacing = Spacing.MenuItemHorizontalSpacing;
+        
+        if (isHorizontal && page.Items.Count > 0)
+        {
+            foreach (var item in page.Items)
+            {
+                string label = item is MenuToggle toggle ? $"{toggle.Label}: {toggle.CurrentValue}" : item.Label;
+                totalWidth += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
+            }
+            totalWidth -= itemSpacing; // Remove last spacing
+        }
+        
+        int itemX = isHorizontal ? -totalWidth / 2 : page.ItemsPos.X;
         int itemY = page.ItemsPos.Y;
+        
         for (int i = 0; i < page.Items.Count; i++)
         {
             var item = page.Items[i];
             bool isSelected = i == page.SelectedIndex;
-            var color = isSelected && menu.ShouldBlink() ? UIColor.Accent : UIColor.Default;
+            // Show selected item in yellow (Accent), default in white
+            // TODO: Add blinking back later with menu.ShouldBlink()
+            var color = isSelected ? UIColor.Accent : UIColor.Default;
             
             if (!item.IsEnabled)
                 color = UIColor.Disabled;
             
-            Vec2i itemPos = new Vec2i(page.ItemsPos.X, itemY);
+            Vec2i itemPos = new Vec2i(itemX, itemY);
+            Vec2i screenPos = GetScaledPosition(page.ItemsAnchor, itemPos);
             
+            // Use centered text for middle-anchored items
+            bool shouldCenter = page.ItemsAnchor == UIAnchor.MiddleCenter || 
+                              page.ItemsAnchor == UIAnchor.TopCenter || 
+                              page.ItemsAnchor == UIAnchor.BottomCenter;
+            
+            string label = "";
             if (item is MenuButton button)
             {
-                DrawText(button.Label, GetScaledPosition(page.ItemsAnchor, itemPos), page.ItemsAnchor, 12, color);
+                label = button.Label;
+                if (shouldCenter && !isHorizontal)
+                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
+                else
+                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
             }
             else if (item is MenuToggle toggle)
             {
-                string label = $"{toggle.Label}: {toggle.CurrentValue}";
-                DrawText(label, GetScaledPosition(page.ItemsAnchor, itemPos), page.ItemsAnchor, 12, color);
+                label = $"{toggle.Label}: {toggle.CurrentValue}";
+                if (shouldCenter && !isHorizontal)
+                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
+                else
+                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
             }
             
-            itemY += page.LayoutFlags.HasFlag(MenuLayoutFlags.Vertical) ? 24 : 0;
+            // Move to next position
+            if (isHorizontal)
+                itemX += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
+            if (isVertical)
+                itemY += Spacing.MenuItemVerticalSpacing;
         }
         
         // Custom draw callback for 3D models, etc.
@@ -67,8 +116,8 @@ public class MenuRenderer : IMenuRenderer
             // Use proper font rendering
             TextSize textSize = size switch
             {
-                16 => TextSize.Size16,
-                12 => TextSize.Size12,
+                >= 16 => TextSize.Size16,
+                >= 12 => TextSize.Size12,
                 _ => TextSize.Size8
             };
             
@@ -110,8 +159,8 @@ public class MenuRenderer : IMenuRenderer
         {
             TextSize textSize = size switch
             {
-                16 => TextSize.Size16,
-                12 => TextSize.Size12,
+                >= 16 => TextSize.Size16,
+                >= 12 => TextSize.Size12,
                 _ => TextSize.Size8
             };
             return _fontSystem.GetTextWidth(text, textSize);
@@ -182,9 +231,9 @@ public class MenuRenderer : IMenuRenderer
     {
         return color switch
         {
-            UIColor.Accent => new Color4(1.0f, 0.8f, 0.0f, 1.0f),  // Yellow/gold
-            UIColor.Disabled => new Color4(0.5f, 0.5f, 0.5f, 1.0f), // Gray
-            _ => new Color4(1.0f, 1.0f, 1.0f, 1.0f)  // White
+            UIColor.Accent => Colors.MenuItemSelected,
+            UIColor.Disabled => Colors.MenuItemDisabled,
+            _ => Colors.MenuItemDefault
         };
     }
 }
