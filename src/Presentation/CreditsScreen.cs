@@ -38,7 +38,7 @@ public class CreditsScreen
     
     public void Render(IRenderer renderer, int screenWidth, int screenHeight)
     {
-        // Begin 2D rendering (BeginFrame já faz o Clear com fundo escuro)
+        // Begin 2D rendering (BeginFrame already clears with dark background)
         renderer.BeginFrame();
         
         // TODO: Quando o racing engine estiver implementado, renderizar corrida em background aqui
@@ -52,13 +52,13 @@ public class CreditsScreen
             {
                 float y = startY + (i * lineHeight);
                 
-                // Só desenhar se estiver visível
+                // Only draw if visible
                 if (y > -lineHeight && y < screenHeight + lineHeight)
                 {
                     string line = _creditsLines[i];
                     if (!string.IsNullOrEmpty(line))
                     {
-                        // Títulos em branco, resto em cinzento
+                        // Titles in white, rest in grey
                         bool isTitle = Array.Exists(Strings.CreditsTitles, t => t == line);
                         
                         var color = isTitle ? Colors.CreditsTitle : Colors.CreditsText;

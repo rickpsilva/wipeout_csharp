@@ -6,7 +6,7 @@ namespace WipeoutRewrite
     {
         public static void Init()
         {
-            // Inicialização de recursos de render (shaders, buffers, etc.)
+            // Render resource initialization (shaders, buffers, etc.)
         }
 
         public static void Clear()
@@ -16,7 +16,7 @@ namespace WipeoutRewrite
 
         public static void Present()
         {
-            // SwapBuffers é chamado pelo GameWindow; aqui podemos fazer flushing se necessário
+            // SwapBuffers is called by GameWindow; we can do flushing here if needed
         }
     }
 }

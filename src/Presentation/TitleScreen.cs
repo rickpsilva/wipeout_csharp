@@ -15,7 +15,7 @@ public class TitleScreen
     private float _timer;
     private float _blinkTimer;
     private bool _attractShown;
-    private const float AttractDelayFirst = 10.0f; // 10 segundos antes dos créditos
+    private const float AttractDelayFirst = 10.0f; // 10 seconds before credits
     private const float AttractDelaySubsequent = 10.0f;
     private const float BlinkInterval = 0.5f; // Pisca a cada 0.5s
     
@@ -106,10 +106,10 @@ public class TitleScreen
     
     public void Render(IRenderer renderer, int screenWidth, int screenHeight)
     {
-        // Begin 2D rendering (BeginFrame já faz o Clear)
+        // Begin 2D rendering (BeginFrame already does Clear)
         renderer.BeginFrame();
         
-        // Render wiptitle.tim texture fullscreen - SEMPRE VISÍVEL
+        // Render wiptitle.tim texture fullscreen - ALWAYS VISIBLE
         if (_textureLoaded)
         {
             renderer.SetCurrentTexture(_titleTexture);
@@ -117,10 +117,10 @@ public class TitleScreen
             renderer.PushSprite(0, 0, screenWidth, screenHeight, new Vector4(0.5f, 0.5f, 0.5f, 1.0f));
         }
         
-        // Render "PRESS ENTER" text - PISCA SEMPRE
+        // Render "PRESS ENTER" text - ALWAYS BLINKING
         if (_fontSystem != null)
         {
-            // Piscar continuamente
+            // Blink continuously
             bool shouldShowText = _blinkTimer < BlinkInterval;
             
             if (shouldShowText)

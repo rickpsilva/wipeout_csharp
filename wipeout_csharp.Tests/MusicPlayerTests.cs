@@ -8,8 +8,8 @@ using System.IO;
 namespace WipeoutRewrite.Tests;
 
 /// <summary>
-/// Testes unitários para MusicPlayer.
-/// Estes testes validam a lógica de gestão de faixas sem depender de hardware de áudio.
+/// Unit tests for MusicPlayer.
+/// These tests validate track management logic without depending on audio hardware.
 /// </summary>
 public class MusicPlayerTests
 {

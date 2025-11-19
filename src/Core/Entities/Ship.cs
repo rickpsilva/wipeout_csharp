@@ -11,11 +11,11 @@ namespace WipeoutRewrite.Core.Entities
     {
         private readonly ILogger<Ship>? _logger;
         
-        // Identificação
+        // Identification
         public string Name { get; set; } = "";
         public int ShipId { get; set; }
 
-        // Posição e rotação
+        // Position and rotation
         public Vec3 Position { get; set; }
         public Vec3 Rotation { get; set; }
         public Vec3 Velocity { get; set; }
@@ -26,14 +26,14 @@ namespace WipeoutRewrite.Core.Entities
         public float MaxSpeed { get; set; }
         public float Acceleration { get; set; }
         public float SteeringForce { get; set; }
-        public float Theta { get; set; } // Ângulo de inclinação
+        public float Theta { get; set; } // Angle of inclination
 
         // Armadura e escudo
         public int Shield { get; set; }
         public int MaxShield { get; set; }
         public bool IsDestroyed { get; set; }
 
-        // Armas e munições
+        // Weapons and ammunition
         public int WeaponType { get; set; }
         public int Ammo { get; set; }
         public float FireCooldown { get; set; }
@@ -97,7 +97,7 @@ namespace WipeoutRewrite.Core.Entities
 
         public void Update(float deltaTime)
         {
-            // TODO: implementar lógica de atualização (velocidade, posição, física)
+            // TODO: implement update logic (velocity, position, physics)
             if (FireCooldown > 0)
                 FireCooldown -= deltaTime;
         }
@@ -114,7 +114,7 @@ namespace WipeoutRewrite.Core.Entities
 
         public void Render(IRenderer renderer)
         {
-            // TODO: implementar renderização da nave
+            // TODO: implement ship rendering
             // Por enquanto apenas um placeholder
         }
     }

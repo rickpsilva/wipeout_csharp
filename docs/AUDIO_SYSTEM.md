@@ -1,8 +1,8 @@
-# Sistema de Áudio - Documentação Técnica
+# Audio System - Documentação Técnica
 
-## Visão Geral
+## Overview
 
-O sistema de áudio do WipeoutRewrite C# é composto por duas camadas principais:
+The audio system do WipeoutRewrite C# é composto por duas camadas principais:
 
 1. **AudioPlayer** - Reprodução de ficheiros WAV individuais usando OpenAL
 2. **MusicPlayer** - Gestão de múltiplas faixas musicais com modos de reprodução
@@ -31,7 +31,7 @@ Sistema de Áudio do SO
 - Consultar estado de reprodução
 - Gestão de recursos (Dispose)
 
-### Estrutura
+### Structure
 
 ```csharp
 public class AudioPlayer : IDisposable {
@@ -332,7 +332,7 @@ public void Dispose() {
 - Transição automática entre faixas
 - Controlar reprodução via AudioPlayer
 
-### Estrutura
+### Structure
 
 ```csharp
 public class MusicPlayer {
@@ -972,7 +972,7 @@ public enum MusicMode {
 
 ## Conclusão
 
-O sistema de áudio está **totalmente funcional** e pronto para uso:
+The audio system está **totalmente funcional** e pronto para uso:
 
 ✅ **Funcionalidades:**
 - Reprodução de 11 faixas musicais WAV

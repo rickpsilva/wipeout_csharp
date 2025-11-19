@@ -21,7 +21,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     {
         try
         {
-            // Abrir dispositivo de áudio padrão
+            // Open default audio device
             _device = ALC.OpenDevice(null);
             if (_device == IntPtr.Zero)
             {

@@ -4,12 +4,12 @@ namespace WipeoutRewrite.Infrastructure.Graphics;
 
 /// <summary>
 /// Interface para sistema de rendering.
-/// Permite trocar implementações (OpenGL, DirectX, Vulkan) e facilita testes.
+/// Allows swapping implementations (OpenGL, DirectX, Vulkan) and facilitates testing.
 /// </summary>
 public interface IRenderer
 {
     /// <summary>
-    /// Inicializa o renderer com dimensões da tela.
+    /// Initializes renderer with screen dimensions.
     /// </summary>
     void Init(int screenWidth, int screenHeight);
     
@@ -29,14 +29,14 @@ public interface IRenderer
     void PushSprite(float x, float y, float width, float height, Vector4 color);
     
     /// <summary>
-    /// Adiciona um triângulo ao batch de rendering.
+    /// Adds a triangle to rendering batch.
     /// </summary>
     void PushTri(Vector3 a, Vector2 uvA, Vector4 colorA,
                  Vector3 b, Vector2 uvB, Vector4 colorB,
                  Vector3 c, Vector2 uvC, Vector4 colorC);
     
     /// <summary>
-    /// Renderiza um frame de vídeo em fullscreen.
+    /// Renders a video frame in fullscreen.
     /// </summary>
     void RenderVideoFrame(int textureId, int videoWidth, int videoHeight, 
                          int windowWidth, int windowHeight);
@@ -47,7 +47,7 @@ public interface IRenderer
     void LoadSpriteTexture(string path);
     
     /// <summary>
-    /// Atualiza dimensões da tela (quando janela é redimensionada).
+    /// Updates screen dimensions (when window is resized).
     /// </summary>
     void UpdateScreenSize(int width, int height);
     

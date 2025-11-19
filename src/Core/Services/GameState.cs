@@ -31,10 +31,10 @@ namespace WipeoutRewrite.Core.Services
         // Dados de corrida
         public int LapNumber { get; set; }
         public float RaceTime { get; set; }
-        public int Position { get; set; } // Posição do jogador na corrida
+        public int Position { get; set; } // Player position in race
         public int TotalPlayers { get; set; }
 
-        // Configurações
+        // Settings
         public int Difficulty { get; set; }
         public int GameSpeed { get; set; }
         public bool EnableAI { get; set; }
@@ -88,7 +88,7 @@ namespace WipeoutRewrite.Core.Services
                 ship.Update(deltaTime);
             }
 
-            // TODO: lógica de colisão, IA, checkpoints
+            // TODO: collision logic, AI, checkpoints
         }
 
         public void Render(GLRenderer renderer)

@@ -1,19 +1,19 @@
 namespace WipeoutRewrite.Infrastructure.Audio;
 
 /// <summary>
-/// Interface para reprodução de áudio.
-/// Permite trocar implementações (OpenAL, FMOD, XAudio2) e facilita testes.
+/// Interface for audio playback.
+/// Allows swapping implementations (OpenAL, FMOD, XAudio2) and facilitates testing.
 /// </summary>
 public interface IAudioPlayer
 {
     /// <summary>
-    /// Carrega arquivo de áudio WAV.
+    /// Loads WAV audio file.
     /// </summary>
     /// <returns>True se carregado com sucesso.</returns>
     bool LoadWav(string wavPath);
     
     /// <summary>
-    /// Inicia reprodução do áudio.
+    /// Starts audio playback.
     /// </summary>
     void Play();
     

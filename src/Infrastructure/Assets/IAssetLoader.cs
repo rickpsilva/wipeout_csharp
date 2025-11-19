@@ -2,7 +2,7 @@ namespace WipeoutRewrite.Infrastructure.Assets;
 
 /// <summary>
 /// Interface para carregamento de assets.
-/// Permite trocar implementações (disco, rede, embedded) e facilita testes.
+/// Allows swapping implementations (disk, network, embedded) and facilitates testing.
 /// </summary>
 public interface IAssetLoader
 {
@@ -17,7 +17,7 @@ public interface IAssetLoader
     string? LoadTextFile(string relativePath);
     
     /// <summary>
-    /// Carrega arquivo binário.
+    /// Loads binary file.
     /// </summary>
     byte[]? LoadBinaryFile(string relativePath);
     
@@ -27,7 +27,7 @@ public interface IAssetLoader
     List<string> ListFiles(string relativePath, string pattern = "*");
     
     /// <summary>
-    /// Carrega lista de tracks disponíveis.
+    /// Loads available track list.
     /// </summary>
     List<string> LoadTrackList();
     

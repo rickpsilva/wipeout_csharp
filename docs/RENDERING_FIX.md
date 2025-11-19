@@ -99,7 +99,7 @@ dotnet run
 # Pressione ESC para sair
 ```
 
-## Componentes Relacionados
+## Components Relacionados
 
 - `GLRenderer.Init()` - Inicializa VAO, VBO, shaders
 - `GLRenderer.Flush()` - Renderiza buffer acumulado

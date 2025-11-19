@@ -256,7 +256,7 @@ var game = new Game(gws, nws, ..., musicPlayer, ...);
 - `Game` depende de abstrações (interfaces)
 - Não depende de implementações concretas
 
-## Implementação Step-by-Step
+## Implementation Step-by-Step
 
 ### Passo 1: Criar interfaces faltantes
 - [x] `IMusicPlayer`

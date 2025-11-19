@@ -48,7 +48,7 @@ public class MusicPlayer : IMusicPlayer
                 }
             }
 
-            // Fallback para QOA (não funcional ainda)
+            // Fallback to QOA (not functional yet)
             if (!Directory.Exists(musicPath))
             {
                 _logger.LogWarning("Music directory not found: {MusicPath}", musicPath);
@@ -101,7 +101,7 @@ public class MusicPlayer : IMusicPlayer
             string trackPath = _tracks[index];
             string trackName = Path.GetFileNameWithoutExtension(trackPath);
             
-            // Parar música atual
+            // Stop current music
             Stop();
             
             // Tocar apenas se for WAV
@@ -135,7 +135,7 @@ public class MusicPlayer : IMusicPlayer
 
     public void Update(float deltaTime)
     {
-        // Verificar se a música terminou e tocar próxima
+        // Check if music ended and play next
         if (_isPlaying && _audioPlayer != null && !_audioPlayer.IsPlaying())
         {
             _isPlaying = false;

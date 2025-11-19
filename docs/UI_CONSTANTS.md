@@ -1,10 +1,10 @@
 # Sistema de Constantes UI (UIConstants)
 
-## Visão Geral
+## Overview
 
 O ficheiro `UIConstants.cs` centraliza todas as configurações de UI (tamanhos de fonte, cores, espaçamentos e strings) num único local, facilitando manutenção e futura internacionalização.
 
-## Estrutura
+## Structure
 
 ### 1. **FontSizes** - Tamanhos de Fonte
 ```csharp
@@ -43,7 +43,7 @@ UIConstants.Strings.CreditsLines      // Array com todas as linhas
 // ... e muitos outros
 ```
 
-## Como Usar
+## How to Use
 
 ### Importar com `using static`
 ```csharp
@@ -79,7 +79,7 @@ DrawTextCentered(Strings.SplashPressEnter, pos, FontSizes.SplashText, Colors.Spl
 4. **Refactoring Seguro**: Compiler avisa se mudares nomes
 5. **Documentação Implícita**: Nomes descritivos autodocumentam o código
 
-## Próximos Passos (Futuro)
+## Next Steps (Futuro)
 
 ### Fase 1: Sistema de Configuração JSON (opcional)
 ```json

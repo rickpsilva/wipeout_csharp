@@ -1,4 +1,4 @@
-# Guia de Desenvolvimento - WipeoutRewrite C#
+# Development Guide - WipeoutRewrite C#
 
 ## Setup Inicial
 
@@ -29,7 +29,7 @@ dotnet build
 dotnet run
 ```
 
-## Estrutura de Classes
+## Structure de Classes
 
 ### Hierarquia Principal
 

@@ -3,8 +3,8 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace WipeoutRewrite.Infrastructure.Input;
 
 /// <summary>
-/// Interface para gerenciamento de input.
-/// Permite trocar implementações (teclado, joystick, rede) e facilita testes.
+/// Interface for game input management.
+/// Allows swapping implementations (keyboard, joystick, network) and facilitates testing.
 /// </summary>
 public interface IInputManager
 {
@@ -14,12 +14,12 @@ public interface IInputManager
     void Update(KeyboardState keyboardState);
     
     /// <summary>
-    /// Verifica se uma ação foi pressionada neste frame (single press).
+    /// Checks if an action was pressed this frame (single press).
     /// </summary>
-    bool IsActionPressed(GameAction action, KeyboardState keyboardState);
+    bool IsActionPressed(GameAction action);
     
     /// <summary>
-    /// Verifica se uma ação está mantida pressionada (held down).
+    /// Checks if an action is being held down.
     /// </summary>
     bool IsActionDown(GameAction action, KeyboardState keyboardState);
 }

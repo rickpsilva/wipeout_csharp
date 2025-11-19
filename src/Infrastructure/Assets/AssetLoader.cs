@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace WipeoutRewrite.Infrastructure.Assets
 {
     /// <summary>
-    /// Implementação de arquivo do IAssetLoader.
+    /// File-based implementation of IAssetLoader.
     /// </summary>
     public class AssetLoader : IAssetLoader
     {
@@ -31,7 +31,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
         }
 
         /// <summary>
-        /// Carregar um ficheiro de texto (configuração, dados)
+        /// Load a text file (configuration, data)
         /// </summary>
         public string? LoadTextFile(string relativePath)
         {
@@ -53,7 +53,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
         }
 
         /// <summary>
-        /// Carregar dados binários (modelos, dados de track)
+        /// Load binary data (models, track data)
         /// </summary>
         public byte[]? LoadBinaryFile(string relativePath)
         {
@@ -103,7 +103,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
         }
 
         /// <summary>
-        /// Carregar ficheiros de configuração (config.txt, tracks list, etc.)
+        /// Load configuration files (config.txt, tracks list, etc.)
         /// </summary>
         public List<string> LoadTrackList()
         {

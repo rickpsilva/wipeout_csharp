@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace WipeoutRewrite.Infrastructure.Input
 {
-    // Enumerar as ações do jogo
+    // Enumerate game actions
     public enum GameAction
     {
         Accelerate,
@@ -51,7 +51,7 @@ namespace WipeoutRewrite.Infrastructure.Input
             { GameAction.MenuBack, Keys.Backspace }
         };
 
-        // Estado anterior para detectar mudanças (key press vs hold)
+        // Previous state to detect changes (key press vs hold)
         private static Dictionary<GameAction, bool> _previousState = new();
 
         static InputManager()

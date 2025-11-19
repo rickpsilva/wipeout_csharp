@@ -14,7 +14,7 @@ using WipeoutRewrite.Infrastructure.Audio;
 namespace WipeoutRewrite.Infrastructure.Video
 {
     /// <summary>
-    /// Implementação FFmpeg do IVideoPlayer.
+    /// FFmpeg implementation of IVideoPlayer.
     /// </summary>
     public class IntroVideoPlayer : IVideoPlayer
     {
@@ -45,7 +45,7 @@ namespace WipeoutRewrite.Infrastructure.Video
 
             _logger.LogInformation("Carregando vídeo de introdução...");
 
-            // Obter informações do vídeo
+            // Get video information
             var mediaInfo = FFProbe.Analyse(videoPath);
             _videoWidth = mediaInfo.PrimaryVideoStream!.Width;
             _videoHeight = mediaInfo.PrimaryVideoStream!.Height;
@@ -61,17 +61,17 @@ namespace WipeoutRewrite.Infrastructure.Video
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             
-            // Pré-carregar todos os frames (mais eficiente que decodificar em tempo real)
+            // Pre-load all frames (more efficient than real-time decoding)
             LoadAllFrames(videoPath);
             _logger.LogInformation("{FrameCount} frames carregados ({VideoWidth}x{VideoHeight} @ {FrameRate:F1}fps)", _frames.Count, _videoWidth, _videoHeight, _frameRate);
             
-            // Extrair e carregar áudio
+            // Extract and load audio
             ExtractAndLoadAudio(videoPath);
         }
 
         private void LoadAllFrames(string videoPath)
         {
-            // Extrair todos os frames para pasta temporária
+            // Extract all frames to temp folder
             string tempDir = Path.Combine(Path.GetTempPath(), $"wipeout_intro_{Guid.NewGuid()}");
             Directory.CreateDirectory(tempDir);
 
@@ -84,7 +84,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                         .WithVideoCodec("png"))
                     .ProcessSynchronously();
 
-                // Carregar cada frame para memória
+                // Load each frame into memory
                 var frameFiles = Directory.GetFiles(tempDir, "frame_*.png");
                 Array.Sort(frameFiles);
 
@@ -100,7 +100,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             }
             finally
             {
-                // Limpar pasta temporária
+                // Clean up temp folder
                 try { Directory.Delete(tempDir, true); } catch { }
             }
         }
@@ -111,10 +111,10 @@ namespace WipeoutRewrite.Infrastructure.Video
             {
                 _logger.LogInformation("Extraindo áudio do vídeo...");
                 
-                // Criar arquivo temporário para o áudio
+                // Create temporary file for audio
                 _audioTempPath = Path.Combine(Path.GetTempPath(), $"wipeout_intro_audio_{Guid.NewGuid()}.wav");
                 
-                // Extrair áudio como WAV usando FFmpeg
+                // Extract audio as WAV using FFmpeg
                 var result = FFMpegArguments
                     .FromFileInput(videoPath)
                     .OutputToFile(_audioTempPath, true, options => options
@@ -139,7 +139,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                         return;
                     }
                     
-                    // Criar player de áudio e carregar WAV
+                    // Create audio player and load WAV
                     _audioPlayer = new AudioPlayer();
                     if (_audioPlayer.LoadWav(_audioTempPath))
                     {
@@ -176,7 +176,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             _currentFrameIndex = 0;
             _playStartTime = DateTime.UtcNow;
             
-            // Iniciar áudio sincronizado com vídeo
+            // Start audio synchronized with video
             _audioPlayer?.Play();
             
             _logger.LogInformation("Reproduzindo intro...");
@@ -187,7 +187,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             _isPlaying = false;
             _currentFrameIndex = _frames.Count;
             
-            // Parar áudio
+            // Stop audio
             _audioPlayer?.Stop();
             
             _logger.LogInformation("Intro saltada");
@@ -198,13 +198,13 @@ namespace WipeoutRewrite.Infrastructure.Video
             if (!_isPlaying || _frames.Count == 0)
                 return;
 
-            // Sincronizar vídeo com posição do áudio (se disponível)
-            // Caso contrário, usar tempo real decorrido
+            // Synchronize video with audio position (if available)
+            // Otherwise, use elapsed real time
             float targetTimeSeconds;
             
             if (_audioPlayer != null && _audioPlayer.IsPlaying())
             {
-                // Usar posição do áudio como referência (mais preciso)
+                // Use audio position as reference (more accurate)
                 targetTimeSeconds = _audioPlayer.GetPlaybackPosition();
             }
             else
@@ -217,7 +217,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             // Calcular qual frame deveria estar a mostrar baseado no tempo
             int targetFrame = (int)(targetTimeSeconds * _frameRate);
             
-            // Limitar ao número de frames disponíveis
+            // Limit to available frame count
             if (targetFrame >= _frames.Count)
             {
                 targetFrame = _frames.Count - 1;
@@ -227,7 +227,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                 return;
             }
             
-            // Apenas atualizar se mudou de frame (evita trabalho desnecessário)
+            // Only update if frame changed (avoid unnecessary work)
             if (targetFrame != _lastRenderedFrame)
             {
                 _currentFrameIndex = targetFrame;
@@ -239,7 +239,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                     _videoWidth, _videoHeight, 0, PixelFormat.Rgba, PixelType.UnsignedByte, 
                     _frames[_currentFrameIndex]);
                 
-                // Log detalhado a cada segundo para verificar sincronização
+                // Detailed log every second to verify synchronization
                 if (_currentFrameIndex % 25 == 0)
                 {
                     float audioPos = _audioPlayer?.GetPlaybackPosition() ?? 0f;
@@ -263,11 +263,11 @@ namespace WipeoutRewrite.Infrastructure.Video
             _frames.Clear();
             if (_textureId != 0) GL.DeleteTexture(_textureId);
             
-            // Limpar áudio
+            // Clean up audio
             _audioPlayer?.Dispose();
             _audioPlayer = null;
             
-            // Limpar arquivo temporário de áudio
+            // Clean up temporary audio file
             if (_audioTempPath != null && File.Exists(_audioTempPath))
             {
                 try { File.Delete(_audioTempPath); } catch { }

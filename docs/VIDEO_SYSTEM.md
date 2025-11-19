@@ -1,6 +1,6 @@
-# Sistema de Vídeo - Documentação Técnica
+# Video System - Documentação Técnica
 
-## Visão Geral
+## Overview
 
 O `IntroVideoPlayer` é responsável por reproduzir o vídeo de introdução (`intro.mpeg`) na janela do jogo usando OpenGL.
 
@@ -72,7 +72,7 @@ intro.mpeg
         Vídeo sincroniza com AL.GetSource(SecOffset)
 ```
 
-### Implementação Detalhada
+### Implementation Detalhada
 
 #### Fase 1: Extração de Frames
 
@@ -282,7 +282,7 @@ public void RenderVideoFrame(int videoTextureId, int videoWidth, int videoHeight
 
 ## Formato de Dados
 
-### Estrutura de um Frame
+### Structure de um Frame
 
 ```
 Frame = Array de bytes RGBA
@@ -728,7 +728,7 @@ Menu Principal
 
 ### ✅ Áudio Support (IMPLEMENTADO)
 
-O sistema de áudio está **totalmente funcional**:
+The audio system está **totalmente funcional**:
 
 - ✅ Extração de áudio via FFmpeg (PCM 16-bit, 44.1kHz)
 - ✅ Reprodução via OpenAL (AudioPlayer.cs)

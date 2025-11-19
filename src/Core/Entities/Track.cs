@@ -5,29 +5,29 @@ using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Core.Entities
 {
-    // Estrutura de um vértice (compatível com C)
+    // Vertex structure (C-compatible)
     public struct Vertex
     {
         public Vec3 Position;
         public Vec2 UV;
         public uint Color; // RGBA
     }
-
-    // Estrutura de um triângulo
+    
+    // Triangle structure
     public struct Triangle
     {
-        public Vertex[] Vertices; // 3 vértices
-
+        public Vertex[] Vertices; // 3 vertices
+        
         public Triangle()
         {
             Vertices = new Vertex[3];
         }
     }
 
-    // Face da pista (pode ter 1 ou 2 triângulos)
+    // Track face (can have 1 or 2 triangles)
     public struct TrackFace
     {
-        public Triangle[] Triangles; // até 2 tris
+        public Triangle[] Triangles; // up to 2 triangles
         public Vec3 Normal;
         public byte Flags;
         public byte TextureIndex;
@@ -41,7 +41,7 @@ namespace WipeoutRewrite.Core.Entities
         }
     }
 
-    // Secção da pista
+    // Track section
     public class TrackSection
     {
         public TrackSection? Junction;
@@ -90,7 +90,7 @@ namespace WipeoutRewrite.Core.Entities
         {
             try
             {
-                // Parser simples do formato binário
+                // Simple binary format parser
                 // TODO: implementar parsing completo
                 Console.WriteLine($"Loading track data for {Name}... (stub)");
             }
@@ -102,7 +102,7 @@ namespace WipeoutRewrite.Core.Entities
 
         public void Render(GLRenderer renderer)
         {
-            // TODO: implementar renderização de faces
+            // TODO: implement face rendering
             Console.WriteLine($"Rendering track {Name}... (stub)");
         }
     }

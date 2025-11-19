@@ -17,7 +17,7 @@
 
 ## ⚠️ Cobertura de Testes Atual
 
-### Testes Existentes (Antes)
+### Tests Existentes (Antes)
 1. ✅ **ShipTests.cs** - 7 testes
 2. ✅ **GameStateTests.cs** - 3 testes
 3. ⚠️  **MusicPlayerTests.cs** - 9 testes (COM ERROS - falta logger)
@@ -25,7 +25,7 @@
 
 **Total**: ~20 testes, mas MusicPlayerTests não compila
 
-### Testes Necessários para UI (Não Implementados)
+### Tests Necessários para UI (Não Implementados)
 1. ❌ **UIConstantsTests.cs** - Validar constantes
 2. ❌ **MenuRendererTests.cs** - Renderização de menus
 3. ❌ **TitleScreenTests.cs** - Splash screen e timeout

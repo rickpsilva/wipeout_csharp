@@ -2,7 +2,7 @@ namespace WipeoutRewrite
 {
     public static class MemoryUtils
     {
-        // Placeholder para funções de alocação e utilitários
-        // Em C# normalmente não é necessário, mas pode ser útil para conversão
+        // Placeholder for memory allocation functions and utilities
+        // Not typically needed in C#, but may be useful for conversion from C
     }
 }

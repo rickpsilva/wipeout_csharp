@@ -13,7 +13,7 @@ Preparar a aplicação para crescimento futuro, facilitando:
 
 ## O que mudou?
 
-### Antes (Manual DI / Poor Man's DI)
+### Before (Manual DI / Poor Man's DI)
 ```csharp
 // Program.cs
 var renderer = new GLRenderer();
@@ -29,7 +29,7 @@ using (var game = new Game(gws, nws, renderer, musicPlayer, assetLoader, fontSys
 }
 ```
 
-### Depois (DI Container)
+### After (DI Container)
 ```csharp
 // Program.cs
 var services = new ServiceCollection();
@@ -73,7 +73,7 @@ private static void ConfigureServices(IServiceCollection services)
 
 ---
 
-## Benefícios da Migração
+## Benefits da Migração
 
 ### 1. **Escalabilidade**
 ✅ Fácil adicionar novos serviços sem modificar muito código
@@ -129,7 +129,7 @@ var game = serviceProvider.GetRequiredService<Game>();
 
 ---
 
-## Próximos Passos Futuros
+## Next Steps Futuros
 
 ### 1. **Adicionar Logging**
 ```csharp
