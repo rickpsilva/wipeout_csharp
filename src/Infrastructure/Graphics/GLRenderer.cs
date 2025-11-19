@@ -221,6 +221,11 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             GL.Viewport(0, 0, _screenWidth, _screenHeight);
             GL.ClearColor(0.05f, 0.07f, 0.12f, 1.0f);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            
+            // Enable alpha blending for transparent text rendering
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            
             _trisLen = 0;
         }
 

@@ -34,7 +34,10 @@ namespace WipeoutRewrite
         private AttractMode? _attractMode;
         private CreditsScreen? _creditsScreen;
         private readonly IMusicPlayer _musicPlayer;
-        private bool _enterWasPressed; // Para evitar processar Enter em modos consecutivos
+        
+        // Menu background
+        private int _menuBackgroundTexture;
+        private bool _menuBackgroundLoaded;
 
         /// <summary>
         /// Construtor com Dependency Injection.
@@ -123,6 +126,9 @@ namespace WipeoutRewrite
             _titleScreen = new TitleScreen(_fontSystem, _timLoader);
             _creditsScreen = new CreditsScreen(_fontSystem);
             _attractMode = new AttractMode(_gameState);
+            
+            // Load menu background texture (wipeout1.tim)
+            LoadMenuBackground();
 
             // Inicializar música
             string musicPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "music");
@@ -164,13 +170,14 @@ namespace WipeoutRewrite
         {
             base.OnUpdateFrame(args);
 
-            InputManager.Update(KeyboardState);
+            // NOTE: InputManager.Update() is called at the END of this method
+            // so _previousState stores the state from the PREVIOUS frame
 
             // Atualizar música
             _musicPlayer?.Update((float)args.Time);
 
-            // Processar ações do jogo
-            if (InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
+            // Processar ações do jogo - Exit only when NOT in menu (menu uses ESC for back)
+            if (_gameState?.CurrentMode != GameMode.Menu && InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
             {
                 Close();
             }
@@ -190,18 +197,14 @@ namespace WipeoutRewrite
                 }
             }
 
-            // Controlar estado do Enter para evitar processar em modos consecutivos
-            bool enterIsPressed = KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Enter);
-            
             // Saltar intro com Enter
             if (_gameState?.CurrentMode == GameMode.Intro && _introPlayer != null)
             {
-                if (enterIsPressed && !_enterWasPressed)
+                if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
                     _introPlayer.Skip();
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Iniciar música ao saltar intro
-                    _enterWasPressed = true; // Marcar como processado
                     _logger.LogInformation("Saltando para splash screen...");
                 }
             }
@@ -211,12 +214,14 @@ namespace WipeoutRewrite
             {
                 _titleScreen.Update((float)args.Time, out bool shouldStartAttract, out bool shouldStartMenu);
                 
-                if (enterIsPressed && !_enterWasPressed)
+                if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
                     _gameState.CurrentMode = GameMode.Menu;
                     _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
-                    _enterWasPressed = true; // Marcar como processado
-                    _logger.LogInformation("Entrando no menu principal...");
+                    _logger.LogInformation("Entrando no menu principal: {Title}, {Count} items", 
+                        _menuManager?.CurrentPage?.Title, _menuManager?.CurrentPage?.Items.Count);
+                    // Force input update so next frame doesn't immediately trigger Select
+                    InputManager.Update(KeyboardState);
                 }
                 else if (shouldStartAttract)
                 {
@@ -227,25 +232,16 @@ namespace WipeoutRewrite
                 }
             }
 
-            // Resetar flag quando tecla for largada
-            if (!enterIsPressed)
-            {
-                _enterWasPressed = false;
-            }
-
             // Attract mode (credits) - qualquer tecla volta ao splash
             if (_gameState?.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
             {
                 _creditsScreen.Update((float)args.Time);
                 
                 // Qualquer tecla volta ao splash screen
-                if (enterIsPressed || 
-                    KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) ||
-                    KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape))
+                if (KeyboardState.IsAnyKeyDown)
                 {
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _titleScreen?.Reset();
-                    _enterWasPressed = true; // Marcar como processado para evitar duplo trigger
                     _logger.LogInformation("Voltando ao splash screen...");
                 }
             }
@@ -258,10 +254,12 @@ namespace WipeoutRewrite
                 if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
                 {
                     _menuManager.HandleInput(MenuAction.Up);
+                    _logger.LogDebug("Menu: UP pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
                 }
                 if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
                 {
                     _menuManager.HandleInput(MenuAction.Down);
+                    _logger.LogDebug("Menu: DOWN pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
                 }
                 if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
                 {
@@ -273,21 +271,35 @@ namespace WipeoutRewrite
                 }
                 if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
-                    _menuManager.HandleInput(MenuAction.Select);
+                    var page = _menuManager.CurrentPage;
+                    var item = page?.SelectedItem;
+                    _logger.LogInformation("Menu: ENTER pressed on '{Title}', item {Index}: {Label}", 
+                        page?.Title, page?.SelectedIndex, item?.Label);
+                    if (item != null && item.IsEnabled)
+                    {
+                        _menuManager.HandleInput(MenuAction.Select);
+                    }
                 }
                 if (InputManager.IsActionPressed(GameAction.MenuBack, KeyboardState))
                 {
                     if (_menuManager.CurrentPage != null && _menuManager.HandleInput(MenuAction.Back))
                     {
-                        // Page was popped
+                        _logger.LogInformation("Menu: BACKSPACE - voltou para página anterior");
                     }
                     else
                     {
                         // No more pages, go back to title
                         _gameState.CurrentMode = GameMode.SplashScreen;
                         _titleScreen?.Reset();
-                        _logger.LogInformation("Voltando para title screen...");
+                        _logger.LogInformation("Menu: BACKSPACE - voltando para title screen...");
                     }
+                }
+                if (InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
+                {
+                    // ESC in menu goes back to splash screen
+                    _gameState.CurrentMode = GameMode.SplashScreen;
+                    _titleScreen?.Reset();
+                    _logger.LogInformation("Menu: ESC - voltando para title screen...");
                 }
             }
 
@@ -339,6 +351,9 @@ namespace WipeoutRewrite
             _spriteY = Math.Max(0, Math.Min(_spriteY, Size.Y - spriteSize));
 
             // TODO: Atualizar lógica do jogo aqui (física, IA)
+            
+            // Update input state at the END of frame for next frame's comparison
+            InputManager.Update(KeyboardState);
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -388,10 +403,12 @@ namespace WipeoutRewrite
                 // Render menu
                 _renderer.BeginFrame();
                 
-                // TODO: Draw background texture (wipeout1.tim)
-                
-                // Debug: Draw a white square to verify rendering is working
-                _renderer.PushSprite(100, 100, 200, 200, new OpenTK.Mathematics.Vector4(1, 0, 0, 1)); // Red square
+                // Draw background texture (wipeout1.tim)
+                if (_menuBackgroundLoaded)
+                {
+                    _renderer.SetCurrentTexture(_menuBackgroundTexture);
+                    _renderer.PushSprite(0, 0, ClientSize.X, ClientSize.Y, new OpenTK.Mathematics.Vector4(1, 1, 1, 1));
+                }
                 
                 _menuRenderer.RenderMenu(_menuManager);
                 _renderer.EndFrame();
@@ -420,6 +437,42 @@ namespace WipeoutRewrite
             if (_renderer != null)
             {
                 _renderer.UpdateScreenSize(e.Width, e.Height);
+                
+                // Recreate menu renderer with new dimensions for proper positioning
+                _menuRenderer = new MenuRenderer(e.Width, e.Height, _renderer, _fontSystem);
+                _logger.LogDebug("MenuRenderer updated for new window size: {Width}x{Height}", e.Width, e.Height);
+            }
+        }
+
+        private void LoadMenuBackground()
+        {
+            try
+            {
+                string timPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "textures", "wipeout1.tim");
+                if (File.Exists(timPath))
+                {
+                    var (pixels, width, height) = _timLoader.LoadTim(timPath, false);
+                    
+                    // Create OpenGL texture
+                    _menuBackgroundTexture = GL.GenTexture();
+                    GL.BindTexture(TextureTarget.Texture2D, _menuBackgroundTexture);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
+                        PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                    
+                    _menuBackgroundLoaded = true;
+                    _logger.LogInformation("Menu background loaded: {Width}x{Height}", width, height);
+                }
+                else
+                {
+                    _logger.LogWarning("Menu background not found: {Path}", timPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading menu background");
             }
         }
 

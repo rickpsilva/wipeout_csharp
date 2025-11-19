@@ -1,4 +1,6 @@
 using Xunit;
+using Moq;
+using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Infrastructure.Audio;
 using System;
 using System.IO;
@@ -11,11 +13,18 @@ namespace WipeoutRewrite.Tests;
 /// </summary>
 public class MusicPlayerTests
 {
+    private readonly Mock<ILogger<MusicPlayer>> _mockLogger;
+
+    public MusicPlayerTests()
+    {
+        _mockLogger = new Mock<ILogger<MusicPlayer>>();
+    }
+
     [Fact]
     public void Constructor_ShouldNotThrow()
     {
         // Arrange & Act
-        Exception? exception = Record.Exception(() => new MusicPlayer());
+        Exception? exception = Record.Exception(() => new MusicPlayer(_mockLogger.Object));
 
         // Assert
         Assert.Null(exception);
@@ -25,7 +34,7 @@ public class MusicPlayerTests
     public void LoadTracks_WithNonExistentDirectory_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -37,7 +46,7 @@ public class MusicPlayerTests
     public void LoadTracks_WithEmptyDirectory_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
 
@@ -57,7 +66,7 @@ public class MusicPlayerTests
     public void SetMode_WithoutLoadingTracks_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -69,7 +78,7 @@ public class MusicPlayerTests
     public void SetMode_ToRandom_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -81,7 +90,7 @@ public class MusicPlayerTests
     public void SetMode_ToSequential_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -93,7 +102,7 @@ public class MusicPlayerTests
     public void SetMode_ToLoop_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -105,7 +114,7 @@ public class MusicPlayerTests
     public void SetMode_ToPaused_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => 
@@ -117,7 +126,7 @@ public class MusicPlayerTests
     public void PlayRandomTrack_WithoutLoadingTracks_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.PlayRandomTrack());
@@ -128,7 +137,7 @@ public class MusicPlayerTests
     public void PlayTrack_WithZeroIndex_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.PlayTrack(0));
@@ -139,7 +148,7 @@ public class MusicPlayerTests
     public void PlayTrack_WithInvalidIndex_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.PlayTrack(-1));
@@ -153,7 +162,7 @@ public class MusicPlayerTests
     public void Stop_WithoutPlayingAnything_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.Stop());
@@ -164,7 +173,7 @@ public class MusicPlayerTests
     public void Update_WithoutInitialization_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.Update(0.016f));
@@ -175,7 +184,7 @@ public class MusicPlayerTests
     public void Update_WithPausedMode_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         player.SetMode(MusicMode.Paused);
 
         // Act & Assert
@@ -187,7 +196,7 @@ public class MusicPlayerTests
     public void Update_MultipleTimes_ShouldNotThrow()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() =>
@@ -208,7 +217,7 @@ public class MusicPlayerTests
     public void LoadTracks_WithValidWavDirectory_ShouldLoadTracks()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         string musicPath = "assets/wipeout/music";
 
         // Act
@@ -227,7 +236,7 @@ public class MusicPlayerTests
     public void SetMode_ToRandomWithTracks_ShouldStartPlaying()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         string musicPath = "assets/wipeout/music";
         player.LoadTracks(musicPath);
 
@@ -251,7 +260,7 @@ public class MusicPlayerTests
     public void Update_WithDifferentDeltaTimes_ShouldNotThrow(float deltaTime)
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
 
         // Act & Assert
         Exception? exception = Record.Exception(() => player.Update(deltaTime));
@@ -281,7 +290,7 @@ public class MusicPlayerTests
     public void LoadTracks_WithQoaFiles_ShouldShowWarning()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
 
@@ -308,7 +317,7 @@ public class MusicPlayerTests
     public void LoadTracks_PreferWavOverQoa_ShouldLoadWavFirst()
     {
         // Arrange
-        var player = new MusicPlayer();
+        var player = new MusicPlayer(_mockLogger.Object);
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         string tempDirWav = tempDir + "_wav";
         

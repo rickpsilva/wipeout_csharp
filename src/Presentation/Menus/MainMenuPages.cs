@@ -1,4 +1,5 @@
 using WipeoutRewrite.Core.Services;
+using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
 namespace WipeoutRewrite.Presentation.Menus;
 
@@ -8,18 +9,18 @@ public static class MainMenuPages
     {
         var page = new MenuPage
         {
-            Title = "OPTIONS",
+            Title = Strings.MenuOptions,
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, -110),
-            ItemsAnchor = UIAnchor.BottomCenter
+            ItemsPos = new Vec2i(0, 20),
+            ItemsAnchor = UIAnchor.MiddleCenter
         };
         
         // START GAME button
         page.Items.Add(new MenuButton
         {
-            Label = "START GAME",
+            Label = Strings.MenuStartGame,
             Data = 0,
             OnClick = (menu, data) =>
             {
@@ -31,7 +32,7 @@ public static class MainMenuPages
         // OPTIONS button
         page.Items.Add(new MenuButton
         {
-            Label = "OPTIONS",
+            Label = Strings.MenuOptions,
             Data = 1,
             OnClick = (menu, data) =>
             {
@@ -43,7 +44,7 @@ public static class MainMenuPages
         // QUIT button (not available on web/emscripten)
         page.Items.Add(new MenuButton
         {
-            Label = "QUIT",
+            Label = Strings.MenuQuit,
             Data = 2,
             OnClick = (menu, data) =>
             {
@@ -59,7 +60,7 @@ public static class MainMenuPages
     {
         var page = new MenuPage
         {
-            Title = "ARE YOU SURE YOU\nWANT TO QUIT",
+            Title = Strings.QuitTitle,
             LayoutFlags = MenuLayoutFlags.Horizontal | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(0, 0),
             TitleAnchor = UIAnchor.MiddleCenter,
@@ -69,7 +70,7 @@ public static class MainMenuPages
         
         page.Items.Add(new MenuButton
         {
-            Label = "YES",
+            Label = Strings.QuitYes,
             OnClick = (menu, data) =>
             {
                 Environment.Exit(0);
@@ -78,7 +79,7 @@ public static class MainMenuPages
         
         page.Items.Add(new MenuButton
         {
-            Label = "NO",
+            Label = Strings.QuitNo,
             OnClick = (menu, data) =>
             {
                 menu.PopPage();

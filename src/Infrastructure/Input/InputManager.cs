@@ -48,7 +48,7 @@ namespace WipeoutRewrite.Infrastructure.Input
             { GameAction.MenuLeft, Keys.Left },
             { GameAction.MenuRight, Keys.Right },
             { GameAction.MenuSelect, Keys.Enter },
-            { GameAction.MenuBack, Keys.Escape }
+            { GameAction.MenuBack, Keys.Backspace }
         };
 
         // Estado anterior para detectar mudanças (key press vs hold)
@@ -75,13 +75,13 @@ namespace WipeoutRewrite.Infrastructure.Input
         {
             bool isCurrentlyDown = IsActionDown(action, keyboard);
             bool wasPreviouslyDown = _previousState[action];
-            _previousState[action] = isCurrentlyDown;
+            // Don't update here - let Update() handle it
             return isCurrentlyDown && !wasPreviouslyDown;
         }
 
         public static void Update(KeyboardState keyboard)
         {
-            // Atualizar estado anterior para próximo frame
+            // Update previous state for next frame - this is the ONLY place that updates _previousState
             foreach (var action in Enum.GetValues(typeof(GameAction)))
             {
                 GameAction ga = (GameAction)action;
