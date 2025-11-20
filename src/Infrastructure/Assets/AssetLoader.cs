@@ -12,7 +12,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
     {
         private readonly ILogger<AssetLoader> _logger;
         private string _basePath = "";
-        private Dictionary<string, string> _assetCache = new();
+        // NOTE: asset cache removed — not referenced anywhere. Keep loader behavior simple.
 
         public AssetLoader(ILogger<AssetLoader> logger)
         {

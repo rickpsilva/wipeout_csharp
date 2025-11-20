@@ -98,10 +98,19 @@ public class TimImageLoader
 
     private static (byte r, byte g, byte b, byte a) Tim16BitToRgba(ushort c, bool transparentBit)
     {
+        // Follow same semantics as runtime loader: MSB (0x8000) marks transparency when enabled.
         byte r = (byte)(((c >> 0) & 0x1f) << 3);
         byte g = (byte)(((c >> 5) & 0x1f) << 3);
         byte b = (byte)(((c >> 10) & 0x1f) << 3);
-        byte a = (c == 0) ? (byte)0x00 : (transparentBit && (c & 0x7fff) == 0) ? (byte)0x00 : (byte)0xff;
+        byte a;
+        if (transparentBit)
+        {
+            a = ((c & 0x8000) != 0) ? (byte)0x00 : (byte)0xff;
+        }
+        else
+        {
+            a = 0xff;
+        }
         return (r, g, b, a);
     }
 

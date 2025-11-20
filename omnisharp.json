@@ -1,0 +1,13 @@
+{
+  "msBuild": {
+    "useBundledOnly": false,
+    "enabled": true
+  },
+  "RoslynExtensionsOptions": {
+    "enableAnalyzerSupport": true,
+    "enableReferenceCodeLens": true
+  },
+  "FormattingOptions": {
+    "enableEditorConfigSupport": true
+  }
+}

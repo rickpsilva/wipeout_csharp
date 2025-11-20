@@ -1,10 +1,18 @@
 using WipeoutRewrite.Core.Services;
+using WipeoutRewrite.Core.Entities;
 using static WipeoutRewrite.Infrastructure.UI.UIConstants;
+using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Presentation.Menus;
 
 public static class MainMenuPages
 {
+    private static readonly string[] ToggleOffOn = new[] { "OFF", "ON" };
+    private static readonly string[] VolumeOptions = new[] { "0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100" };
+    // Store references for menu callbacks
+    public static GameState? GameStateRef { get; set; }
+    public static IContentPreview3D? ContentPreview3DRef { get; set; }
+    
     public static MenuPage CreateMainMenu()
     {
         var page = new MenuPage
@@ -52,6 +60,9 @@ public static class MainMenuPages
                 menu.PushPage(confirmPage);
             }
         });
+        
+        // DrawCallback removido - preview 3D será controlado pelo Game.cs
+        // apenas quando estivermos na página principal do menu
         
         return page;
     }
@@ -155,10 +166,10 @@ public static class MainMenuPages
             BlockWidth = 320
         };
         
-        page.Items.Add(new MenuToggle
+            page.Items.Add(new MenuToggle
         {
             Label = "FULLSCREEN",
-            Options = new[] { "OFF", "ON" },
+            Options = ToggleOffOn,
             CurrentIndex = 0,
             OnChange = (menu, value) =>
             {
@@ -170,7 +181,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuToggle
         {
             Label = "SHOW FPS",
-            Options = new[] { "OFF", "ON" },
+            Options = ToggleOffOn,
             CurrentIndex = 0,
             OnChange = (menu, value) =>
             {
@@ -195,7 +206,8 @@ public static class MainMenuPages
             BlockWidth = 320
         };
         
-        string[] volumeOptions = new[] { "0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100" };
+        // Use shared static array to avoid allocating a new array each time
+        string[] volumeOptions = VolumeOptions;
         
         page.Items.Add(new MenuToggle
         {
@@ -386,13 +398,19 @@ public static class MainMenuPages
         
         foreach (var circuit in circuits)
         {
+            string circuitName = circuit; // Capture for closure
             page.Items.Add(new MenuButton
             {
                 Label = circuit,
                 OnClick = (menu, data) =>
                 {
-                    // TODO: Start race with selected circuit
-                    Console.WriteLine($"Starting race on {circuit}");
+                    // Start race
+                    if (GameStateRef != null)
+                    {
+                        GameStateRef.CurrentMode = GameMode.Racing;
+                        Console.WriteLine($"Starting race on {circuitName}");
+                        // TODO: Initialize race with selected circuit
+                    }
                 }
             });
         }

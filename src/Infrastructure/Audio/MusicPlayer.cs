@@ -19,7 +19,7 @@ public class MusicPlayer : IMusicPlayer
     private string[] _tracks;
     private int _currentTrackIndex = -1;
     private MusicMode _mode = MusicMode.Random;
-    private Random _random = new Random();
+    private readonly Random _random = new();
     private bool _isInitialized = false;
     private bool _isPlaying = false;
 
@@ -165,5 +165,7 @@ public class MusicPlayer : IMusicPlayer
     public void Dispose()
     {
         Stop();
+        // There's no finalizer, so suppress finalization as we've cleaned up resources.
+        GC.SuppressFinalize(this);
     }
 }

@@ -36,16 +36,19 @@ namespace WipeoutRewrite.Infrastructure.UI
     public class FontSystem : IFontSystem
     {
         private readonly ILogger<FontSystem> _logger;
-        private readonly CmpImageLoader _cmpLoader;
-        private readonly TimImageLoader _timLoader;
+        private readonly ICmpImageLoader _cmpLoader;
+        private readonly ITimImageLoader _timLoader;
         private readonly CharSet[] _charSets = new CharSet[3];
         private bool _loaded = false;
 
-        public FontSystem(ILogger<FontSystem> logger, CmpImageLoader cmpLoader, TimImageLoader timLoader)
+        public FontSystem(
+            ILogger<FontSystem> logger, 
+            ICmpImageLoader cmpLoader, 
+            ITimImageLoader timLoader)
         {
-            _logger = logger;
-            _cmpLoader = cmpLoader;
-            _timLoader = timLoader;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _cmpLoader = cmpLoader ?? throw new ArgumentNullException(nameof(cmpLoader));
+            _timLoader = timLoader ?? throw new ArgumentNullException(nameof(timLoader));
             // Initialize char sets with data from C code
             _charSets[(int)TextSize.Size16] = new CharSet
             {
@@ -107,7 +110,45 @@ namespace WipeoutRewrite.Infrastructure.UI
                 // Load the 3 font textures (Size16, Size12, Size8)
                 for (int i = 0; i < 3 && i < images.Length; i++)
                 {
-                    (byte[] pixels, int width, int height) = _timLoader.LoadTimFromBytes(images[i], false);
+                    // Fonts must respect TIM transparency flags (MSB) so glyph backgrounds are transparent.
+                    // Pass `transparent=true` to TimImageLoader so alpha is set based on MSB bits in TIM palette/data.
+                    (byte[] pixels, int width, int height) = _timLoader.LoadTimFromBytes(images[i], true);
+
+                    // Heuristic: many font TIMs use a black background (0,0,0) which
+                    // should be transparent for glyph rendering. If we detect that the
+                    // image contains black pixels (opaque) and also contains non-black
+                    // pixels, convert fully-black pixels to transparent so glyphs blend
+                    // correctly over the UI.
+                    if (pixels != null && pixels.Length >= 4)
+                    {
+                        int total = width * height;
+                        int blackCount = 0;
+                        int nonBlackCount = 0;
+                        for (int p = 0; p < pixels.Length; p += 4)
+                        {
+                            byte r = pixels[p + 0];
+                            byte g = pixels[p + 1];
+                            byte b = pixels[p + 2];
+                            byte a = pixels[p + 3];
+                            if (r == 0 && g == 0 && b == 0 && a == 0xFF)
+                                blackCount++;
+                            else if (!(r == 0 && g == 0 && b == 0 && a == 0))
+                                nonBlackCount++;
+                        }
+
+                        // If there are meaningful counts of both black and non-black pixels
+                        // assume black is background and make it transparent (alpha=0).
+                        if (blackCount > 0 && nonBlackCount > 0)
+                        {
+                            for (int p = 0; p < pixels.Length; p += 4)
+                            {
+                                if (pixels[p + 0] == 0 && pixels[p + 1] == 0 && pixels[p + 2] == 0 && pixels[p + 3] == 0xFF)
+                                {
+                                    pixels[p + 3] = 0x00; // make transparent
+                                }
+                            }
+                        }
+                    }
                     if (pixels != null)
                     {
                         _charSets[i].Texture = CreateTexture(pixels, width, height);
@@ -124,7 +165,7 @@ namespace WipeoutRewrite.Infrastructure.UI
             }
         }
 
-        private int CreateTexture(byte[] pixels, int width, int height)
+        private static int CreateTexture(byte[] pixels, int width, int height)
         {
             int textureId = GL.GenTexture();
             GL.BindTexture(TextureTarget.Texture2D, textureId);
@@ -140,7 +181,7 @@ namespace WipeoutRewrite.Infrastructure.UI
             return textureId;
         }
 
-        private int CharToGlyphIndex(char c)
+        private static int CharToGlyphIndex(char c)
         {
             if (c >= '0' && c <= '9')
                 return (c - '0') + 26;

@@ -22,17 +22,18 @@ public static class UIConstants
     public static class Colors
     {
         // Menu colors
-        public static readonly Color4 MenuTitleDefault = new Color4(1.0f, 1.0f, 1.0f, 1.0f);  // White
-        public static readonly Color4 MenuItemDefault = new Color4(1.0f, 1.0f, 1.0f, 1.0f);   // White
-        public static readonly Color4 MenuItemSelected = new Color4(1.0f, 0.8f, 0.0f, 1.0f);  // Yellow/Gold
-        public static readonly Color4 MenuItemDisabled = new Color4(0.5f, 0.5f, 0.5f, 1.0f);  // Gray
+        public static readonly Color4 MenuTitleDefault = new(1.0f, 1.0f, 1.0f, 1.0f);  // White
+        public static readonly Color4 MenuItemDefault = new(1.0f, 1.0f, 1.0f, 1.0f);   // White
+        public static readonly Color4 MenuItemSelected = new(1.0f, 0.8f, 0.0f, 1.0f);  // Yellow/Gold
+        public static readonly Color4 MenuItemDisabled = new(0.5f, 0.5f, 0.5f, 1.0f);  // Gray
         
         // Splash screen
-        public static readonly Color4 SplashText = new Color4(0.5f, 0.5f, 0.5f, 1.0f);  // Gray
+        public static readonly Color4 SplashText = new(0.5f, 0.5f, 0.5f, 1.0f);  // Gray
+        public static readonly Color4 SplashTextYellow = new(1.0f, 0.8f, 0.0f, 1.0f);  // Yellow (blink state)
         
         // Credits
-        public static readonly Color4 CreditsTitle = new Color4(1.0f, 1.0f, 1.0f, 1.0f);  // White
-        public static readonly Color4 CreditsText = new Color4(0.7f, 0.7f, 0.7f, 1.0f);   // Light Gray
+        public static readonly Color4 CreditsTitle = new(1.0f, 1.0f, 1.0f, 1.0f);  // White
+        public static readonly Color4 CreditsText = new(0.7f, 0.7f, 0.7f, 1.0f);   // Light Gray
     }
     
     // ===== SPACING =====

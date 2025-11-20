@@ -5,6 +5,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Graphics.OpenGL4;
 using WipeoutRewrite.Infrastructure.Graphics;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.Video;
 using WipeoutRewrite.Infrastructure.Assets;
 using WipeoutRewrite.Infrastructure.Audio;
@@ -17,22 +18,22 @@ using WipeoutRewrite.Presentation.Menus;
 
 namespace WipeoutRewrite
 {
-    public class Game : GameWindow
+    public class Game : GameWindow, IGame
     {
         private readonly ILogger<Game> _logger;
-        private readonly ILoggerFactory _loggerFactory;
-        private IntroVideoPlayer? _introPlayer;
+        private readonly IVideoPlayer _introVideoPlayer;
         private readonly IRenderer _renderer;
-        private IMenuRenderer? _menuRenderer;
+        private readonly IMenuRenderer _menuRenderer;
         private readonly IFontSystem _fontSystem;
-        private float _spriteX, _spriteY;
+        private float _spriteX, _spriteY = 0;
         private readonly IAssetLoader _assetLoader;
         private readonly IMenuManager _menuManager;
-        private readonly GameState _gameState;
-        private readonly TimImageLoader _timLoader;
-        private TitleScreen? _titleScreen;
-        private AttractMode? _attractMode;
-        private CreditsScreen? _creditsScreen;
+        private readonly IGameState _gameState;
+        private readonly ITimImageLoader _timLoader;
+        private readonly ITitleScreen _titleScreen;
+        private readonly IAttractMode _attractMode;
+        private readonly ICreditsScreen _creditsScreen;
+        private readonly IContentPreview3D _contentPreview3D;
         private readonly IMusicPlayer _musicPlayer;
         
         // Menu background
@@ -46,65 +47,70 @@ namespace WipeoutRewrite
         public Game(
             GameWindowSettings gws,
             NativeWindowSettings nws,
+            ILogger<Game> logger,
+            IVideoPlayer introVideoPlayer,
             IRenderer renderer,
             IMusicPlayer musicPlayer,
             IAssetLoader assetLoader,
             IFontSystem fontSystem,
             IMenuManager menuManager,
-            GameState gameState,
-            TimImageLoader timLoader,
-            ILogger<Game> logger,
-            ILoggerFactory loggerFactory)
+            IMenuRenderer menuRenderer,
+            IGameState gameState,
+            ITimImageLoader timLoader,
+            IAttractMode attractMode,
+            IContentPreview3D contentPreview3D,
+            ITitleScreen titleScreen,
+            ICreditsScreen creditsScreen
+            )
             : base(gws, nws)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _introVideoPlayer = introVideoPlayer ?? throw new ArgumentNullException(nameof(introVideoPlayer));
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _musicPlayer = musicPlayer ?? throw new ArgumentNullException(nameof(musicPlayer));
             _assetLoader = assetLoader ?? throw new ArgumentNullException(nameof(assetLoader));
             _fontSystem = fontSystem ?? throw new ArgumentNullException(nameof(fontSystem));
             _menuManager = menuManager ?? throw new ArgumentNullException(nameof(menuManager));
+            _menuRenderer = menuRenderer ?? throw new ArgumentNullException(nameof(_menuRenderer));    
             _gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
             _timLoader = timLoader ?? throw new ArgumentNullException(nameof(timLoader));
-            
-            _spriteX = 0;
-            _spriteY = 0;
+            _attractMode = attractMode ?? throw new ArgumentNullException(nameof(_attractMode));
+            _contentPreview3D = contentPreview3D ?? throw new ArgumentNullException(nameof(contentPreview3D));
+            _titleScreen = titleScreen ?? throw new ArgumentNullException(nameof(titleScreen));
+            _creditsScreen = creditsScreen ?? throw new ArgumentNullException(nameof(creditsScreen));
         }
 
         protected override void OnLoad()
         {
             base.OnLoad();
 
-            // Inicializar subsistemas
-            Renderer.Init(); // O seu Renderer.Init()
-
-            // Inicializar renderer com tamanho da janela
+            // renderer initialization with window size
             _renderer.Init(Size.X, Size.Y);
 
-            // Inicializar AssetLoader com caminho local dos assets
+            // AssetLoader initialization with local assets path
             string assetsPath = Path.Combine(Directory.GetCurrentDirectory(), "assets");
             _assetLoader.Initialize(assetsPath);
 
-            // Carregar fontes
+            // Load fonts
             _fontSystem.LoadFonts(assetsPath);
 
-            // Carregar lista de tracks
+            // Load track list
             if (_assetLoader.LoadTrackList() is { Count: > 0 } tracks)
             {
                 _logger.LogInformation("Loaded tracks: {Tracks}", string.Join(", ", tracks));
 
-                // Inicializar GameState com primeira track
-                var trackLogger = _loggerFactory.CreateLogger<Track>();
-                var track = new Track(tracks[0], trackLogger);
+                // Initialize IGameState with first track
+               
+                var track = new Track(tracks[0], null);
                 _gameState.Initialize(track, playerShipId: 0);
             }
 
-            // Carregar textura de exemplo (assets/sprite.png)
-            string workDir = System.IO.Directory.GetCurrentDirectory();
+            // Load example texture (assets/sprite.png)
+            string workDir = Directory.GetCurrentDirectory();
             _logger.LogDebug("Working directory: {WorkDir}", workDir);
-            string spritePath = System.IO.Path.Combine(workDir, "assets", "sprite.png");
+            string spritePath = Path.Combine(workDir, "assets", "sprite.png");
             _logger.LogDebug("Looking for sprite at: {SpritePath}", spritePath);
-            if (System.IO.File.Exists(spritePath))
+            if (File.Exists(spritePath))
             {
                 try
                 {
@@ -122,11 +128,14 @@ namespace WipeoutRewrite
             }
             _logger.LogInformation("Game loaded. Window: {Width}x{Height}", Size.X, Size.Y);
 
-            // Inicializar menu e title screen
-            _menuRenderer = new MenuRenderer(Size.X, Size.Y, _renderer, _fontSystem);
-            _titleScreen = new TitleScreen(_timLoader, _fontSystem);
-            _creditsScreen = new CreditsScreen(_fontSystem);
-            _attractMode = new AttractMode(_gameState);
+            // Initialize menu and title screen
+            _menuRenderer.SetWindowSize(Size.X, Size.Y);
+            
+            // Initialize TitleScreen (loads textures - OpenGL is now ready)
+            _titleScreen.Initialize();
+            
+            // Set menu references for callbacks
+            MainMenuPages.GameStateRef = _gameState as GameState;
             
             // Load menu background texture (wipeout1.tim)
             LoadMenuBackground();
@@ -135,35 +144,18 @@ namespace WipeoutRewrite
             string musicPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "music");
             _musicPlayer.LoadTracks(musicPath);
 
-            // Load and start intro video AFTER everything is ready
-            // Use .mpeg (faster) by default, .mp4 available but slower
-            string introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mpeg");
-            if (!File.Exists(introPath))
+            // Load and start intro video AFTER everything is ready (OpenGL is now initialized)
+            _logger.LogInformation("Carregando vídeo intro...");
+            try
             {
-                introPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "intro.mp4");
+                _introVideoPlayer.Play();
+                _gameState.CurrentMode = GameMode.Intro;
             }
-            
-            if (File.Exists(introPath))
+            catch (Exception ex)
             {
-                _logger.LogInformation("Reproduzindo intro: {IntroPath}", introPath);
-                try
-                {
-                    var introLogger = _loggerFactory.CreateLogger<IntroVideoPlayer>();
-                    _introPlayer = new IntroVideoPlayer(introPath, introLogger);
-                    _introPlayer.Play();
-                    _gameState.CurrentMode = GameMode.Intro;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao carregar vídeo");
-                    _gameState.CurrentMode = GameMode.SplashScreen;
-                }
-            }
-            else
-            {
-                _logger.LogWarning("Intro não encontrado: {IntroPath}", introPath);
+                _logger.LogError(ex, "Erro ao carregar vídeo: {Message}", ex.Message);
                 _gameState.CurrentMode = GameMode.SplashScreen;
-                _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash
+                _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash if intro fails
             }
         }
 
@@ -199,11 +191,11 @@ namespace WipeoutRewrite
             }
 
             // Saltar intro com Enter
-            if (_gameState.CurrentMode == GameMode.Intro && _introPlayer != null)
+            if (_gameState?.CurrentMode == GameMode.Intro && _introVideoPlayer != null)
             {
                 if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
-                    _introPlayer.Skip();
+                    _introVideoPlayer.Skip();
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Start music when skipping intro
                     _logger.LogInformation("Saltando para splash screen...");
@@ -211,30 +203,42 @@ namespace WipeoutRewrite
             }
 
             // Splash screen logic
-            else if (_gameState.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
+            else if (_gameState?.CurrentMode == GameMode.SplashScreen)
             {
                 _titleScreen.Update((float)args.Time, out bool shouldStartAttract, out bool shouldStartMenu);
                 
                 if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
                     _gameState.CurrentMode = GameMode.Menu;
+                    
+                    // Initialize ship preview for menu background
+                    _contentPreview3D.SetModel(7);
+                    // Posicionar nave muito mais afastada (Z negativo = mais longe)
+                    _contentPreview3D.SetShipPosition(0, -100, -800);  // Z=-80 para ver a nave completa de longe
+                    _contentPreview3D.SetRotationSpeed(0.015f);     // Velocidade de rotação suave
+                    
+                    // Pass dependencies to MainMenuPages
+                    MainMenuPages.GameStateRef = _gameState as GameState;
+                    MainMenuPages.ContentPreview3DRef = _contentPreview3D;
+                    
                     _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
+                    
                     _logger.LogInformation("Entrando no menu principal: {Title}, {Count} items", 
-                        _menuManager?.CurrentPage?.Title, _menuManager?.CurrentPage?.Items.Count);
+                        _menuManager?.CurrentPage?.Title ?? "<no page>", _menuManager?.CurrentPage?.Items?.Count ?? 0);
                     // Force input update so next frame doesn't immediately trigger Select
                     InputManager.Update(KeyboardState);
                 }
                 else if (shouldStartAttract)
                 {
                     _gameState.CurrentMode = GameMode.AttractMode;
-                    _creditsScreen?.Reset();
+                    _creditsScreen.Reset();
                     _logger.LogInformation("Iniciando attract mode (credits)...");
                     // TODO: When racing engine is implemented, start race with AI + credits
                 }
             }
 
             // Attract mode (credits) - qualquer tecla volta ao splash
-            if (_gameState.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
+            if (_gameState?.CurrentMode == GameMode.AttractMode)
             {
                 _creditsScreen.Update((float)args.Time);
                 
@@ -242,13 +246,13 @@ namespace WipeoutRewrite
                 if (KeyboardState.IsAnyKeyDown)
                 {
                     _gameState.CurrentMode = GameMode.SplashScreen;
-                    _titleScreen?.Reset();
+                    _titleScreen.Reset();
                     _logger.LogInformation("Voltando ao splash screen...");
                 }
             }
 
             // Menu navigation
-            if (_gameState.CurrentMode == GameMode.Menu && _menuManager != null)
+            if (_gameState.CurrentMode == GameMode.Menu)
             {
                 _menuManager.Update((float)args.Time);
                 
@@ -291,7 +295,7 @@ namespace WipeoutRewrite
                     {
                         // No more pages, go back to title
                         _gameState.CurrentMode = GameMode.SplashScreen;
-                        _titleScreen?.Reset();
+                        _titleScreen.Reset();
                         _logger.LogInformation("Menu: BACKSPACE - voltando para title screen...");
                     }
                 }
@@ -299,13 +303,13 @@ namespace WipeoutRewrite
                 {
                     // ESC in menu goes back to splash screen
                     _gameState.CurrentMode = GameMode.SplashScreen;
-                    _titleScreen?.Reset();
+                    _titleScreen.Reset();
                     _logger.LogInformation("Menu: ESC - voltando para title screen...");
                 }
             }
 
             // Attract mode update
-            if (_gameState.CurrentMode == GameMode.AttractMode && _attractMode != null)
+            if (_gameState?.CurrentMode == GameMode.AttractMode && _attractMode != null)
             {
                 _attractMode.Update((float)args.Time);
                 
@@ -313,7 +317,7 @@ namespace WipeoutRewrite
                 if (KeyboardState.IsAnyKeyDown)
                 {
                     _attractMode.Stop();
-                    _titleScreen?.OnAttractComplete();
+                    _titleScreen.OnAttractComplete();
                     _logger.LogInformation("Saindo do attract mode...");
                 }
             }
@@ -324,15 +328,16 @@ namespace WipeoutRewrite
                 _gameState.Update((float)args.Time);
                 
                 // Se temos um jogador, processar input
-                if (_gameState.PlayerShip != null)
-                {
-                    _gameState.PlayerShip.InputAccelerate = InputManager.IsActionDown(GameAction.Accelerate, KeyboardState);
-                    _gameState.PlayerShip.InputBrake = InputManager.IsActionDown(GameAction.Brake, KeyboardState);
-                    _gameState.PlayerShip.InputTurnLeft = InputManager.IsActionDown(GameAction.TurnLeft, KeyboardState);
-                    _gameState.PlayerShip.InputTurnRight = InputManager.IsActionDown(GameAction.TurnRight, KeyboardState);
-                    _gameState.PlayerShip.InputBoostLeft = InputManager.IsActionDown(GameAction.BoostLeft, KeyboardState);
-                    _gameState.PlayerShip.InputBoostRight = InputManager.IsActionDown(GameAction.BoostRight, KeyboardState);
-                }
+         
+                _gameState.SetPlayerShip(
+                    InputManager.IsActionDown(GameAction.Accelerate, KeyboardState),
+                    InputManager.IsActionDown(GameAction.Brake, KeyboardState),
+                    InputManager.IsActionDown(GameAction.TurnLeft, KeyboardState),
+                    InputManager.IsActionDown(GameAction.TurnRight, KeyboardState),
+                    InputManager.IsActionDown(GameAction.BoostLeft, KeyboardState),
+                    InputManager.IsActionDown(GameAction.BoostRight, KeyboardState)
+                );
+                    
             }
 
             // Movimento do sprite baseado em input (para teste visual)
@@ -364,55 +369,101 @@ namespace WipeoutRewrite
             if (_renderer == null) return;
 
             // Render intro video if playing
-            if (_gameState.CurrentMode == GameMode.Intro && _introPlayer != null)
+            if (_gameState.CurrentMode == GameMode.Intro && _introVideoPlayer != null)
             {
-                if (_introPlayer.IsPlaying)
+                if (_introVideoPlayer.IsPlaying)
                 {
-                    _introPlayer.Update(); // Atualiza frame
+                    _introVideoPlayer.Update(); // Atualiza frame
                     
-                    // Draw video centered with correct aspect ratio
-                    _renderer.RenderVideoFrame(
-                        _introPlayer.GetTextureId(),
-                        _introPlayer.GetWidth(),
-                        _introPlayer.GetHeight(),
-                        ClientSize.X,
-                        ClientSize.Y
-                    );
+                    // Get current frame data and render
+                    byte[]? frameData = _introVideoPlayer.GetCurrentFrameData();
+                    if (frameData != null && frameData.Length > 0)
+                    {
+                        // Begin frame to clear screen and setup state
+                        _renderer.BeginFrame();
+                        _renderer.Setup2DRendering();
+                        
+                        _renderer.RenderVideoFrame(
+                            frameData,
+                            _introVideoPlayer.GetWidth(),
+                            _introVideoPlayer.GetHeight(),
+                            ClientSize.X,
+                            ClientSize.Y
+                        );
+                        
+                        _renderer.EndFrame2D();
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Frame data is null or empty");
+                    }
                 }
                 else
                 {
                     // Video ended, go to splash screen
-                    _introPlayer.Dispose();
-                    _introPlayer = null;
+                    _introVideoPlayer.Dispose();
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash
                     _logger.LogInformation("Intro terminada, a mostrar splash screen...");
                 }
             }
-            else if (_gameState.CurrentMode == GameMode.SplashScreen && _titleScreen != null)
+            else if (_gameState.CurrentMode == GameMode.SplashScreen)
             {
                 // Render title screen
-                _titleScreen.Render(_renderer, ClientSize.X, ClientSize.Y);
+                _titleScreen.Render(ClientSize.X, ClientSize.Y);
             }
-            else if (_gameState.CurrentMode == GameMode.AttractMode && _creditsScreen != null)
+            else if (_gameState.CurrentMode == GameMode.AttractMode)
             {
                 // Render credits
-                _creditsScreen.Render(_renderer, ClientSize.X, ClientSize.Y);
+                _creditsScreen.Render(ClientSize.X, ClientSize.Y);
             }
-            else if (_gameState.CurrentMode == GameMode.Menu && _menuManager != null && _menuRenderer != null)
+            else if (_gameState.CurrentMode == GameMode.Menu)
             {
-                // Render menu
+                // Render menu with ship in background
                 _renderer.BeginFrame();
                 
-                // Draw background texture (wipeout1.tim)
+                // 2D background texture
+                _renderer.Setup2DRendering();
                 if (_menuBackgroundLoaded)
                 {
                     _renderer.SetCurrentTexture(_menuBackgroundTexture);
                     _renderer.PushSprite(0, 0, ClientSize.X, ClientSize.Y, new OpenTK.Mathematics.Vector4(1, 1, 1, 1));
                 }
+                _renderer.EndFrame2D();
                 
+                // 3D preview - APENAS na página principal do menu
+                // Renderizar objeto diferente baseado no item selecionado
+                var currentPage = _menuManager.CurrentPage;
+                bool isMainMenuPage = currentPage != null && 
+                                     currentPage.Title == "OPTIONS" && 
+                                     currentPage.Items.Count == 3 &&
+                                     currentPage.Items[0].Label == "START GAME";
+                
+                if (isMainMenuPage && currentPage != null)
+                {
+                    // Renderizar modelo diferente baseado no item selecionado
+                    int selectedIndex = currentPage.SelectedIndex;
+                    
+                    switch (selectedIndex)
+                    {
+                        case 0: // START GAME - Nave
+                            _contentPreview3D.Render<IShipV2>(7);
+                            break;
+                        case 1: // OPTIONS - Nave diferente (temporário, depois será "?")
+                            _contentPreview3D.Render<IShipV2>(3);
+                            break;
+                        case 2: // QUIT - Outra nave (temporário, depois será "MS DOS")
+                            _contentPreview3D.Render<IShipV2>(0);
+                            break;
+                    }
+                }
+                
+                // 2D menu UI
+                _renderer.Setup2DRendering();
+                _renderer.SetDepthTest(false);
+                _renderer.SetPassthroughProjection(false);
                 _menuRenderer.RenderMenu(_menuManager);
-                _renderer.EndFrame();
+                _renderer.EndFrame2D();
             }
             else if (_gameState.CurrentMode == GameMode.AttractMode && _attractMode != null)
             {
@@ -440,7 +491,7 @@ namespace WipeoutRewrite
                 _renderer.UpdateScreenSize(e.Width, e.Height);
                 
                 // Recreate menu renderer with new dimensions for proper positioning
-                _menuRenderer = new MenuRenderer(e.Width, e.Height, _renderer, _fontSystem);
+                _menuRenderer.SetWindowSize(e.Width, e.Height);
                 _logger.LogDebug("MenuRenderer updated for new window size: {Width}x{Height}", e.Width, e.Height);
             }
         }
@@ -452,7 +503,8 @@ namespace WipeoutRewrite
                 string timPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "textures", "wipeout1.tim");
                 if (File.Exists(timPath))
                 {
-                    var (pixels, width, height) = _timLoader.LoadTim(timPath, false);
+                    // Preserve TIM transparency when loading the menu background
+                    var (pixels, width, height) = _timLoader.LoadTim(timPath, true);
                     
                     // Create OpenGL texture
                     _menuBackgroundTexture = GL.GenTexture();
@@ -480,8 +532,13 @@ namespace WipeoutRewrite
         protected override void OnUnload()
         {
             base.OnUnload();
-            _introPlayer?.Dispose();
+            _introVideoPlayer?.Dispose();
             _renderer?.Cleanup();
         }
+
+        public override void Run()
+        {
+            base.Run();
+        }   
     }
 }

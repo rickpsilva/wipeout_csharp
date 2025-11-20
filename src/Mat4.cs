@@ -114,5 +114,16 @@ namespace WipeoutRewrite
         }
         
         public static Mat4 operator *(Mat4 a, Mat4 b) => Multiply(a, b);
+        
+        /// <summary>
+        /// Transform a 3D point by this matrix.
+        /// </summary>
+        public readonly Vec3 TransformPoint(Vec3 point)
+        {
+            float x = M[0] * point.X + M[4] * point.Y + M[8] * point.Z + M[12];
+            float y = M[1] * point.X + M[5] * point.Y + M[9] * point.Z + M[13];
+            float z = M[2] * point.X + M[6] * point.Y + M[10] * point.Z + M[14];
+            return new Vec3(x, y, z);
+        }
     }
 }

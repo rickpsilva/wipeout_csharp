@@ -12,9 +12,9 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 {
     private ALDevice _device;
     private ALContext _context;
-    private int _buffer;
-    private int _source;
-    private bool _isInitialized;
+    private readonly int _buffer;
+    private readonly int _source;
+    private readonly bool _isInitialized;
     private bool _isDisposed;
 
     public AudioPlayer()
@@ -78,7 +78,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             using var br = new BinaryReader(fs);
 
             // Ler header RIFF
-            string riff = new string(br.ReadChars(4));
+            string riff = new(br.ReadChars(4));
             if (riff != "RIFF")
             {
                 Console.WriteLine("Warning: Not a valid WAV file (missing RIFF)");
@@ -86,7 +86,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             }
 
             br.ReadInt32(); // File size - 8
-            string wave = new string(br.ReadChars(4));
+            string wave = new(br.ReadChars(4));
             if (wave != "WAVE")
             {
                 Console.WriteLine("Warning: Not a valid WAV file (missing WAVE)");
@@ -94,7 +94,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             }
 
             // Ler chunk "fmt "
-            string fmt = new string(br.ReadChars(4));
+            string fmt = new(br.ReadChars(4));
             if (fmt != "fmt ")
             {
                 Console.WriteLine("Warning: WAV format chunk not found");
@@ -129,7 +129,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             }
 
             // Procurar chunk "data"
-            string dataChunk = new string(br.ReadChars(4));
+            string dataChunk = new(br.ReadChars(4));
             while (dataChunk != "data" && fs.Position < fs.Length)
             {
                 int skipSize = br.ReadInt32();
@@ -308,5 +308,9 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         }
 
         _isDisposed = true;
+
+        // Inform the GC that finalization is not required because
+        // we've manually released all managed/unmanaged resources.
+        GC.SuppressFinalize(this);
     }
 }

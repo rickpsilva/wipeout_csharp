@@ -12,6 +12,7 @@ namespace WipeoutRewrite.Core.Services
         SplashScreen,  // Title screen with "PRESS ENTER" and wiptitle.tim
         Menu,          // Main menu with START GAME, OPTIONS, QUIT
         AttractMode,
+        ShipPreview,   // Preview ship before race
         Loading,
         Racing,
         Paused,
@@ -19,31 +20,38 @@ namespace WipeoutRewrite.Core.Services
         Victory
     }
 
-    public class GameState
+    public class GameState : IGameState
     {
         private readonly ILogger<GameState> _logger;
-        
+
+        private readonly IShips _ships;
+
+        private readonly IShipV2 _shipPlayer;
         public GameMode CurrentMode { get; set; }
-        public Track? CurrentTrack { get; set; }
-        public List<Ship> Ships { get; set; }
-        public Ship? PlayerShip { get; set; }
+        public Track CurrentTrack { get; set; } = null!;
 
         // Dados de corrida
         public int LapNumber { get; set; }
         public float RaceTime { get; set; }
         public int Position { get; set; } // Player position in race
-        public int TotalPlayers { get; set; }
+        public int TotalPlayers { get; set; } = 8;
 
         // Settings
         public int Difficulty { get; set; }
         public int GameSpeed { get; set; }
         public bool EnableAI { get; set; }
 
-        public GameState(ILogger<GameState> logger)
+        public GameState(
+            ILogger<GameState> logger,
+            IShips ships,
+            IShipV2 shipPlayer
+        )
         {
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _ships = ships ?? throw new ArgumentNullException(nameof(ships));
+            _shipPlayer = shipPlayer ?? throw new ArgumentNullException(nameof(shipPlayer));
+            
             CurrentMode = GameMode.Menu;
-            Ships = new List<Ship>();
             LapNumber = 1;
             RaceTime = 0;
             Position = 1;
@@ -57,22 +65,12 @@ namespace WipeoutRewrite.Core.Services
         {
             CurrentTrack = track;
             CurrentMode = GameMode.Loading;
-            Ships.Clear();
+            _ships.Clear();
             LapNumber = 1;
             RaceTime = 0;
-
-            // Criar naves IA
-            for (int i = 0; i < TotalPlayers; i++)
-            {
-                var ship = new Ship($"Ship_{i}", i);
-                if (i == playerShipId)
-                {
-                    PlayerShip = ship;
-                }
-                Ships.Add(ship);
-            }
-
-            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, Ships.Count);
+            _ships.ShipsInit(null);
+           
+            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, _ships.AllShips.Count);
         }
 
         public void Update(float deltaTime)
@@ -82,26 +80,23 @@ namespace WipeoutRewrite.Core.Services
 
             RaceTime += deltaTime;
 
-            // Atualizar todas as naves
-            foreach (var ship in Ships)
-            {
-                ship.Update(deltaTime);
-            }
+            _ships.ShipsUpdate();
 
             // TODO: collision logic, AI, checkpoints
         }
 
         public void Render(GLRenderer renderer)
         {
-            if (CurrentTrack != null)
-            {
-                CurrentTrack.Render(renderer);
-            }
+            CurrentTrack?.Render(renderer);
 
-            foreach (var ship in Ships)
-            {
-                ship.Render(renderer);
-            }
+           _ships.ShipsRenderer();
+        }
+
+        public void SetPlayerShip(bool accelerate, bool brake, bool turnLeft, bool turnRight, bool boostLeft, bool boostRight)
+        {
+            _logger.LogDebug("Setting player ship controls: Accel={Accelerate}, Brake={Brake}, Left={TurnLeft}, Right={TurnRight}, BoostL={BoostLeft}, BoostR={BoostRight}",
+                accelerate, brake, turnLeft, turnRight, boostLeft, boostRight);
         }
     }
+
 }

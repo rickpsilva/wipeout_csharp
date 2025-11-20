@@ -9,15 +9,10 @@ namespace WipeoutRewrite.Core.Entities
     /// Ship entity - represents a racing ship in the game.
     /// Based on wipeout-rewrite/src/wipeout/ship.c
     /// </summary>
+    [Obsolete("Use ShipV2 instead")]
     public class Ship
     {
-        // Physics constants (from ship.h)
-        private const float ShipFlyingGravity = 80000.0f;
-        private const float ShipOnTrackGravity = 30000.0f;
-        private const float ShipMinResistance = 20.0f;
-        private const float ShipMaxResistance = 74.0f;
-        private const float ShipTrackMagnet = 64.0f;
-        private const float ShipTrackFloat = 256.0f;
+        // Physics constants (from ship.h) — constants removed because they were not referenced.
         
         private readonly ILogger<Ship>? _logger;
         
@@ -281,19 +276,32 @@ namespace WipeoutRewrite.Core.Entities
         }
         
         /// <summary>
+        /// Convert 3D vertex to 2D screen position with isometric projection.
+        /// Z is projected diagonally to create depth illusion.
+        /// </summary>
+        private static OpenTK.Mathematics.Vector3 ProjectTo2D(Vec3 vertex, Mat4 transform)
+        {
+            // Apply rotation transformation
+            Vec3 rotated = transform.TransformPoint(vertex);
+            
+            // Isometric projection: shift X and Y based on Z depth
+            float zFactor = 0.3f; // How much Z affects screen position
+            float screenX = rotated.X + rotated.Z * zFactor;
+            float screenY = rotated.Y + rotated.Z * zFactor * 0.5f; // Half for Y to look more natural
+            return new OpenTK.Mathematics.Vector3(screenX, screenY, 0); // Z=0 for 2D rendering
+        }
+        
+        /// <summary>
         /// Render a flat textured triangle (FT3).
         /// </summary>
-        private void RenderFT3(IRenderer renderer, FT3 primitive, Vec3[] vertices, Mat4 transform)
+        private static void RenderFT3(IRenderer renderer, FT3 primitive, Vec3[] vertices, Mat4 transform)
         {
             // Get vertices
             Vec3 v0 = vertices[primitive.CoordIndices[0]];
             Vec3 v1 = vertices[primitive.CoordIndices[1]];
             Vec3 v2 = vertices[primitive.CoordIndices[2]];
             
-            // Transform vertices by model matrix
-            // TODO: Implement Mat4 * Vec3 transformation
-            
-            // For now, render at ship position (simplified)
+            // Use primitive color from model
             var color = new OpenTK.Mathematics.Vector4(
                 primitive.Color.r / 255f,
                 primitive.Color.g / 255f,
@@ -301,15 +309,19 @@ namespace WipeoutRewrite.Core.Entities
                 primitive.Color.a / 255f
             );
             
+            // Textures are applied at higher level (ShipPreview). To avoid
+            // regressions in core ship rendering, render textured primitives
+            // as solid-colored triangles here (fallback behavior).
+            var centerUv = new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
             renderer.PushTri(
-                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[0].u, primitive.UVs[0].v),
+                ProjectTo2D(v0, transform),
+                centerUv,
                 color,
-                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[1].u, primitive.UVs[1].v),
+                ProjectTo2D(v1, transform),
+                centerUv,
                 color,
-                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[2].u, primitive.UVs[2].v),
+                ProjectTo2D(v2, transform),
+                centerUv,
                 color
             );
         }
@@ -317,24 +329,27 @@ namespace WipeoutRewrite.Core.Entities
         /// <summary>
         /// Render a Gouraud textured triangle (GT3).
         /// </summary>
-        private void RenderGT3(IRenderer renderer, GT3 primitive, Vec3[] vertices, Mat4 transform)
+        private static void RenderGT3(IRenderer renderer, GT3 primitive, Vec3[] vertices, Mat4 transform)
         {
             // Similar to FT3 but with per-vertex colors
             Vec3 v0 = vertices[primitive.CoordIndices[0]];
             Vec3 v1 = vertices[primitive.CoordIndices[1]];
             Vec3 v2 = vertices[primitive.CoordIndices[2]];
             
+            // Textures are applied at higher level (ShipPreview). Render as
+            // per-vertex-colored triangles here to preserve original look.
+            var centerUv = new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
             renderer.PushTri(
-                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[0].u, primitive.UVs[0].v),
+                ProjectTo2D(v0, transform),
+                centerUv,
                 new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, 
                     primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f),
-                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[1].u, primitive.UVs[1].v),
+                ProjectTo2D(v1, transform),
+                centerUv,
                 new OpenTK.Mathematics.Vector4(primitive.Colors[1].r / 255f, primitive.Colors[1].g / 255f, 
                     primitive.Colors[1].b / 255f, primitive.Colors[1].a / 255f),
-                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(primitive.UVs[2].u, primitive.UVs[2].v),
+                ProjectTo2D(v2, transform),
+                centerUv,
                 new OpenTK.Mathematics.Vector4(primitive.Colors[2].r / 255f, primitive.Colors[2].g / 255f, 
                     primitive.Colors[2].b / 255f, primitive.Colors[2].a / 255f)
             );
@@ -343,12 +358,13 @@ namespace WipeoutRewrite.Core.Entities
         /// <summary>
         /// Render a flat triangle (F3) - solid color, no texture.
         /// </summary>
-        private void RenderF3(IRenderer renderer, F3 primitive, Vec3[] vertices, Mat4 transform)
+        private static void RenderF3(IRenderer renderer, F3 primitive, Vec3[] vertices, Mat4 transform)
         {
             Vec3 v0 = vertices[primitive.CoordIndices[0]];
             Vec3 v1 = vertices[primitive.CoordIndices[1]];
             Vec3 v2 = vertices[primitive.CoordIndices[2]];
             
+            // Use primitive color from model
             var color = new OpenTK.Mathematics.Vector4(
                 primitive.Color.r / 255f,
                 primitive.Color.g / 255f,
@@ -357,14 +373,14 @@ namespace WipeoutRewrite.Core.Entities
             );
             
             renderer.PushTri(
-                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(0, 0),
+                ProjectTo2D(v0, transform),
+                new OpenTK.Mathematics.Vector2(0.5f, 0.5f), // Center for solid color
                 color,
-                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(0, 0),
+                ProjectTo2D(v1, transform),
+                new OpenTK.Mathematics.Vector2(0.5f, 0.5f),
                 color,
-                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
-                new OpenTK.Mathematics.Vector2(0, 0),
+                ProjectTo2D(v2, transform),
+                new OpenTK.Mathematics.Vector2(0.5f, 0.5f),
                 color
             );
         }
@@ -391,8 +407,8 @@ namespace WipeoutRewrite.Core.Entities
             
             // TODO: Get track face below ship (requires track system integration)
             // For now, assume horizontal plane at Y=0
-            Vec3 trackFacePoint = new Vec3(Position.X, 0, Position.Z);
-            Vec3 trackNormal = new Vec3(0, 1, 0); // Up vector
+            Vec3 trackFacePoint = new(Position.X, 0, Position.Z);
+            Vec3 trackNormal = new(0, 1, 0); // Up vector
             
             // Project all three points onto the track face
             Vec3 noseProjected = nose.ProjectOntoPlane(trackFacePoint, trackNormal);
@@ -405,13 +421,13 @@ namespace WipeoutRewrite.Core.Entities
             
             renderer.PushTri(
                 new OpenTK.Mathematics.Vector3(wingLeftProjected.X, wingLeftProjected.Y, wingLeftProjected.Z),
-                new OpenTK.Mathematics.Vector2(0, 256),
+                new OpenTK.Mathematics.Vector2(0f / 256f, 256f / 256f),
                 shadowColor,
                 new OpenTK.Mathematics.Vector3(wingRightProjected.X, wingRightProjected.Y, wingRightProjected.Z),
-                new OpenTK.Mathematics.Vector2(128, 256),
+                new OpenTK.Mathematics.Vector2(128f / 256f, 256f / 256f),
                 shadowColor,
                 new OpenTK.Mathematics.Vector3(noseProjected.X, noseProjected.Y, noseProjected.Z),
-                new OpenTK.Mathematics.Vector2(64, 0),
+                new OpenTK.Mathematics.Vector2(64f / 256f, 0f / 256f),
                 shadowColor
             );
             

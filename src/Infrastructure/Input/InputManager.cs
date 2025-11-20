@@ -29,7 +29,7 @@ namespace WipeoutRewrite.Infrastructure.Input
 
     public static class InputManager
     {
-        private static Dictionary<GameAction, Keys> _keyBindings = new()
+        private static readonly Dictionary<GameAction, Keys> _keyBindings = new()
         {
             { GameAction.Accelerate, Keys.Up },
             { GameAction.Brake, Keys.Down },
@@ -52,7 +52,7 @@ namespace WipeoutRewrite.Infrastructure.Input
         };
 
         // Previous state to detect changes (key press vs hold)
-        private static Dictionary<GameAction, bool> _previousState = new();
+        private static readonly Dictionary<GameAction, bool> _previousState = new();
 
         static InputManager()
         {
