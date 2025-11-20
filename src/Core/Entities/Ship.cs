@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Infrastructure.Graphics;
+using WipeoutRewrite.Core.Graphics;
 
 namespace WipeoutRewrite.Core.Entities
 {
@@ -19,6 +20,11 @@ namespace WipeoutRewrite.Core.Entities
         private const float ShipTrackFloat = 256.0f;
         
         private readonly ILogger<Ship>? _logger;
+        
+        /// <summary>
+        /// 3D model for rendering (loaded from PRM file)
+        /// </summary>
+        public Mesh? Model { get; set; }
         
         // Identification
         public string Name { get; set; } = "";
@@ -247,19 +253,120 @@ namespace WipeoutRewrite.Core.Entities
         /// </summary>
         public void Render(IRenderer renderer)
         {
-            if (!IsVisible)
+            if (!IsVisible || Model == null)
                 return;
                 
             // Calculate transformation matrix
             Mat4 transformMatrix = CalculateTransformMatrix();
             
-            // TODO: When model loading is implemented:
-            // 1. Load ship model from allsh.prm (done once at startup)
-            // 2. Call object_draw(model, &transformMatrix)
-            // 3. Render exhaust plume effect
+            // Render each primitive (triangle) of the model
+            foreach (var primitive in Model.Primitives)
+            {
+                if (primitive is FT3 ft3)
+                {
+                    RenderFT3(renderer, ft3, Model.Vertices, transformMatrix);
+                }
+                else if (primitive is GT3 gt3)
+                {
+                    RenderGT3(renderer, gt3, Model.Vertices, transformMatrix);
+                }
+                else if (primitive is F3 f3)
+                {
+                    RenderF3(renderer, f3, Model.Vertices, transformMatrix);
+                }
+            }
             
-            _logger?.LogDebug("Rendering ship {Name} at {Pos} with transform matrix", 
-                Name, Position);
+            _logger?.LogDebug("Rendered ship {Name} with {PrimCount} primitives", 
+                Name, Model.Primitives.Count);
+        }
+        
+        /// <summary>
+        /// Render a flat textured triangle (FT3).
+        /// </summary>
+        private void RenderFT3(IRenderer renderer, FT3 primitive, Vec3[] vertices, Mat4 transform)
+        {
+            // Get vertices
+            Vec3 v0 = vertices[primitive.CoordIndices[0]];
+            Vec3 v1 = vertices[primitive.CoordIndices[1]];
+            Vec3 v2 = vertices[primitive.CoordIndices[2]];
+            
+            // Transform vertices by model matrix
+            // TODO: Implement Mat4 * Vec3 transformation
+            
+            // For now, render at ship position (simplified)
+            var color = new OpenTK.Mathematics.Vector4(
+                primitive.Color.r / 255f,
+                primitive.Color.g / 255f,
+                primitive.Color.b / 255f,
+                primitive.Color.a / 255f
+            );
+            
+            renderer.PushTri(
+                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[0].u, primitive.UVs[0].v),
+                color,
+                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[1].u, primitive.UVs[1].v),
+                color,
+                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[2].u, primitive.UVs[2].v),
+                color
+            );
+        }
+        
+        /// <summary>
+        /// Render a Gouraud textured triangle (GT3).
+        /// </summary>
+        private void RenderGT3(IRenderer renderer, GT3 primitive, Vec3[] vertices, Mat4 transform)
+        {
+            // Similar to FT3 but with per-vertex colors
+            Vec3 v0 = vertices[primitive.CoordIndices[0]];
+            Vec3 v1 = vertices[primitive.CoordIndices[1]];
+            Vec3 v2 = vertices[primitive.CoordIndices[2]];
+            
+            renderer.PushTri(
+                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[0].u, primitive.UVs[0].v),
+                new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, 
+                    primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f),
+                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[1].u, primitive.UVs[1].v),
+                new OpenTK.Mathematics.Vector4(primitive.Colors[1].r / 255f, primitive.Colors[1].g / 255f, 
+                    primitive.Colors[1].b / 255f, primitive.Colors[1].a / 255f),
+                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(primitive.UVs[2].u, primitive.UVs[2].v),
+                new OpenTK.Mathematics.Vector4(primitive.Colors[2].r / 255f, primitive.Colors[2].g / 255f, 
+                    primitive.Colors[2].b / 255f, primitive.Colors[2].a / 255f)
+            );
+        }
+        
+        /// <summary>
+        /// Render a flat triangle (F3) - solid color, no texture.
+        /// </summary>
+        private void RenderF3(IRenderer renderer, F3 primitive, Vec3[] vertices, Mat4 transform)
+        {
+            Vec3 v0 = vertices[primitive.CoordIndices[0]];
+            Vec3 v1 = vertices[primitive.CoordIndices[1]];
+            Vec3 v2 = vertices[primitive.CoordIndices[2]];
+            
+            var color = new OpenTK.Mathematics.Vector4(
+                primitive.Color.r / 255f,
+                primitive.Color.g / 255f,
+                primitive.Color.b / 255f,
+                primitive.Color.a / 255f
+            );
+            
+            renderer.PushTri(
+                new OpenTK.Mathematics.Vector3(v0.X + Position.X, v0.Y + Position.Y, v0.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(0, 0),
+                color,
+                new OpenTK.Mathematics.Vector3(v1.X + Position.X, v1.Y + Position.Y, v1.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(0, 0),
+                color,
+                new OpenTK.Mathematics.Vector3(v2.X + Position.X, v2.Y + Position.Y, v2.Z + Position.Z),
+                new OpenTK.Mathematics.Vector2(0, 0),
+                color
+            );
         }
         
         /// <summary>
