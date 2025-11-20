@@ -74,6 +74,28 @@ namespace WipeoutRewrite
         /// </summary>
         public float DistanceTo(Vec3 other) => Subtract(other).Length();
         
+        /// <summary>
+        /// Calculate distance from this point to a plane defined by a point on the plane and its normal.
+        /// Returns positive if point is on the side of the normal, negative otherwise.
+        /// Based on vec3_distance_to_plane from wipeout-rewrite/src/types.c
+        /// </summary>
+        public float DistanceToPlane(Vec3 planePoint, Vec3 planeNormal)
+        {
+            Vec3 diff = this - planePoint;
+            return diff.Dot(planeNormal);
+        }
+        
+        /// <summary>
+        /// Project this point onto a plane defined by a point and normal.
+        /// Returns the closest point on the plane.
+        /// Based on ship_draw_shadow projection logic from ship.c
+        /// </summary>
+        public Vec3 ProjectOntoPlane(Vec3 planePoint, Vec3 planeNormal)
+        {
+            float distance = DistanceToPlane(planePoint, planeNormal);
+            return this - planeNormal * distance;
+        }
+        
         // Operator overloads for convenience
         public static Vec3 operator +(Vec3 a, Vec3 b) => a.Add(b);
         public static Vec3 operator -(Vec3 a, Vec3 b) => a.Subtract(b);

@@ -265,21 +265,50 @@ namespace WipeoutRewrite.Core.Entities
         /// <summary>
         /// Render ship shadow projected onto track surface.
         /// Based on ship_draw_shadow() from ship.c
+        /// 
+        /// Algorithm:
+        /// 1. Calculate nose and wing positions in 3D space
+        /// 2. Get track face below ship (base face of current section)
+        /// 3. Project all three points onto track face using plane projection
+        /// 4. Render shadow as semi-transparent triangle
         /// </summary>
         public void RenderShadow(IRenderer renderer)
         {
             if (!IsVisible || IsFlying)
                 return;
                 
-            // Calculate shadow vertices (nose + two wings projected onto track)
+            // Calculate shadow vertices (nose + two wings in 3D space)
             Vec3 nose = GetNosePosition();
             Vec3 wingLeft = GetWingLeftPosition();
             Vec3 wingRight = GetWingRightPosition();
             
-            // TODO: Project these positions onto track face
-            // TODO: Render shadow triangle with semi-transparent texture
+            // TODO: Get track face below ship (requires track system integration)
+            // For now, assume horizontal plane at Y=0
+            Vec3 trackFacePoint = new Vec3(Position.X, 0, Position.Z);
+            Vec3 trackNormal = new Vec3(0, 1, 0); // Up vector
             
-            _logger?.LogDebug("Rendering shadow for ship {Name}", Name);
+            // Project all three points onto the track face
+            Vec3 noseProjected = nose.ProjectOntoPlane(trackFacePoint, trackNormal);
+            Vec3 wingLeftProjected = wingLeft.ProjectOntoPlane(trackFacePoint, trackNormal);
+            Vec3 wingRightProjected = wingRight.ProjectOntoPlane(trackFacePoint, trackNormal);
+            
+            // Render shadow triangle with semi-transparent black color (rgba: 0, 0, 0, 128)
+            // UV coordinates from ship.c: wingLeft=(0,256), wingRight=(128,256), nose=(64,0)
+            var shadowColor = new OpenTK.Mathematics.Vector4(0f, 0f, 0f, 0.5f); // 128/256 = 0.5 alpha
+            
+            renderer.PushTri(
+                new OpenTK.Mathematics.Vector3(wingLeftProjected.X, wingLeftProjected.Y, wingLeftProjected.Z),
+                new OpenTK.Mathematics.Vector2(0, 256),
+                shadowColor,
+                new OpenTK.Mathematics.Vector3(wingRightProjected.X, wingRightProjected.Y, wingRightProjected.Z),
+                new OpenTK.Mathematics.Vector2(128, 256),
+                shadowColor,
+                new OpenTK.Mathematics.Vector3(noseProjected.X, noseProjected.Y, noseProjected.Z),
+                new OpenTK.Mathematics.Vector2(64, 0),
+                shadowColor
+            );
+            
+            _logger?.LogDebug("Rendered shadow for ship {Name} at position {Position}", Name, Position);
         }
     }
 
