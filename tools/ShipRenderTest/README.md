@@ -1,53 +1,109 @@
-# Ship Render Test Tool
+# Ship Render Test & 3D Model Editor
 
-Ferramenta dedicada para debugar renderização de ships 3D.
+Advanced tool for debugging and editing 3D ship models with a visual UI overlay.
 
-## Propósito
+## Features
 
-Esta ferramenta foi criada para isolar e debugar problemas de renderização de ships, permitindo:
-- Testar diferentes escalas
-- Testar diferentes posições
-- Visualizar vértices e geometria
-- Debug de transformações
-- Comparar configurações lado a lado
+### 3D Rendering
+- Real-time 3D ship model visualization using OpenGL
+- Perspective camera with full mouse control
+- Automatic rotation mode (F key toggle)
+- Camera controls:
+  - Mouse drag: Rotate around model
+  - Mouse wheel: Zoom in/out
+  - Right-click drag: Pan camera
 
-## Como Usar
+### Visual UI (ImGui Overlay)
+- **Toolbar**: 
+  - "Load Model" button to toggle model browser
+  - "Reset Camera" button to restore default view
+  
+- **Model Browser Panel**:
+  - Browse all 171+ available PRM (3D model) files
+  - Click to select and load models
+  - Highlighted selection indicator
+  
+- **Properties Panel**:
+  - Display file information (name, size, path)
+  - Show model statistics (polygons, textures, vertices)
+  
+- **Rendering Options**:
+  - Auto-rotate checkbox for continuous rotation
 
-### Executar
+## Keyboard Controls
+
+| Key | Action |
+|-----|--------|
+| `F` | Toggle auto-rotate mode |
+| `3` | Toggle Y-axis rotation |
+| `Space` | Next test configuration |
+| `R` | Reset to initial state |
+| `1`-`9` | Switch between test models |
+| `Escape` | Close application |
+
+## Running the Tool
 
 ```bash
-# Opção 1: Script direto
+# Using the test script
 ./test-ship-render.sh
 
-# Opção 2: dotnet run
+# Or using dotnet directly
 dotnet run --project tools/ShipRenderTest/ShipRenderTest.csproj
 ```
 
-### Controles
+## Architecture
 
-| Tecla | Ação |
-|-------|------|
-| `SPACE` | Trocar para próxima configuração de teste |
-| `R` | Toggle rotação da ship |
-| `+` / `-` | Aumentar/diminuir escala |
-| `Setas` | Mover ship (←→↑↓) |
-| `ESC` | Sair |
+### Components
 
-### Configurações de Teste
+**ImGuiController.cs** - ImGui/OpenGL integration
+- Shader compilation and font atlas generation
+- GL state management for proper rendering
+- BeginFrame/EndFrame lifecycle management
 
-A ferramenta testa automaticamente 6 configurações:
+**ModelBrowser.cs** - Model management
+- Scans for available PRM files
+- Tracks selected model
+- Returns model statistics
 
-1. **Full scale - Center**: Escala 1.0x no centro (640, 360)
-2. **Half scale - Center**: Escala 0.5x no centro
-3. **0.3x scale - Upper left**: Escala 0.3x em (400, 300) - configuração atual do menu
-4. **0.2x scale - Center**: Escala 0.2x no centro
-5. **0.1x scale - Center**: Escala 0.1x no centro
-6. **0.05x scale - Center**: Escala 0.05x no centro
+**ModelFileDialog.cs** - File discovery
+- Locates PRM files in `wipeout/common/` directory
+- Returns file paths and names
 
-## Debug Output
+**ShipRenderTestWindow.cs** - Main application window
+- OpenTK game window with 3D rendering
+- ImGui overlay integration
+- Camera and model control
 
-A ferramenta loga informações detalhadas:
-- Vértices do modelo (primeiro e último)
+### Rendering Pipeline
+
+```
+OnRenderFrame()
+  1. Clear and setup 3D view
+  2. Render 3D ship model
+  3. ImGuiController.BeginFrame()
+  4. Build UI (RenderUI method)
+  5. ImGuiController.EndFrame()  <- Renders ImGui overlay
+  6. SwapBuffers()
+```
+
+## Dependencies
+
+- OpenTK 4.x (3D graphics)
+- ImGui.NET 1.90.5.1 (UI overlay)
+- OpenGL 4.1+ (Graphics backend)
+
+## Known Limitations
+
+- PRM file statistics are placeholders (show N/A)
+- Model transformations not yet implemented
+- ImGui input overlaps with game controls
+
+## Build & Compilation
+
+```bash
+cd /home/rick/workspace/wipeout_csharp
+dotnet build tools/ShipRenderTest/ShipRenderTest.csproj
+```
 - Contagem de primitivas
 - Posição e ângulo da ship
 - Escala atual

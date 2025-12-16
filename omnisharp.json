@@ -1,13 +1,23 @@
 {
   "msBuild": {
     "useBundledOnly": false,
-    "enabled": true
+    "enabled": true,
+    "loadProjectsOnDemand": false
   },
   "RoslynExtensionsOptions": {
     "enableAnalyzerSupport": true,
-    "enableReferenceCodeLens": true
+    "enableReferenceCodeLens": true,
+    "enableDecompilationSupport": true,
+    "enableImportCompletion": true
   },
   "FormattingOptions": {
     "enableEditorConfigSupport": true
+  },
+  "FileOptions": {
+    "systemExcludeSearchPatterns": [
+      "**/node_modules/**",
+      "**/bin/**",
+      "**/obj/**"
+    ]
   }
 }

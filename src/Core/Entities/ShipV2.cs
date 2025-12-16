@@ -37,6 +37,9 @@ namespace WipeoutRewrite.Core.Entities
         /// Shadow texture handle (shad1.tim - shad4.tim)
         /// </summary>
         public int ShadowTexture { get; private set; } = -1;
+        
+        // Debug timestamp for shadow rendering
+        private DateTime _lastShadowDebugTime = DateTime.MinValue;
 
         public ShipV2(
             IRenderer renderer,
@@ -50,6 +53,70 @@ namespace WipeoutRewrite.Core.Entities
             _logger.LogInformation("ShipV2 criada: {Name}", Name);
             Texture = Array.Empty<int>();
             Model = null;
+        }
+
+        /// <summary>
+        /// Load a custom model from a PRM file path.
+        /// Public method for tools like the 3D editor to load different models.
+        /// </summary>
+        public void LoadModelFromPath(string prmPath, int objectIndex = 0)
+        {
+            if (string.IsNullOrEmpty(prmPath))
+            {
+                _logger.LogError("[ShipV2] Invalid PRM path");
+                return;
+            }
+
+            try
+            {
+                LoadPrm(prmPath, objectIndex);
+                _logger.LogInformation("[ShipV2] Model loaded from: {Path}", prmPath);
+                
+                // Also load CMP textures with same base name
+                string cmpCandidate = System.IO.Path.ChangeExtension(prmPath, ".cmp");
+                if (System.IO.File.Exists(cmpCandidate))
+                {
+                    _logger.LogInformation("[ShipV2] Loading CMP textures from {Cmp}", cmpCandidate);
+                    LoadCmpTextures(cmpCandidate);
+                }
+                else
+                {
+                    _logger.LogInformation("[ShipV2] No CMP file found alongside PRM ({Cmp})", cmpCandidate);
+                }
+                
+                // Load shadow texture ONLY for ship objects (0-7) from allsh.prm
+                // Other objects (text, props, etc.) should not have shadows
+                bool isShipModel = prmPath.Contains("allsh.prm", StringComparison.OrdinalIgnoreCase) 
+                                   && objectIndex >= 0 && objectIndex <= 7;
+                
+                if (isShipModel)
+                {
+                    // Load shadow texture (shad1.tim - shad4.tim)
+                    // C original uses: ships[i].shadow_texture = shadow_textures_start + (i >> 1)
+                    // So ships 0-1 use shad1, 2-3 use shad2, 4-5 use shad3, 6-7 use shad4
+                    int shadowIndex = (objectIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
+                    string shadowPath = System.IO.Path.Combine(
+                        System.IO.Path.GetDirectoryName(prmPath) ?? "",
+                        "..",
+                        "textures",
+                        $"shad{shadowIndex}.tim"
+                    );
+                    string fullPath = System.IO.Path.GetFullPath(shadowPath);
+                    _logger.LogDebug($"[SHADOW DEBUG] Ship object detected - Object index={objectIndex}, shadow index={shadowIndex}");
+                    _logger.LogDebug($"[SHADOW DEBUG] Shadow path: {fullPath}");
+                    _logger.LogDebug($"[SHADOW DEBUG] File exists: {System.IO.File.Exists(fullPath)}");
+                    LoadShadowTexture(shadowPath);
+                }
+                else
+                {
+                    _logger.LogDebug($"[SHADOW DEBUG] Non-ship object (path={prmPath}, index={objectIndex}) - No shadow texture");
+                    ShadowTexture = -1; // Explicitly set to -1 for non-ships
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[ShipV2] Failed to load model from {Path}", prmPath);
+            }
         }
 
         // --- Minimal runtime state (subset of ship_t) ---
@@ -127,16 +194,16 @@ namespace WipeoutRewrite.Core.Entities
                 // C original uses: ships[i].shadow_texture = shadow_textures_start + (i >> 1)
                 // So ships 0-1 use shad1, 2-3 use shad2, 4-5 use shad3, 6-7 use shad4
                 int shadowIndex = (shipIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
-                _logger.LogInformation("ShipV2: Ship index={ShipIndex}, calculated shadow index={ShadowIndex}", 
-                    shipIndex, shadowIndex);
                 string shadowPath = System.IO.Path.Combine(
                     System.IO.Path.GetDirectoryName(prmPath) ?? "",
                     "..",
                     "textures",
                     $"shad{shadowIndex}.tim"
                 );
-                _logger.LogInformation("ShipV2: Attempting to load shadow texture from: {ShadowPath}", 
-                    System.IO.Path.GetFullPath(shadowPath));
+                string fullPath = System.IO.Path.GetFullPath(shadowPath);
+                Console.WriteLine($"[SHADOW DEBUG] Object index={shipIndex}, shadow index={shadowIndex}");
+                Console.WriteLine($"[SHADOW DEBUG] Shadow path: {fullPath}");
+                Console.WriteLine($"[SHADOW DEBUG] File exists: {System.IO.File.Exists(fullPath)}");
                 LoadShadowTexture(shadowPath);
             }
             else
@@ -656,33 +723,58 @@ namespace WipeoutRewrite.Core.Entities
         {
             if (!IsVisible || Model == null)
                 return;
+            
+            // Only render shadow if we have a valid shadow texture
+            // Non-ship objects (text, props) should not have shadows
+            if (ShadowTexture < 0)
+                return;
+
+            // Calculate direction vectors from current Angle
+            float sx = MathF.Sin(Angle.X);
+            float cx = MathF.Cos(Angle.X);
+            float sy = MathF.Sin(Angle.Y);
+            float cy = MathF.Cos(Angle.Y);
+            float sz = MathF.Sin(Angle.Z);
+            float cz = MathF.Cos(Angle.Z);
+
+            Vec3 dirForward = new Vec3(
+                -(sy * cx),
+                -sx,
+                (cy * cx)
+            );
+
+            Vec3 dirRight = new Vec3(
+                (cy * cz) + (sy * sz * sx),
+                -(sz * cx),
+                (sy * cz) - (cy * sx * sz)
+            );
 
             // Based on ship.c ship_draw_shadow():
             // Shadow is a single triangle from nose to wing tips, projected onto ground
             // In C original, uses shadow texture (shad1.tim-shad4.tim) with ship silhouette
-            // For now, render simple triangle shadow until we load shadow textures
             
             // Calculate shadow triangle points like C original:
             // nose = position + forward * 384
             // wingLeft = position - right * 256 - forward * 384
             // wingRight = position + right * 256 - forward * 384
-            Vec3 nose = Position.Add(DirForward.Multiply(384));
-            Vec3 wingLeft = Position.Subtract(DirRight.Multiply(256)).Subtract(DirForward.Multiply(384));
-            Vec3 wingRight = Position.Add(DirRight.Multiply(256)).Subtract(DirForward.Multiply(384));
+            Vec3 nose = Position.Add(dirForward.Multiply(384));
+            Vec3 wingLeft = Position.Subtract(dirRight.Multiply(256)).Subtract(dirForward.Multiply(384));
+            Vec3 wingRight = Position.Add(dirRight.Multiply(256)).Subtract(dirForward.Multiply(384));
             
-            // Project shadows down to ground level
-            float groundOffset = -200f; // Shadow below ship
-            Vec3 shadowNose = new Vec3(nose.X, groundOffset, nose.Z);
-            Vec3 shadowWingLeft = new Vec3(wingLeft.X, groundOffset, wingLeft.Z);
-            Vec3 shadowWingRight = new Vec3(wingRight.X, groundOffset, wingRight.Z);
+            // Project shadows down to ground level (y=0)
+            float groundLevel = 0.1f; // Slightly above ground to prevent z-fighting
+            Vec3 shadowNose = new Vec3(nose.X, groundLevel, nose.Z);
+            Vec3 shadowWingLeft = new Vec3(wingLeft.X, groundLevel, wingLeft.Z);
+            Vec3 shadowWingRight = new Vec3(wingRight.X, groundLevel, wingRight.Z);
 
             // Transform to 3D world space (no rotation, just position offset)
             var p1 = TransformTo3D(shadowWingLeft, Mat4.Identity());
             var p2 = TransformTo3D(shadowWingRight, Mat4.Identity());
             var p3 = TransformTo3D(shadowNose, Mat4.Identity());
 
-            // Shadow color: semi-transparent black (rgba(0,0,0,128) in C)
-            var shadowColor = new OpenTK.Mathematics.Vector4(0.0f, 0.0f, 0.0f, 0.5f);
+            // Shadow color: Use white to show texture, with alpha for transparency
+            // The shadow texture itself is already dark/silhouette
+            var shadowColor = new OpenTK.Mathematics.Vector4(1.0f, 1.0f, 1.0f, 0.6f);
             
             // UVs from C original (ship.c line 430-438):
             // wingLeft: (0, 256), wingRight: (128, 256), nose: (64, 0)
@@ -691,8 +783,22 @@ namespace WipeoutRewrite.Core.Entities
             var uvWingRight = new OpenTK.Mathematics.Vector2(1.0f, 1.0f);
             var uvNose = new OpenTK.Mathematics.Vector2(0.5f, 0.0f);
 
-            // Use shadow texture if loaded, otherwise white texture
+            // Use shadow texture if loaded, otherwise white texture with gray tint
             int texHandle = (ShadowTexture >= 0) ? ShadowTexture : _renderer.WhiteTexture;
+            
+            // Debug: Print what texture we're using (only once per second to avoid spam)
+            if ((DateTime.Now - _lastShadowDebugTime).TotalSeconds > 1.0)
+            {
+                _logger.LogDebug($"[SHADOW RENDER] Using texture handle: {texHandle} (ShadowTexture={ShadowTexture}, WhiteTexture={_renderer.WhiteTexture})");
+                _lastShadowDebugTime = DateTime.Now;
+            }
+            
+            // If using white texture (no shadow texture loaded), make it darker gray
+            if (ShadowTexture < 0)
+            {
+                shadowColor = new OpenTK.Mathematics.Vector4(0.2f, 0.2f, 0.2f, 0.8f);
+            }
+            
             _renderer.SetCurrentTexture(texHandle);
             
             // Render shadow as single triangle (like C original)
@@ -870,12 +976,14 @@ namespace WipeoutRewrite.Core.Entities
         {
             if (!System.IO.File.Exists(shadowPath))
             {
+                _logger.LogDebug($"[SHADOW DEBUG] Shadow texture NOT FOUND at: {shadowPath}");
                 _logger.LogWarning("ShipV2: Shadow texture not found at {Path}", shadowPath);
                 return;
             }
 
             try
             {
+                _logger.LogDebug($"[SHADOW DEBUG] Loading shadow texture from: {shadowPath}");
                 _logger.LogInformation("ShipV2: Loading shadow texture from {Path}", shadowPath);
                 var timLoader = new TimImageLoader(NullLogger<TimImageLoader>.Instance);
                 
@@ -885,11 +993,13 @@ namespace WipeoutRewrite.Core.Entities
                 // Upload to GPU
                 ShadowTexture = _renderer.CreateTexture(pixels, width, height);
                 
+                _logger.LogDebug($"[SHADOW DEBUG] Shadow texture loaded! Handle={ShadowTexture}, Size={width}x{height}");
                 _logger.LogInformation("ShipV2: Shadow texture loaded successfully ({Width}x{Height}), handle={Handle}", 
                     width, height, ShadowTexture);
             }
             catch (Exception ex)
             {
+                _logger.LogDebug($"[SHADOW DEBUG] ERROR loading shadow texture: {ex.Message}");
                 _logger.LogError(ex, "ShipV2: Failed to load shadow texture from {Path}", shadowPath);
                 ShadowTexture = -1;
             }

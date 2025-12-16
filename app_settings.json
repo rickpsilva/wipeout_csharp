@@ -1,0 +1,13 @@
+{
+  "UIScale": 1.5,
+  "AutoRotate": false,
+  "AutoRotateAxis": 0,
+  "WireframeMode": false,
+  "ShowViewport": true,
+  "ShowAssetBrowser": true,
+  "ShowProperties": true,
+  "ShowTransform": true,
+  "ShowGrid": true,
+  "ShowAxes": false,
+  "ShowGizmo": true
+}

@@ -13,10 +13,11 @@ namespace WipeoutRewrite
 
         // Propriedades de câmera
         Vector3 Position { get; }
-        Vector3 Target { get; }
+        Vector3 Target { get; set; }
         float Fov { get; set; }
-        float Yaw { get; }
-        float Pitch { get; }
+        float Yaw { get; set; }
+        float Pitch { get; set; }
+        float Distance { get; set; }
         
         // Atualização com input
         void Update(KeyboardState keyboardState, MouseState mouseState);

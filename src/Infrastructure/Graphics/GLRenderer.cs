@@ -102,6 +102,19 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             _usePassthroughProjection = enabled;
         }
 
+        public void SetDirectionalLight(Vector3 direction, Vector3 color, float intensity)
+        {
+            GL.UseProgram(_shaderProgram);
+            
+            int lightDirLoc = GL.GetUniformLocation(_shaderProgram, "lightDir");
+            int lightColorLoc = GL.GetUniformLocation(_shaderProgram, "lightColor");
+            int lightIntensityLoc = GL.GetUniformLocation(_shaderProgram, "lightIntensity");
+            
+            GL.Uniform3(lightDirLoc, direction.Normalized());
+            GL.Uniform3(lightColorLoc, color);
+            GL.Uniform1(lightIntensityLoc, intensity);
+        }
+
         public void UpdateScreenSize(int width, int height)
         {
             _screenWidth = width;
@@ -166,6 +179,13 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             // Enable blending for transparency
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            
+            // Set default directional light (white light from top-left-front)
+            SetDirectionalLight(
+                new Vector3(-1.0f, -1.0f, -1.0f).Normalized(),
+                new Vector3(1.0f, 1.0f, 1.0f),
+                0.7f
+            );
         }
 
         /// <summary>
@@ -293,6 +313,13 @@ namespace WipeoutRewrite.Infrastructure.Graphics
 
         public void SetCurrentTexture(int textureId)
         {
+            // Validate texture ID - must be positive and not zero
+            if (textureId <= 0)
+            {
+                Console.WriteLine($"[RENDERER] WARNING: Invalid texture ID {textureId}, using white texture instead");
+                textureId = _whiteTexture;
+            }
+            
             if (_spriteTexture != textureId && _trisLen > 0)
             {
                 Flush();
@@ -494,28 +521,24 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
             GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * _trisLen * 3 * 9, _vertexBuffer, BufferUsageHint.DynamicDraw);
 
-            // Bind the current texture
-            if (_spriteTexture != 0)
+            // Bind the current texture - validate first
+            if (_spriteTexture > 0)
             {
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, _spriteTexture);
-                
-                // Check for GL errors after binding
-                var error = GL.GetError();
-                if (error != ErrorCode.NoError)
-                {
-                    Console.WriteLine($"GL Error after BindTexture({_spriteTexture}): {error}");
-                }
                 
                 int loc = GL.GetUniformLocation(_shaderProgram, "texture0");
                 if (loc >= 0)
                 {
                     GL.Uniform1(loc, 0);
                 }
-                else
-                {
-                    Console.WriteLine($"WARNING: texture0 uniform not found in shader!");
-                }
+            }
+            else
+            {
+                // Use white texture as fallback
+                GL.ActiveTexture(TextureUnit.Texture0);
+                GL.BindTexture(TextureTarget.Texture2D, _whiteTexture);
+                Console.WriteLine($"[RENDERER] WARNING: Invalid sprite texture {_spriteTexture}, using white texture");
             }
 
             // Setup projection matrix - NÃO sobrescrever! As matrizes já foram setadas em SetProjectionMatrix
@@ -649,13 +672,16 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             layout(location = 2) in vec4 color;
             out vec4 v_color;
             out vec2 v_uv;
+            out vec3 v_fragPos;
             uniform mat4 projection;
             uniform mat4 view;
             uniform mat4 model;
             void main() {
-                gl_Position = projection * view * model * vec4(pos, 1.0);
+                vec4 worldPos = model * vec4(pos, 1.0);
+                gl_Position = projection * view * worldPos;
                 v_color = color;
                 v_uv = uv;
+                v_fragPos = worldPos.xyz;
             }
         ";
 
@@ -663,18 +689,38 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             #version 330 core
             in vec4 v_color;
             in vec2 v_uv;
+            in vec3 v_fragPos;
             out vec4 FragColor;
             uniform sampler2D texture0;
             // Alpha test control: when alphaTest==1, discard fragments with alpha <= alphaThreshold
             uniform int alphaTest;
             uniform float alphaThreshold;
+            // Directional light uniforms
+            uniform vec3 lightDir;
+            uniform vec3 lightColor;
+            uniform float lightIntensity;
             void main() {
                 vec4 texColor = texture(texture0, v_uv);
                 vec4 color = texColor * v_color;
                 if (alphaTest == 1 && texColor.a <= alphaThreshold) discard;
                 if (color.a == 0.0) discard;
+                
                 // PSX colors are typically 128,128,128 (half intensity) so multiply by 2.0 like original
                 color.rgb = color.rgb * 2.0;
+                
+                // Calculate normal from screen-space derivatives
+                vec3 normal = normalize(cross(dFdx(v_fragPos), dFdy(v_fragPos)));
+                
+                // Calculate lighting
+                float diffuse = max(dot(normal, -lightDir), 0.0);
+                vec3 lighting = lightColor * lightIntensity * diffuse;
+                
+                // Add ambient light so objects aren't completely black
+                vec3 ambient = vec3(0.3, 0.3, 0.3);
+                vec3 finalLighting = ambient + lighting;
+                
+                color.rgb *= finalLighting;
+                
                 // Ambient lighting: darken backfaces to simulate interior shadowing
                 // gl_FrontFacing is true for front faces, false for back faces
                 if (!gl_FrontFacing) {
