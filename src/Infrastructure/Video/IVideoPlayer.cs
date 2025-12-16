@@ -25,12 +25,7 @@ public interface IVideoPlayer : IDisposable
     /// Updates video frame (should be called every game frame).
     /// </summary>
     void Update();
-    
-    /// <summary>
-    /// Retorna ID da textura OpenGL do frame atual.
-    /// </summary>
-    int GetTextureId();
-    
+        
     /// <summary>
     /// Returns video width.
     /// </summary>
@@ -40,4 +35,10 @@ public interface IVideoPlayer : IDisposable
     /// Returns video height.
     /// </summary>
     int GetHeight();
+    
+    /// <summary>
+    /// Returns the current frame data in RGBA format as byte array.
+    /// Returns null if no frame is available.
+    /// </summary>
+    byte[]? GetCurrentFrameData();
 }

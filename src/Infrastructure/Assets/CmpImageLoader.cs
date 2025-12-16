@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace WipeoutRewrite.Infrastructure.Assets
 {
-    public class CmpImageLoader
+    public class CmpImageLoader : ICmpImageLoader
     {
         private readonly ILogger<CmpImageLoader> _logger;
         private const int LZSS_INDEX_BIT_COUNT = 13;
@@ -15,7 +15,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
 
         public CmpImageLoader(ILogger<CmpImageLoader> logger)
         {
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public byte[][] LoadCompressed(string filePath)
@@ -60,64 +60,62 @@ namespace WipeoutRewrite.Infrastructure.Assets
             return images;
         }
 
-        private byte[] LzssDecompress(byte[] inData, int startPos)
+        private static byte[] LzssDecompress(byte[] inData, int startPos)
         {
-            using (var output = new MemoryStream())
+            using var output = new MemoryStream();
+            byte[] window = new byte[LZSS_WINDOW_SIZE];
+            int currentPosition = 1;
+            int inPos = startPos;
+            byte inBfileMask = 0x80;
+            byte inBfileRack = 0;
+
+            while (true)
             {
-                byte[] window = new byte[LZSS_WINDOW_SIZE];
-                int currentPosition = 1;
-                int inPos = startPos;
-                byte inBfileMask = 0x80;
-                byte inBfileRack = 0;
-
-                while (true)
+                if (inBfileMask == 0x80)
                 {
-                    if (inBfileMask == 0x80)
-                    {
-                        if (inPos >= inData.Length) break;
-                        inBfileRack = inData[inPos++];
-                    }
-
-                    bool value = (inBfileRack & inBfileMask) != 0;
-                    inBfileMask >>= 1;
-                    if (inBfileMask == 0)
-                    {
-                        inBfileMask = 0x80;
-                    }
-
-                    if (value)
-                    {
-                        // Literal byte
-                        int cc = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, 8);
-                        output.WriteByte((byte)cc);
-                        window[currentPosition] = (byte)cc;
-                        currentPosition = (currentPosition + 1) & (LZSS_WINDOW_SIZE - 1);
-                    }
-                    else
-                    {
-                        // Match position and length
-                        int matchPosition = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, LZSS_INDEX_BIT_COUNT);
-
-                        if (matchPosition == LZSS_END_OF_STREAM)
-                        {
-                            break;
-                        }
-
-                        int matchLength = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, LZSS_LENGTH_BIT_COUNT);
-                        matchLength += LZSS_BREAK_EVEN;
-
-                        for (int i = 0; i <= matchLength; i++)
-                        {
-                            byte cc = window[(matchPosition + i) & (LZSS_WINDOW_SIZE - 1)];
-                            output.WriteByte(cc);
-                            window[currentPosition] = cc;
-                            currentPosition = (currentPosition + 1) & (LZSS_WINDOW_SIZE - 1);
-                        }
-                    }
+                    if (inPos >= inData.Length) break;
+                    inBfileRack = inData[inPos++];
                 }
 
-                return output.ToArray();
+                bool value = (inBfileRack & inBfileMask) != 0;
+                inBfileMask >>= 1;
+                if (inBfileMask == 0)
+                {
+                    inBfileMask = 0x80;
+                }
+
+                if (value)
+                {
+                    // Literal byte
+                    int cc = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, 8);
+                    output.WriteByte((byte)cc);
+                    window[currentPosition] = (byte)cc;
+                    currentPosition = (currentPosition + 1) & (LZSS_WINDOW_SIZE - 1);
+                }
+                else
+                {
+                    // Match position and length
+                    int matchPosition = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, LZSS_INDEX_BIT_COUNT);
+
+                    if (matchPosition == LZSS_END_OF_STREAM)
+                    {
+                        break;
+                    }
+
+                    int matchLength = ReadBits(inData, ref inPos, ref inBfileMask, ref inBfileRack, LZSS_LENGTH_BIT_COUNT);
+                    matchLength += LZSS_BREAK_EVEN;
+
+                    for (int i = 0; i <= matchLength; i++)
+                    {
+                        byte cc = window[(matchPosition + i) & (LZSS_WINDOW_SIZE - 1)];
+                        output.WriteByte(cc);
+                        window[currentPosition] = cc;
+                        currentPosition = (currentPosition + 1) & (LZSS_WINDOW_SIZE - 1);
+                    }
+                }
             }
+
+            return output.ToArray();
         }
 
         private static int ReadBits(byte[] data, ref int pos, ref byte mask, ref byte rack, int bitCount)
@@ -150,7 +148,7 @@ namespace WipeoutRewrite.Infrastructure.Assets
             return returnValue;
         }
 
-        private int GetInt32LE(byte[] bytes, ref int position)
+        private static int GetInt32LE(byte[] bytes, ref int position)
         {
             int value = bytes[position] |
                        (bytes[position + 1] << 8) |

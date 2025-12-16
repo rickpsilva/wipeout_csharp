@@ -1,0 +1,191 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Roslynator>
+  <CodeAnalysis>
+    <Summary>
+      <Diagnostic Id="CA1816" Title="Dispose methods should call SuppressFinalize" Count="3">
+        <Description>A method that is an implementation of Dispose does not call GC.SuppressFinalize; or a method that is not an implementation of Dispose calls GC.SuppressFinalize; or a method calls GC.SuppressFinalize and passes something other than this (Me in Visual Basic).</Description>
+        <HelpLink>https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1816</HelpLink>
+      </Diagnostic>
+      <Diagnostic Id="CA1822" Title="Mark members as static" Count="18">
+        <Description>Members that do not access instance data or call instance methods can be marked as static. After you mark the methods as static, the compiler will emit nonvirtual call sites to these members. This can give you a measurable performance gain for performance-sensitive code.</Description>
+        <HelpLink>https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822</HelpLink>
+      </Diagnostic>
+      <Diagnostic Id="CA1859" Title="Use concrete types when possible for improved performance" Count="1">
+        <Description>Using concrete types avoids virtual or interface call overhead and enables inlining.</Description>
+        <HelpLink>https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1859</HelpLink>
+      </Diagnostic>
+      <Diagnostic Id="CA1861" Title="Avoid constant arrays as arguments" Count="2">
+        <Description>Constant arrays passed as arguments are not reused when called repeatedly, which implies a new array is created each time. Consider extracting them to 'static readonly' fields to improve performance if the passed array is not mutated within the called method.</Description>
+        <HelpLink>https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1861</HelpLink>
+      </Diagnostic>
+      <Diagnostic Id="CS8602" Title="Dereference of a possibly null reference." Count="1">
+        <HelpLink>https://msdn.microsoft.com/query/roslyn.query?appId=roslyn&amp;k=k(CS8602)</HelpLink>
+      </Diagnostic>
+      <Diagnostic Id="CS8604" Title="Possible null reference argument." Count="1">
+        <HelpLink>https://msdn.microsoft.com/query/roslyn.query?appId=roslyn&amp;k=k(CS8604)</HelpLink>
+      </Diagnostic>
+    </Summary>
+    <Projects>
+      <Project Name="wipeout_csharp" FilePath="/home/rick/workspace/wipeout_csharp/wipeout_csharp.csproj">
+        <Diagnostics>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Core/Entities/Ship.cs</FilePath>
+            <Location Line="281" Character="44" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Core/Graphics/ModelLoader.cs</FilePath>
+            <Location Line="274" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Assets/CmpImageLoader.cs</FilePath>
+            <Location Line="63" Character="24" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Assets/CmpImageLoader.cs</FilePath>
+            <Location Line="151" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Assets/TimImageLoader.cs</FilePath>
+            <Location Line="140" Character="17" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Assets/TimImageLoader.cs</FilePath>
+            <Location Line="147" Character="19" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Assets/TimImageLoader.cs</FilePath>
+            <Location Line="154" Character="20" />
+          </Diagnostic>
+          <Diagnostic Id="CA1816">
+            <Severity>Info</Severity>
+            <Message>Dispose methods should call SuppressFinalize</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Audio/AudioPlayer.cs</FilePath>
+            <Location Line="289" Character="17" />
+          </Diagnostic>
+          <Diagnostic Id="CA1816">
+            <Severity>Info</Severity>
+            <Message>Dispose methods should call SuppressFinalize</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Audio/MusicPlayer.cs</FilePath>
+            <Location Line="165" Character="17" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Graphics/GLRenderer.cs</FilePath>
+            <Location Line="93" Character="20" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Graphics/GLRenderer.cs</FilePath>
+            <Location Line="109" Character="22" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Graphics/GLRenderer.cs</FilePath>
+            <Location Line="407" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CS8604">
+            <Severity>Warning</Severity>
+            <Message>Possible null reference argument.</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Graphics/TextureManager.cs</FilePath>
+            <Location Line="48" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/UI/FontSystem.cs</FilePath>
+            <Location Line="127" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/UI/FontSystem.cs</FilePath>
+            <Location Line="143" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/UI/MenuRenderer.cs</FilePath>
+            <Location Line="220" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/UI/MenuRenderer.cs</FilePath>
+            <Location Line="230" Character="20" />
+          </Diagnostic>
+          <Diagnostic Id="CA1816">
+            <Severity>Info</Severity>
+            <Message>Dispose methods should call SuppressFinalize</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Infrastructure/Video/IntroVideoPlayer.cs</FilePath>
+            <Location Line="260" Character="21" />
+          </Diagnostic>
+          <Diagnostic Id="CA1859">
+            <Severity>Info</Severity>
+            <Message>Use concrete types when possible for improved performance</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/Game.cs</FilePath>
+            <Location Line="27" Character="32" />
+          </Diagnostic>
+          <Diagnostic Id="CS8602">
+            <Severity>Warning</Severity>
+            <Message>Dereference of a possibly null reference.</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/Game.cs</FilePath>
+            <Location Line="215" Character="17" />
+          </Diagnostic>
+          <Diagnostic Id="CA1861">
+            <Severity>Info</Severity>
+            <Message>Avoid constant arrays as arguments</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/Menus/MainMenuPages.cs</FilePath>
+            <Location Line="166" Character="23" />
+          </Diagnostic>
+          <Diagnostic Id="CA1861">
+            <Severity>Info</Severity>
+            <Message>Avoid constant arrays as arguments</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/Menus/MainMenuPages.cs</FilePath>
+            <Location Line="178" Character="23" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/ShipPreview.cs</FilePath>
+            <Location Line="931" Character="25" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/ShipPreview.cs</FilePath>
+            <Location Line="960" Character="25" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/ShipPreview.cs</FilePath>
+            <Location Line="981" Character="25" />
+          </Diagnostic>
+          <Diagnostic Id="CA1822">
+            <Severity>Info</Severity>
+            <Message>Mark members as static</Message>
+            <FilePath>/home/rick/workspace/wipeout_csharp/src/Presentation/TitleScreen.cs</FilePath>
+            <Location Line="102" Character="17" />
+          </Diagnostic>
+        </Diagnostics>
+      </Project>
+    </Projects>
+  </CodeAnalysis>
+</Roslynator>

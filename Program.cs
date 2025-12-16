@@ -5,8 +5,13 @@ using OpenTK.Windowing.Desktop;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Infrastructure.Audio;
 using WipeoutRewrite.Infrastructure.Assets;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.UI;
 using WipeoutRewrite.Core.Services;
+using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Factory;
+using WipeoutRewrite.Infrastructure.Video;
+using WipeoutRewrite.Presentation;
 
 namespace WipeoutRewrite
 {
@@ -21,19 +26,16 @@ namespace WipeoutRewrite
 
             var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("========================================");
-            logger.LogInformation("Iniciando WipeoutRewrite (C#)");
+            logger.LogInformation("Starting Wipeout (C#)");
             logger.LogInformation("========================================");
 
-            // Inicializar subsistemas antes de correr
-            Renderer.Init();
-
-            // Resolver e executar o jogo
-            using (var game = serviceProvider.GetRequiredService<Game>())
+            // Resolve and run the game
+            using (var game = serviceProvider.GetRequiredService<IGame>())
             {
                 game.Run();
             }
 
-            logger.LogInformation("WipeoutRewrite encerrado");
+            logger.LogInformation("Wipeout closed");
 
             // Cleanup
             serviceProvider.Dispose();
@@ -46,14 +48,26 @@ namespace WipeoutRewrite
             {
                 builder.ClearProviders();
                 builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Information);
-                
-                // Pode configurar níveis por namespace:
-                builder.AddFilter("WipeoutRewrite", LogLevel.Debug);
+                builder.SetMinimumLevel(LogLevel.Debug);
+
+                builder.AddFilter("Wipeout", LogLevel.Debug);
                 builder.AddFilter("Microsoft", LogLevel.Warning);
+                // Also write logs to a diagnostics file so CI and local debugging can
+                // capture historical logs. File placed under build/diagnostics/wipeout_log.txt
+                try
+                {
+                    // Use provider that exists in Infrastructure/Logging
+                    builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(System.IO.Path.Combine("build","diagnostics","wipeout_log.txt"), LogLevel.Debug));
+                }
+                catch (Exception ex)
+                {
+                    // If adding file logger fails we still continue with console only
+                    var lp = System.Diagnostics.Process.GetCurrentProcess();
+                    Console.WriteLine($"Warning: failed to create file logger: {ex.Message}");
+                }
             });
 
-            // Window Settings (como Singleton - será injetado no Game)
+            // Window Settings
             var gws = GameWindowSettings.Default;
             gws.UpdateFrequency = 60.0;
             services.AddSingleton(gws);
@@ -65,20 +79,43 @@ namespace WipeoutRewrite
             };
             services.AddSingleton(nws);
 
-            // Asset Loaders (usado por outros serviços)
-            services.AddSingleton<CmpImageLoader>();
-            services.AddSingleton<TimImageLoader>();
-            
-            // Core Services - Singleton (uma instância para toda a aplicação)
+            // Core
             services.AddSingleton<IRenderer, GLRenderer>();
+            services.AddSingleton<ICamera, Camera>();
+            services.AddSingleton<IVideoPlayer, IntroVideoPlayer>();
             services.AddSingleton<IMusicPlayer, MusicPlayer>();
             services.AddSingleton<IAssetLoader, AssetLoader>();
-            services.AddSingleton<IFontSystem, FontSystem>();
+            services.AddSingleton<IGameState, GameState>();
             services.AddSingleton<IMenuManager, MenuManager>();
-            services.AddSingleton<GameState>();
 
-            // Game - O ponto de entrada principal
-            services.AddSingleton<Game>();
+            //UI
+            services.AddSingleton<IFontSystem, FontSystem>();
+            services.AddSingleton<IMenuRenderer, MenuRenderer>();
+
+            //Presentation
+            services.AddSingleton<IAttractMode, AttractMode>();
+            services.AddSingleton<IContentPreview3D, ContentPreview3D>();
+            services.AddSingleton<ITitleScreen, TitleScreen>();
+            services.AddSingleton<ICreditsScreen, CreditsScreen>();
+
+
+            // Ship Services
+            services.AddSingleton<IShips, Ships>();
+            services.AddTransient<IShipV2, ShipV2>();
+            services.AddTransient<IShipFactory, ShipFactory>();
+
+            // Graphics
+            services.AddSingleton<ITextureManager, TextureManager>();
+
+            // Assets
+            services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
+            services.AddSingleton<ITimImageLoader, TimImageLoader>();
+            
+            // Model Loaders
+            services.AddSingleton<ModelLoader>();
+             
+            // Game - The main application class
+            services.AddSingleton<IGame, Game>();
         }
     }
 }

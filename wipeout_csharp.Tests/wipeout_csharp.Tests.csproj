@@ -24,7 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\wipeout_csharp.csproj" />
+  <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  <ProjectReference Include="..\wipeout_csharp.csproj" />
   </ItemGroup>
 
 </Project>

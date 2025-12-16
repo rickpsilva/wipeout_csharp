@@ -8,6 +8,7 @@ public interface IMenuRenderer
     void DrawText(string text, Vec2i position, UIAnchor anchor, int size, UIColor color);
     void DrawTextCentered(string text, Vec2i position, int size, UIColor color);
     int GetTextWidth(string text, int size);
+    void SetWindowSize(int width, int height);
 }
 
 public enum UIColor

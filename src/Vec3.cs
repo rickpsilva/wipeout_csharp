@@ -19,32 +19,32 @@ namespace WipeoutRewrite
         /// <summary>
         /// Add two vectors.
         /// </summary>
-        public Vec3 Add(Vec3 other) => new Vec3(X + other.X, Y + other.Y, Z + other.Z);
+        public readonly Vec3 Add(Vec3 other) => new(X + other.X, Y + other.Y, Z + other.Z);
         
         /// <summary>
         /// Subtract two vectors.
         /// </summary>
-        public Vec3 Subtract(Vec3 other) => new Vec3(X - other.X, Y - other.Y, Z - other.Z);
+        public readonly Vec3 Subtract(Vec3 other) => new(X - other.X, Y - other.Y, Z - other.Z);
         
         /// <summary>
         /// Multiply vector by scalar.
         /// </summary>
-        public Vec3 Multiply(float scalar) => new Vec3(X * scalar, Y * scalar, Z * scalar);
+        public readonly Vec3 Multiply(float scalar) => new(X * scalar, Y * scalar, Z * scalar);
         
         /// <summary>
         /// Divide vector by scalar.
         /// </summary>
-        public Vec3 Divide(float scalar) => new Vec3(X / scalar, Y / scalar, Z / scalar);
+        public readonly Vec3 Divide(float scalar) => new(X / scalar, Y / scalar, Z / scalar);
         
         /// <summary>
         /// Calculate vector length (magnitude).
         /// </summary>
-        public float Length() => MathF.Sqrt(X * X + Y * Y + Z * Z);
+        public readonly float Length() => MathF.Sqrt(X * X + Y * Y + Z * Z);
         
         /// <summary>
         /// Calculate squared length (faster than Length, useful for comparisons).
         /// </summary>
-        public float LengthSquared() => X * X + Y * Y + Z * Z;
+        public readonly float LengthSquared() => X * X + Y * Y + Z * Z;
         
         /// <summary>
         /// Normalize vector (make length = 1).
@@ -58,12 +58,12 @@ namespace WipeoutRewrite
         /// <summary>
         /// Calculate dot product with another vector.
         /// </summary>
-        public float Dot(Vec3 other) => X * other.X + Y * other.Y + Z * other.Z;
+        public readonly float Dot(Vec3 other) => X * other.X + Y * other.Y + Z * other.Z;
         
         /// <summary>
         /// Calculate cross product with another vector.
         /// </summary>
-        public Vec3 Cross(Vec3 other) => new Vec3(
+        public readonly Vec3 Cross(Vec3 other) => new(
             Y * other.Z - Z * other.Y,
             Z * other.X - X * other.Z,
             X * other.Y - Y * other.X
@@ -79,7 +79,7 @@ namespace WipeoutRewrite
         /// Returns positive if point is on the side of the normal, negative otherwise.
         /// Based on vec3_distance_to_plane from wipeout-rewrite/src/types.c
         /// </summary>
-        public float DistanceToPlane(Vec3 planePoint, Vec3 planeNormal)
+        public readonly float DistanceToPlane(Vec3 planePoint, Vec3 planeNormal)
         {
             Vec3 diff = this - planePoint;
             return diff.Dot(planeNormal);
@@ -103,6 +103,6 @@ namespace WipeoutRewrite
         public static Vec3 operator *(float s, Vec3 v) => v.Multiply(s);
         public static Vec3 operator /(Vec3 v, float s) => v.Divide(s);
         
-        public override string ToString() => $"({X:F2}, {Y:F2}, {Z:F2})";
+        public override readonly string ToString() => $"({X:F2}, {Y:F2}, {Z:F2})";
     }
 }

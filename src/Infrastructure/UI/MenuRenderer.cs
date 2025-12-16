@@ -1,239 +1,243 @@
-using System;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using WipeoutRewrite.Core.Services;
 using WipeoutRewrite.Infrastructure.Graphics;
 using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
-namespace WipeoutRewrite.Infrastructure.UI;
-
-public class MenuRenderer : IMenuRenderer
+namespace WipeoutRewrite.Infrastructure.UI
 {
-    private readonly int _windowWidth;
-    private readonly int _windowHeight;
-    private readonly IRenderer _renderer;
-    private readonly IFontSystem? _fontSystem;
-    
-    public MenuRenderer(int windowWidth, int windowHeight, IRenderer renderer, IFontSystem? fontSystem = null)
+    public class MenuRenderer : IMenuRenderer
     {
-        _windowWidth = windowWidth;
-        _windowHeight = windowHeight;
-        _renderer = renderer;
-        _fontSystem = fontSystem;
-    }
-    
-    public void RenderMenu(IMenuManager menu)
-    {
-        var page = menu.CurrentPage;
-        if (page == null)
-            return;
+        private int _windowWidth;
+        private int _windowHeight;
+        private readonly IRenderer _renderer;
+        private readonly IFontSystem _fontSystem;
         
-        // Draw title (support multi-line with \n)
-        var titleLines = page.Title.Split('\n');
-        Vec2i titleBasePos = GetScaledPosition(page.TitleAnchor, page.TitlePos);
-        int lineHeight = Spacing.MenuTitleLineHeight;
-        int titleOffsetY = -(titleLines.Length - 1) * lineHeight / 2; // Center vertically
-        
-        for (int i = 0; i < titleLines.Length; i++)
+        public MenuRenderer(
+            IRenderer renderer, 
+            IFontSystem fontSystem)
         {
-            Vec2i linePos = new Vec2i(titleBasePos.X, titleBasePos.Y + titleOffsetY + i * lineHeight);
-            DrawTextCentered(titleLines[i], linePos, FontSizes.MenuTitle, UIColor.Default);
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+            _fontSystem = fontSystem ?? throw new ArgumentNullException(nameof(fontSystem));
         }
         
-        // Draw items
-        bool isHorizontal = page.LayoutFlags.HasFlag(MenuLayoutFlags.Horizontal);
-        bool isVertical = page.LayoutFlags.HasFlag(MenuLayoutFlags.Vertical);
-        
-        // For horizontal menus, calculate total width to center items properly
-        int totalWidth = 0;
-        int itemSpacing = Spacing.MenuItemHorizontalSpacing;
-        
-        if (isHorizontal && page.Items.Count > 0)
+        public void SetWindowSize(int width, int height)
         {
-            foreach (var item in page.Items)
-            {
-                string label = item is MenuToggle toggle ? $"{toggle.Label}: {toggle.CurrentValue}" : item.Label;
-                totalWidth += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
-            }
-            totalWidth -= itemSpacing; // Remove last spacing
+            _windowWidth = width;
+            _windowHeight = height;
         }
-        
-        int itemX = isHorizontal ? -totalWidth / 2 : page.ItemsPos.X;
-        int itemY = page.ItemsPos.Y;
-        
-        for (int i = 0; i < page.Items.Count; i++)
+
+        public void RenderMenu(IMenuManager menu)
         {
-            var item = page.Items[i];
-            bool isSelected = i == page.SelectedIndex;
-            // Show selected item in yellow (Accent), default in white
-            // TODO: Add blinking back later with menu.ShouldBlink()
-            var color = isSelected ? UIColor.Accent : UIColor.Default;
+            var page = menu.CurrentPage;
+            if (page == null)
+                return;
             
-            if (!item.IsEnabled)
-                color = UIColor.Disabled;
+            // Draw title (support multi-line with \n)
+            var titleLines = page.Title.Split('\n');
+            Vec2i titleBasePos = GetScaledPosition(page.TitleAnchor, page.TitlePos);
+            int lineHeight = Spacing.MenuTitleLineHeight;
+            int titleOffsetY = -(titleLines.Length - 1) * lineHeight / 2; // Center vertically
             
-            Vec2i itemPos = new Vec2i(itemX, itemY);
-            Vec2i screenPos = GetScaledPosition(page.ItemsAnchor, itemPos);
-            
-            // Use centered text for middle-anchored items
-            bool shouldCenter = page.ItemsAnchor == UIAnchor.MiddleCenter || 
-                              page.ItemsAnchor == UIAnchor.TopCenter || 
-                              page.ItemsAnchor == UIAnchor.BottomCenter;
-            
-            string label = "";
-            if (item is MenuButton button)
+            for (int i = 0; i < titleLines.Length; i++)
             {
-                label = button.Label;
-                if (shouldCenter && !isHorizontal)
-                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
-                else
-                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
-            }
-            else if (item is MenuToggle toggle)
-            {
-                label = $"{toggle.Label}: {toggle.CurrentValue}";
-                if (shouldCenter && !isHorizontal)
-                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
-                else
-                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
+                Vec2i linePos = new(titleBasePos.X, titleBasePos.Y + titleOffsetY + i * lineHeight);
+                DrawTextCentered(titleLines[i], linePos, FontSizes.MenuTitle, UIColor.Default);
             }
             
-            // Move to next position
-            if (isHorizontal)
-                itemX += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
-            if (isVertical)
-                itemY += Spacing.MenuItemVerticalSpacing;
-        }
-        
-        // Custom draw callback for 3D models, etc.
-        page.DrawCallback?.Invoke(0f);
-    }
-    
-    public void DrawText(string text, Vec2i position, UIAnchor anchor, int size, UIColor color)
-    {
-        if (_fontSystem != null)
-        {
-            // Use proper font rendering
-            TextSize textSize = size switch
+            // Draw items
+            bool isHorizontal = page.LayoutFlags.HasFlag(MenuLayoutFlags.Horizontal);
+            bool isVertical = page.LayoutFlags.HasFlag(MenuLayoutFlags.Vertical);
+            
+            // For horizontal menus, calculate total width to center items properly
+            int totalWidth = 0;
+            int itemSpacing = Spacing.MenuItemHorizontalSpacing;
+            
+            if (isHorizontal && page.Items.Count > 0)
             {
-                >= 16 => TextSize.Size16,
-                >= 12 => TextSize.Size12,
-                _ => TextSize.Size8
-            };
-            
-            var glColor = GetColor4(color);
-            Vector2 pos = new Vector2(position.X, position.Y);
-            _fontSystem.DrawText(_renderer, text, pos, textSize, glColor);
-        }
-        else
-        {
-            // Fallback: Draw rectangles (old method)
-            var glColor = GetGLColor(color);
-            float charWidth = size * 1.2f;
-            float charHeight = size * 1.5f;
-            
-            float x = position.X;
-            float y = position.Y;
-            
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] != ' ')
+                foreach (var item in page.Items)
                 {
-                    _renderer.PushSprite(x, y, charWidth, charHeight, glColor);
+                    string label = item is MenuToggle toggle ? $"{toggle.Label}: {toggle.CurrentValue}" : item.Label;
+                    totalWidth += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
                 }
-                x += charWidth + 4;
+                totalWidth -= itemSpacing; // Remove last spacing
+            }
+            
+            int itemX = isHorizontal ? -totalWidth / 2 : page.ItemsPos.X;
+            int itemY = page.ItemsPos.Y;
+            
+            for (int i = 0; i < page.Items.Count; i++)
+            {
+                var item = page.Items[i];
+                bool isSelected = i == page.SelectedIndex;
+                // Show selected item in yellow (Accent), default in white
+                // TODO: Add blinking back later with menu.ShouldBlink()
+                var color = isSelected ? UIColor.Accent : UIColor.Default;
+                
+                if (!item.IsEnabled)
+                    color = UIColor.Disabled;
+                
+                Vec2i itemPos = new(itemX, itemY);
+                Vec2i screenPos = GetScaledPosition(page.ItemsAnchor, itemPos);
+                
+                // Use centered text for middle-anchored items
+                bool shouldCenter = page.ItemsAnchor == UIAnchor.MiddleCenter || 
+                                page.ItemsAnchor == UIAnchor.TopCenter || 
+                                page.ItemsAnchor == UIAnchor.BottomCenter;
+                
+                string label = "";
+                if (item is MenuButton button)
+                {
+                    label = button.Label;
+                    if (shouldCenter && !isHorizontal)
+                        DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
+                    else
+                        DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
+                }
+                else if (item is MenuToggle toggle)
+                {
+                    label = $"{toggle.Label}: {toggle.CurrentValue}";
+                    if (shouldCenter && !isHorizontal)
+                        DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
+                    else
+                        DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
+                }
+                
+                // Move to next position
+                if (isHorizontal)
+                    itemX += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
+                if (isVertical)
+                    itemY += Spacing.MenuItemVerticalSpacing;
             }
         }
-    }
-    
-    public void DrawTextCentered(string text, Vec2i position, int size, UIColor color)
-    {
-        int textWidth = GetTextWidth(text, size);
-        Vec2i centeredPos = new Vec2i(position.X - textWidth / 2, position.Y);
-        DrawText(text, centeredPos, UIAnchor.TopLeft, size, color);
-    }
-    
-    public int GetTextWidth(string text, int size)
-    {
-        if (_fontSystem != null)
+        
+        public void DrawText(string text, Vec2i position, UIAnchor anchor, int size, UIColor color)
         {
-            TextSize textSize = size switch
+            if (_fontSystem != null)
             {
-                >= 16 => TextSize.Size16,
-                >= 12 => TextSize.Size12,
-                _ => TextSize.Size8
+                // Use proper font rendering
+                TextSize textSize = size switch
+                {
+                    >= 16 => TextSize.Size16,
+                    >= 12 => TextSize.Size12,
+                    _ => TextSize.Size8
+                };
+                
+                // Blending já está ativado no Setup2DRendering
+                var glColor = GetColor4(color);
+                Vector2 pos = new(position.X, position.Y);
+                _fontSystem.DrawText(_renderer, text, pos, textSize, glColor);
+            }
+            else
+            {
+                // Fallback: Draw rectangles (old method)
+                var glColor = GetGLColor(color);
+                float charWidth = size * 1.2f;
+                float charHeight = size * 1.5f;
+                
+                float x = position.X;
+                float y = position.Y;
+                
+                for (int i = 0; i < text.Length; i++)
+                {
+                    if (text[i] != ' ')
+                    {
+                        _renderer.PushSprite(x, y, charWidth, charHeight, glColor);
+                    }
+                    x += charWidth + 4;
+                }
+            }
+        }
+        
+        public void DrawTextCentered(string text, Vec2i position, int size, UIColor color)
+        {
+            int textWidth = GetTextWidth(text, size);
+            Vec2i centeredPos = new(position.X - textWidth / 2, position.Y);
+            DrawText(text, centeredPos, UIAnchor.TopLeft, size, color);
+        }
+        
+        public int GetTextWidth(string text, int size)
+        {
+            if (_fontSystem != null)
+            {
+                TextSize textSize = size switch
+                {
+                    >= 16 => TextSize.Size16,
+                    >= 12 => TextSize.Size12,
+                    _ => TextSize.Size8
+                };
+                return _fontSystem.GetTextWidth(text, textSize);
+            }
+            
+            // Fallback: Approximate
+            return (int)(text.Length * size * 0.6f);
+        }
+        
+        private Vec2i GetScaledPosition(UIAnchor anchor, Vec2i offset)
+        {
+            int baseX = 0, baseY = 0;
+            
+            switch (anchor)
+            {
+                case UIAnchor.TopLeft:
+                    baseX = 0;
+                    baseY = 0;
+                    break;
+                case UIAnchor.TopCenter:
+                    baseX = _windowWidth / 2;
+                    baseY = 0;
+                    break;
+                case UIAnchor.TopRight:
+                    baseX = _windowWidth;
+                    baseY = 0;
+                    break;
+                case UIAnchor.MiddleLeft:
+                    baseX = 0;
+                    baseY = _windowHeight / 2;
+                    break;
+                case UIAnchor.MiddleCenter:
+                    baseX = _windowWidth / 2;
+                    baseY = _windowHeight / 2;
+                    break;
+                case UIAnchor.MiddleRight:
+                    baseX = _windowWidth;
+                    baseY = _windowHeight / 2;
+                    break;
+                case UIAnchor.BottomLeft:
+                    baseX = 0;
+                    baseY = _windowHeight;
+                    break;
+                case UIAnchor.BottomCenter:
+                    baseX = _windowWidth / 2;
+                    baseY = _windowHeight;
+                    break;
+                case UIAnchor.BottomRight:
+                    baseX = _windowWidth;
+                    baseY = _windowHeight;
+                    break;
+            }
+            
+            return new Vec2i(baseX + offset.X, baseY + offset.Y);
+        }
+        
+        private static Vector4 GetGLColor(UIColor color)
+        {
+            return color switch
+            {
+                UIColor.Accent => new Vector4(1.0f, 0.8f, 0.0f, 1.0f),  // Yellow/gold
+                UIColor.Disabled => new Vector4(0.5f, 0.5f, 0.5f, 1.0f), // Gray
+                _ => new Vector4(1.0f, 1.0f, 1.0f, 1.0f)  // White
             };
-            return _fontSystem.GetTextWidth(text, textSize);
         }
         
-        // Fallback: Approximate
-        return (int)(text.Length * size * 0.6f);
-    }
-    
-    private Vec2i GetScaledPosition(UIAnchor anchor, Vec2i offset)
-    {
-        int baseX = 0, baseY = 0;
-        
-        switch (anchor)
+        private static Color4 GetColor4(UIColor color)
         {
-            case UIAnchor.TopLeft:
-                baseX = 0;
-                baseY = 0;
-                break;
-            case UIAnchor.TopCenter:
-                baseX = _windowWidth / 2;
-                baseY = 0;
-                break;
-            case UIAnchor.TopRight:
-                baseX = _windowWidth;
-                baseY = 0;
-                break;
-            case UIAnchor.MiddleLeft:
-                baseX = 0;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.MiddleCenter:
-                baseX = _windowWidth / 2;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.MiddleRight:
-                baseX = _windowWidth;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.BottomLeft:
-                baseX = 0;
-                baseY = _windowHeight;
-                break;
-            case UIAnchor.BottomCenter:
-                baseX = _windowWidth / 2;
-                baseY = _windowHeight;
-                break;
-            case UIAnchor.BottomRight:
-                baseX = _windowWidth;
-                baseY = _windowHeight;
-                break;
+            return color switch
+            {
+                UIColor.Accent => Colors.MenuItemSelected,
+                UIColor.Disabled => Colors.MenuItemDisabled,
+                _ => Colors.MenuItemDefault
+            };
         }
-        
-        return new Vec2i(baseX + offset.X, baseY + offset.Y);
     }
-    
-    private Vector4 GetGLColor(UIColor color)
-    {
-        return color switch
-        {
-            UIColor.Accent => new Vector4(1.0f, 0.8f, 0.0f, 1.0f),  // Yellow/gold
-            UIColor.Disabled => new Vector4(0.5f, 0.5f, 0.5f, 1.0f), // Gray
-            _ => new Vector4(1.0f, 1.0f, 1.0f, 1.0f)  // White
-        };
-    }
-    
-    private Color4 GetColor4(UIColor color)
-    {
-        return color switch
-        {
-            UIColor.Accent => Colors.MenuItemSelected,
-            UIColor.Disabled => Colors.MenuItemDisabled,
-            _ => Colors.MenuItemDefault
-        };
-    }
+
 }

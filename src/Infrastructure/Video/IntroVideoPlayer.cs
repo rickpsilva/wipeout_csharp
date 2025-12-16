@@ -1,14 +1,7 @@
-using System;
-using System.IO;
-using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
-using OpenTK.Graphics.OpenGL;
 using FFMpegCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using System.Threading.Tasks;
-using FFMpegCore.Pipes;
 using WipeoutRewrite.Infrastructure.Audio;
 
 namespace WipeoutRewrite.Infrastructure.Video
@@ -19,9 +12,8 @@ namespace WipeoutRewrite.Infrastructure.Video
     public class IntroVideoPlayer : IVideoPlayer
     {
         private readonly ILogger<IntroVideoPlayer> _logger;
-        private int _textureId;
-        private List<byte[]> _frames = new List<byte[]>();
-        private int _videoWidth, _videoHeight;
+        private readonly List<byte[]> _frames = new();
+        private readonly int _videoWidth, _videoHeight;
         private int _currentFrameIndex = 0;
         
         private readonly double _frameRate;
@@ -35,15 +27,27 @@ namespace WipeoutRewrite.Infrastructure.Video
 
         public bool IsPlaying => _isPlaying && _currentFrameIndex < _frames.Count;
 
-        public IntroVideoPlayer(string videoPath, ILogger<IntroVideoPlayer> logger)
+        public IntroVideoPlayer( 
+            ILogger<IntroVideoPlayer> logger)
         {
-            _logger = logger;
+             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            // Get the base directory of the application
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            
+            // Navigate up to project root (adjust the number of ".." based on your build output structure)
+            // Typically: bin/Debug/net8.0/ -> 3 levels up
+            string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", ".."));
+            string videoPath = Path.Combine(projectRoot, "assets", "wipeout", "intro.mpeg");
+            
+            _logger.LogInformation("Looking for video at: {VideoPath}", videoPath);
+                       
             if (!File.Exists(videoPath))
             {
                 throw new FileNotFoundException("Video file not found.", videoPath);
             }
 
-            _logger.LogInformation("Carregando vídeo de introdução...");
+            _logger.LogInformation("✓ Loading intro video...");
 
             // Get video information
             var mediaInfo = FFProbe.Analyse(videoPath);
@@ -55,15 +59,9 @@ namespace WipeoutRewrite.Infrastructure.Video
                 _frameRate = 25.0;
             }
             
-            // Inicializar textura OpenGL
-            _textureId = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, _textureId);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-            
             // Pre-load all frames (more efficient than real-time decoding)
             LoadAllFrames(videoPath);
-            _logger.LogInformation("{FrameCount} frames carregados ({VideoWidth}x{VideoHeight} @ {FrameRate:F1}fps)", _frames.Count, _videoWidth, _videoHeight, _frameRate);
+            _logger.LogInformation("{FrameCount} frames loaded ({VideoWidth}x{VideoHeight} @ {FrameRate:F1}fps)", _frames.Count, _videoWidth, _videoHeight, _frameRate);
             
             // Extract and load audio
             ExtractAndLoadAudio(videoPath);
@@ -109,7 +107,7 @@ namespace WipeoutRewrite.Infrastructure.Video
         {
             try
             {
-                _logger.LogInformation("Extraindo áudio do vídeo...");
+                _logger.LogInformation("✓ Extracting audio from video...");
                 
                 // Create temporary file for audio
                 _audioTempPath = Path.Combine(Path.GetTempPath(), $"wipeout_intro_audio_{Guid.NewGuid()}.wav");
@@ -125,17 +123,16 @@ namespace WipeoutRewrite.Infrastructure.Video
                 
                 if (!result)
                 {
-                    _logger.LogWarning("FFmpeg falhou ao extrair áudio - continuando sem som");
+                    _logger.LogWarning("FFmpeg failed to extract audio - continuing without sound");
                     return;
                 }
                 
                 if (File.Exists(_audioTempPath))
                 {
-                    // Verificar tamanho do ficheiro
                     var fileInfo = new FileInfo(_audioTempPath);
                     if (fileInfo.Length < 1000)
                     {
-                        _logger.LogWarning("Arquivo de áudio muito pequeno - possível falha na extração");
+                        _logger.LogWarning("Audio file too small - possible extraction failure");
                         return;
                     }
                     
@@ -143,23 +140,23 @@ namespace WipeoutRewrite.Infrastructure.Video
                     _audioPlayer = new AudioPlayer();
                     if (_audioPlayer.LoadWav(_audioTempPath))
                     {
-                        _logger.LogInformation("Áudio carregado com sucesso");
+                        _logger.LogInformation("✓ Audio loaded successfully");
                     }
                     else
                     {
-                        _logger.LogWarning("Falha ao carregar áudio - continuando sem som");
+                        _logger.LogWarning("Failed to load audio - continuing without sound");
                         _audioPlayer?.Dispose();
                         _audioPlayer = null;
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("Arquivo de áudio não foi criado - continuando sem som");
+                    _logger.LogWarning("Audio Archive wasn't created - continuing without sound");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Erro ao extrair áudio - continuando sem som");
+                _logger.LogWarning(ex, "Error extracting audio - continuing without sound");
                 _audioPlayer = null;
             }
         }
@@ -168,7 +165,7 @@ namespace WipeoutRewrite.Infrastructure.Video
         {
             if (!_loadingComplete || _frames.Count == 0)
             {
-                _logger.LogWarning("Sem frames para reproduzir");
+                _logger.LogWarning("No frames to play");
                 return;
             }
 
@@ -179,7 +176,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             // Start audio synchronized with video
             _audioPlayer?.Play();
             
-            _logger.LogInformation("Reproduzindo intro...");
+            _logger.LogInformation("✓ Playing intro...");
         }
 
         public void Skip()
@@ -190,7 +187,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             // Stop audio
             _audioPlayer?.Stop();
             
-            _logger.LogInformation("Intro saltada");
+            _logger.LogInformation("✓ Intro skipped");
         }
 
         public void Update()
@@ -223,7 +220,7 @@ namespace WipeoutRewrite.Infrastructure.Video
                 targetFrame = _frames.Count - 1;
                 _isPlaying = false;
                 _audioPlayer?.Stop();
-                Console.WriteLine("✓ Intro terminada");
+                _logger.LogInformation("✓ Intro finished.");
                 return;
             }
             
@@ -232,13 +229,7 @@ namespace WipeoutRewrite.Infrastructure.Video
             {
                 _currentFrameIndex = targetFrame;
                 _lastRenderedFrame = targetFrame;
-                
-                // Atualizar textura OpenGL
-                GL.BindTexture(TextureTarget.Texture2D, _textureId);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, 
-                    _videoWidth, _videoHeight, 0, PixelFormat.Rgba, PixelType.UnsignedByte, 
-                    _frames[_currentFrameIndex]);
-                
+                                
                 // Detailed log every second to verify synchronization
                 if (_currentFrameIndex % 25 == 0)
                 {
@@ -246,22 +237,32 @@ namespace WipeoutRewrite.Infrastructure.Video
                     float videoPos = _currentFrameIndex / (float)_frameRate;
                     float diff = Math.Abs(audioPos - videoPos);
                     
-                    Console.WriteLine($"▶ Frame {_currentFrameIndex}/{_frames.Count} | " +
+                    _logger.LogInformation($"▶ Frame {_currentFrameIndex}/{_frames.Count} | " +
                                     $"Vídeo: {videoPos:F2}s | Áudio: {audioPos:F2}s | " +
                                     $"Diff: {diff:F3}s");
                 }
             }
         }
-
-        public int GetTextureId() => _textureId;
         public int GetWidth() => _videoWidth;
         public int GetHeight() => _videoHeight;
+        
+        public byte[]? GetCurrentFrameData()
+        {
+            if (_currentFrameIndex >= 0 && _currentFrameIndex < _frames.Count)
+            {
+                var frameData = _frames[_currentFrameIndex];
+                if (frameData != null && frameData.Length > 0)
+                {
+                    return frameData;
+                }
+            }
+            return null;
+        }
 
         public void Dispose()
         {
             _isPlaying = false;
             _frames.Clear();
-            if (_textureId != 0) GL.DeleteTexture(_textureId);
             
             // Clean up audio
             _audioPlayer?.Dispose();
@@ -272,6 +273,9 @@ namespace WipeoutRewrite.Infrastructure.Video
             {
                 try { File.Delete(_audioTempPath); } catch { }
             }
+
+            // No finalizer implemented, so suppress finalization to avoid GC overhead
+            GC.SuppressFinalize(this);
         }
     }
 }
