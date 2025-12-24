@@ -121,3 +121,9 @@ assets/wipeout/*
 tools/bin/
 tools/obj/
 tools/qoa2wav
+
+#recent files list
+recent_files.json
+
+#imgui
+imgui.ini

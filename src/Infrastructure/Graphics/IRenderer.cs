@@ -24,6 +24,12 @@ public interface IRenderer
     void EndFrame();
     
     /// <summary>
+    /// Flushes the accumulated rendering batches to the GPU.
+    /// Call this after rendering scene objects to ensure visibility.
+    /// </summary>
+    void Flush();
+    
+    /// <summary>
     /// Setup 2D orthographic rendering (for sprites, UI, video)
     /// </summary>
     void Setup2DRendering();
@@ -138,4 +144,12 @@ public interface IRenderer
     /// Used for loading shadow textures and other runtime-loaded textures.
     /// </summary>
     int CreateTexture(byte[] pixels, int width, int height);
+
+    /// <summary>
+    /// Sets a directional light for the scene.
+    /// direction: normalized direction vector pointing FROM the light source
+    /// color: RGB color of the light (0-1 range)
+    /// intensity: brightness multiplier
+    /// </summary>
+    void SetDirectionalLight(Vector3 direction, Vector3 color, float intensity);
 }

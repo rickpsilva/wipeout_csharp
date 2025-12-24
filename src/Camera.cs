@@ -17,6 +17,17 @@ namespace WipeoutRewrite
         private float yaw = 0f;
         private float pitch = 0f;
         
+        // Public properties for editor/tool access
+        public float Distance 
+        { 
+            get => distance;
+            set 
+            { 
+                distance = System.Math.Clamp(value, minDistance, maxDistance);
+                UpdatePosition();  // Update camera position when distance changes
+            }
+        }
+        
         // Configuração de câmera (baseado em wipeout-rewrite/src/render_gl.c)
         // Vertical FOV de 73.75° (horizontal 90° em 4:3)
         private float fov = 73.75f;  // FOV vertical do Wipeout original
@@ -97,9 +108,36 @@ namespace WipeoutRewrite
         }
 
         public Vector3 Position => position;
-        public Vector3 Target => target;
-        public float Yaw => yaw;
-        public float Pitch => pitch;
+        public Vector3 Target 
+        { 
+            get => target;
+            set
+            {
+                target = value;
+                UpdatePosition();
+            }
+        }
+        public float Yaw 
+        { 
+            get => yaw;
+            set
+            {
+                // Normalize yaw to keep within 0 to 2π (0 to 360 degrees)
+                yaw = value % (MathF.PI * 2);
+                if (yaw < 0) yaw += MathF.PI * 2;
+                UpdatePosition();
+            }
+        }
+        public float Pitch 
+        { 
+            get => pitch;
+            set
+            {
+                // Limit pitch to approximately -89° to 89° (in radians: -1.553 to 1.553)
+                pitch = MathHelper.Clamp(value, MathHelper.DegreesToRadians(-89f), MathHelper.DegreesToRadians(89f));
+                UpdatePosition();
+            }
+        }
         
         public float Fov
         {
@@ -112,7 +150,6 @@ namespace WipeoutRewrite
 
         public void Update(KeyboardState keyboardState, MouseState mouseState)
         {
-            _logger.LogInformation("[CAMERA] Update() called");
             // Controles de movimento
             HandleKeyboardInput(keyboardState);
             
@@ -276,17 +313,15 @@ namespace WipeoutRewrite
 
         private void UpdatePosition()
         {
-            // Converter ângulos em radianos
-            float yawRad = MathHelper.DegreesToRadians(yaw);
-            float pitchRad = MathHelper.DegreesToRadians(pitch);
+            // yaw and pitch are already in radians, no need to convert
             
-            // Calcular nova posição ao redor do alvo
-            float x = distance * MathF.Cos(pitchRad) * MathF.Sin(yawRad);
-            float y = distance * MathF.Sin(pitchRad);
-            float z = distance * MathF.Cos(pitchRad) * MathF.Cos(yawRad);
+            // Calculate new position around the target
+            float x = distance * MathF.Cos(pitch) * MathF.Sin(yaw);
+            float y = distance * MathF.Sin(pitch);
+            float z = distance * MathF.Cos(pitch) * MathF.Cos(yaw);
             
             position = target + new Vector3(x, y, z);
-            _logger.LogInformation("[CAMERA] UpdatePosition: pos={Position}, target={Target}, yaw={Yaw}, pitch={Pitch}, dist={Distance}", 
+            _logger.LogInformation("[CAMERA] UpdatePosition: pos={Position}, target={Target}, yaw={Yaw}rad, pitch={Pitch}rad, dist={Distance}", 
                 position, target, yaw, pitch, distance);
         }
     }

@@ -280,11 +280,11 @@ namespace WipeoutRewrite.Core.Graphics
                 case 1: // PRM_TYPE_F3: 3*i16 + pad + u32 = 12 bytes
                     p += 12;
                     break;
-                case 2: // PRM_TYPE_F4: 4*i16 + u32 = 12 bytes
-                    p += 12;
-                    break;
-                case 3: // PRM_TYPE_FT3: 3*i16 + 3*i16 + 6*u8 + pad + u32 = 24 bytes
+                case 2: // PRM_TYPE_FT3: 3*i16 + 3*i16 + 6*u8 + pad + u32 = 24 bytes
                     p += 24;
+                    break;
+                case 3: // PRM_TYPE_F4: 4*i16 + u32 = 12 bytes
+                    p += 12;
                     break;
                 case 4: // PRM_TYPE_FT4: 4*i16 + 3*i16 + 8*u8 + pad + u32 = 28 bytes
                     p += 28;
@@ -301,37 +301,40 @@ namespace WipeoutRewrite.Core.Graphics
                 case 8: // PRM_TYPE_GT4: 4*i16 + 3*i16 + 8*u8 + pad + 4*u32 = 40 bytes
                     p += 40;
                     break;
-                case 9: // PRM_TYPE_LSF3: 3*i16 + i16 + u32 = 12 bytes
+                case 9: // PRM_TYPE_LF2: (unknown, skip for now)
                     p += 12;
                     break;
-                case 10: // PRM_TYPE_LSF4: 4*i16 + i16 + pad + u32 = 16 bytes
+                case 10: // PRM_TYPE_TSPR: i16 + i16 + i16 + i16 + u32 = 12 bytes
+                    p += 12;
+                    break;
+                case 11: // PRM_TYPE_BSPR: i16 + i16 + i16 + i16 + u32 = 12 bytes
+                    p += 12;
+                    break;
+                case 12: // PRM_TYPE_LSF3: 3*i16 + i16 + u32 = 12 bytes
+                    p += 12;
+                    break;
+                case 13: // PRM_TYPE_LSFT3: 3*i16 + i16 + 3*i16 + 6*u8 + u32 = 24 bytes
+                    p += 24;
+                    break;
+                case 14: // PRM_TYPE_LSF4: 4*i16 + i16 + pad + u32 = 16 bytes
                     p += 16;
                     break;
-                case 11: // PRM_TYPE_LSFT3: 3*i16 + i16 + 3*i16 + 6*u8 + pad + u32 = 26 bytes
-                    p += 26;
+                case 15: // PRM_TYPE_LSFT4: 4*i16 + i16 + 3*i16 + 8*u8 + u32 = 30 bytes
+                    p += 30;
                     break;
-                case 12: // PRM_TYPE_LSFT4: 4*i16 + i16 + pad + 3*i16 + 8*u8 + pad + u32 = 32 bytes
+                case 16: // PRM_TYPE_LSG3: 3*i16 + 3*i16 + 3*u32 = 24 bytes
+                    p += 24;
+                    break;
+                case 17: // PRM_TYPE_LSGT3: 3*i16 + 3*i16 + 3*i16 + 6*u8 + 3*u32 = 36 bytes
+                    p += 36;
+                    break;
+                case 18: // PRM_TYPE_LSG4: 4*i16 + 4*i16 + 4*u32 = 32 bytes
                     p += 32;
                     break;
-                case 13: // PRM_TYPE_LSG3: 3*i16 + i16 + 3*u32 = 20 bytes
-                    p += 20;
+                case 19: // PRM_TYPE_LSGT4: 4*i16 + 4*i16 + 3*i16 + 8*u8 + pad + 4*u32 = 46 bytes
+                    p += 46;
                     break;
-                case 14: // PRM_TYPE_LSG4: 4*i16 + i16 + pad + 4*u32 = 26 bytes
-                    p += 26;
-                    break;
-                case 15: // PRM_TYPE_LSGT3: 3*i16 + i16 + 3*i16 + 6*u8 + pad + 3*u32 = 34 bytes
-                    p += 34;
-                    break;
-                case 16: // PRM_TYPE_LSGT4: 4*i16 + i16 + pad + 3*i16 + 8*u8 + pad + 4*u32 = 42 bytes
-                    p += 42;
-                    break;
-                case 17: // PRM_TYPE_TSPR: 3*i16 + pad + i16 + i16 + i16 + i16 + u8 + u8 + u8 + u8 + u32 = 26 bytes
-                    p += 26;
-                    break;
-                case 18: // PRM_TYPE_BSPR: i16 + i16 + i16 + pad + i16 + i16 + i16 + i16 + u8*4 + u32 = 26 bytes
-                    p += 26;
-                    break;
-                case 20: // PRM_TYPE_SPLINE: (vec3+pad)*3 + rgba = 16+16+16+4 = 52 bytes (type+flag already read)
+                case 20: // PRM_TYPE_SPLINE: (vec3+pad)*3 + rgba = 16+16+16+4 = 52 bytes
                     p += 52;
                     break;
                 case 21: // PRM_TYPE_INFINITE_LIGHT: i16*3 + pad + rgba = 6+2+4 = 12 bytes
@@ -896,6 +899,119 @@ namespace WipeoutRewrite.Core.Graphics
 
             return mesh;
         }
+
+        /// <summary>
+        /// Scans a PRM file and returns a list of object names and their indices.
+        /// This is useful for displaying available models in a PRM file without loading them all.
+        /// </summary>
+        public List<(int index, string name)> GetObjectsInPrmFile(string filepath)
+        {
+            var objects = new List<(int, string)>();
+            
+            try
+            {
+                if (!File.Exists(filepath))
+                {
+                    _logger?.LogWarning("PRM file not found for scanning: {Path}", filepath);
+                    return objects;
+                }
+
+                byte[] bytes = File.ReadAllBytes(filepath);
+                int p = 0;
+                int objectIndex = 0;
+
+                while (p < bytes.Length - 144)
+                {
+                    // Read object header
+                    string name = ReadFixedString(bytes, ref p, 16);
+                    
+                    short verticesLen = ReadI16(bytes, ref p); p += 2; // padding
+                    int verticesPtr = ReadI32(bytes, ref p);
+                    
+                    short normalsLen = ReadI16(bytes, ref p); p += 2; // padding
+                    int normalsPtr = ReadI32(bytes, ref p);
+                    
+                    short primitivesLen = ReadI16(bytes, ref p); p += 2; // padding
+                    int primitivesPtr = ReadI32(bytes, ref p);
+                    
+                    p += 4; // unused ptr
+                    p += 4; // unused ptr
+                    p += 4; // skeleton ref
+                    
+                    int extent = ReadI32(bytes, ref p);
+                    short flags = ReadI16(bytes, ref p); p += 2; // padding
+                    int nextPtr = ReadI32(bytes, ref p);
+                    
+                    p += 3 * 3 * 2; // relative rotation matrix (3x3 i16)
+                    p += 2; // padding
+                    
+                    int originX = ReadI32(bytes, ref p);
+                    int originY = ReadI32(bytes, ref p);
+                    int originZ = ReadI32(bytes, ref p);
+                    
+                    p += 3 * 3 * 2; // absolute rotation matrix
+                    p += 2; // padding
+                    p += 3 * 4; // absolute translation
+                    p += 2; // skeleton update flag
+                    p += 2; // padding
+                    p += 4; // skeleton super
+                    p += 4; // skeleton sub
+                    p += 4; // skeleton next
+
+                    // Validate counts
+                    if (verticesLen < 0 || normalsLen < 0 || primitivesLen < 0 || 
+                        verticesLen > 10000 || normalsLen > 10000 || primitivesLen > 10000)
+                    {
+                        _logger?.LogWarning("Invalid object counts at index {Index}, stopping scan", objectIndex);
+                        break;
+                    }
+
+                    // Only add objects with vertices (skip markers/lights)
+                    if (verticesLen > 0)
+                    {
+                        objects.Add((objectIndex, name));
+                        _logger?.LogInformation("Found object {Index}: '{Name}' ({VertCount} vertices, {PrimCount} primitives)", 
+                            objectIndex, name, verticesLen, primitivesLen);
+                    }
+
+                    // Skip data for this object (even if verticesLen == 0, we still need to skip)
+                    p += verticesLen * 8; // Each vertex: 3*i16 + pad = 8 bytes
+                    p += normalsLen * 8; // Each normal: 3*i16 + pad = 8 bytes
+                    
+                    // Skip primitives
+                    for (int i = 0; i < primitivesLen; i++)
+                    {
+                        if (p + 4 > bytes.Length)
+                        {
+                            _logger?.LogWarning("Not enough bytes to skip primitive, stopping scan");
+                            return objects;
+                        }
+
+                        short prmType = ReadI16(bytes, ref p);
+                        short prmFlag = ReadI16(bytes, ref p);
+                        
+                        int skipped = SkipPrimitive(bytes, ref p, prmType);
+                        if (skipped < 0)
+                        {
+                            _logger?.LogWarning("Unknown primitive type {Type} at position {Pos}, stopping scan", prmType, p);
+                            return objects;
+                        }
+                    }
+
+                    objectIndex++;
+                }
+
+                _logger?.LogInformation("Scan complete: {Count} objects found in {Path}", objects.Count, filepath);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error scanning PRM file: {Path}", filepath);
+            }
+
+            return objects;
+        }
+
+
 
         /// <summary>
         /// Creates the original simple mock model (kept for compatibility)

@@ -166,6 +166,7 @@ namespace WipeoutRewrite
             // NOTE: InputManager.Update() is called at the END of this method
             // so _previousState stores the state from the PREVIOUS frame
 
+#pragma warning disable CS8602 // _gameState and _menuManager are validated in constructor
             // Update music
             _musicPlayer?.Update((float)args.Time);
 
@@ -360,6 +361,7 @@ namespace WipeoutRewrite
             
             // Update input state at the END of frame for next frame's comparison
             InputManager.Update(KeyboardState);
+#pragma warning restore CS8602
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)

@@ -18,6 +18,8 @@ namespace WipeoutRewrite.Infrastructure.Graphics
         private readonly Dictionary<int, TextureAlphaMode> _textureAlphaMode = new();
         // Track texture sizes (width, height) for UV normalization
         private readonly Dictionary<int, (int width, int height)> _textureSizes = new();
+        // Cache CMP file texture handles to avoid loading same CMP multiple times
+        private readonly Dictionary<string, int[]> _cmpCache = new();
 
         public TextureManager(
             ILogger<TextureManager> logger, 
@@ -74,6 +76,14 @@ namespace WipeoutRewrite.Infrastructure.Graphics
 
         public int[] LoadTexturesFromCmp(string cmpPath)
         {
+            // Check cache first - reuse textures if this CMP was already loaded
+            if (_cmpCache.TryGetValue(cmpPath, out var cachedHandles))
+            {
+                _logger?.LogInformation("Reusing cached textures from CMP: {CmpPath} ({Count} textures)", 
+                    cmpPath, cachedHandles.Length);
+                return cachedHandles;
+            }
+            
             try
             {
                 _logger?.LogInformation("Attempting to load CMP {CmpPath}", cmpPath);
@@ -131,6 +141,10 @@ namespace WipeoutRewrite.Infrastructure.Graphics
                         _logger?.LogInformation("Mapped TIM #{Index} -> GL handle {Handle}", i, handles[i]);
                     }
                 }
+
+                // Cache the handles for reuse
+                _cmpCache[cmpPath] = handles;
+                _logger?.LogInformation("Cached {Count} texture handles from {CmpPath}", handles.Length, cmpPath);
 
                 return handles;
             }

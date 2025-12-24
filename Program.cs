@@ -82,6 +82,7 @@ namespace WipeoutRewrite
             // Core
             services.AddSingleton<IRenderer, GLRenderer>();
             services.AddSingleton<ICamera, Camera>();
+            services.AddSingleton<ICameraFactory, CameraFactory>();
             services.AddSingleton<IVideoPlayer, IntroVideoPlayer>();
             services.AddSingleton<IMusicPlayer, MusicPlayer>();
             services.AddSingleton<IAssetLoader, AssetLoader>();
