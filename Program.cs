@@ -101,9 +101,9 @@ namespace WipeoutRewrite
 
 
             // Ship Services
-            services.AddSingleton<IShips, Ships>();
-            services.AddTransient<IShipV2, ShipV2>();
-            services.AddTransient<IShipFactory, ShipFactory>();
+            services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
+            services.AddTransient<IGameObject, GameObject>();
+            services.AddTransient<IGameObjectFactory, ShipFactory>();
 
             // Graphics
             services.AddSingleton<ITextureManager, TextureManager>();

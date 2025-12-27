@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Infrastructure.Graphics;
@@ -24,9 +22,9 @@ namespace WipeoutRewrite.Core.Services
     {
         private readonly ILogger<GameState> _logger;
 
-        private readonly IShips _ships;
+        private readonly IGameObjectCollection _gameObjects;
 
-        private readonly IShipV2 _shipPlayer;
+        private readonly IGameObject _model;
         public GameMode CurrentMode { get; set; }
         public Track CurrentTrack { get; set; } = null!;
 
@@ -43,13 +41,13 @@ namespace WipeoutRewrite.Core.Services
 
         public GameState(
             ILogger<GameState> logger,
-            IShips ships,
-            IShipV2 shipPlayer
+            IGameObjectCollection gameObjects,
+            IGameObject model
         )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _ships = ships ?? throw new ArgumentNullException(nameof(ships));
-            _shipPlayer = shipPlayer ?? throw new ArgumentNullException(nameof(shipPlayer));
+            _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
+            _model = model ?? throw new ArgumentNullException(nameof(model));
             
             CurrentMode = GameMode.Menu;
             LapNumber = 1;
@@ -65,12 +63,12 @@ namespace WipeoutRewrite.Core.Services
         {
             CurrentTrack = track;
             CurrentMode = GameMode.Loading;
-            _ships.Clear();
+            _gameObjects.Clear();
             LapNumber = 1;
             RaceTime = 0;
-            _ships.ShipsInit(null);
+            _gameObjects.Init(null);
            
-            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, _ships.AllShips.Count);
+            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, _gameObjects.GetAll.Count);
         }
 
         public void Update(float deltaTime)
@@ -80,7 +78,7 @@ namespace WipeoutRewrite.Core.Services
 
             RaceTime += deltaTime;
 
-            _ships.ShipsUpdate();
+            _gameObjects.Update();
 
             // TODO: collision logic, AI, checkpoints
         }
@@ -89,7 +87,7 @@ namespace WipeoutRewrite.Core.Services
         {
             CurrentTrack?.Render(renderer);
 
-           _ships.ShipsRenderer();
+           _gameObjects.Renderer();
         }
 
         public void SetPlayerShip(bool accelerate, bool brake, bool turnLeft, bool turnRight, bool boostLeft, bool boostRight)

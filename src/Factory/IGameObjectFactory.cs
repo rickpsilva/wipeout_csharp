@@ -3,8 +3,8 @@ using WipeoutRewrite.Core.Entities;
 
 namespace WipeoutRewrite.Factory
 {
-    public interface IShipFactory
+    public interface IGameObjectFactory
     {
-        IShipV2 CreateShip();
+        IGameObject CreateModel();
     }
 }

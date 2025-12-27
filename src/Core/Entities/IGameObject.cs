@@ -5,14 +5,14 @@ using WipeoutRewrite.Core.Graphics;
 namespace WipeoutRewrite.Core.Entities
 {
     /// <summary>
-    /// Ship entity - represents a racing ship in the game.
-    /// Based on wipeout-rewrite/src/wipeout/ship.c
+    /// GameObject entity - represents any 3D object in the game (ships, props, etc.).
+    /// Can load PRM models, CMP textures, and handle rendering.
     /// </summary>
-    public interface IShipV2
+    public interface IGameObject
     {
         Mesh? GetModel();
-        void ShipLoad(int shipIndex = 0);
-        void ShipInit(TrackSection? section, int pilot, int position);
+        void Load(int modelIndex = 0);
+        void Init(TrackSection? section, int pilot, int position);
         void InitExhaustPlume();
         void ResetExhaustPlume();
         Mat4 CalculateTransformMatrix();
@@ -20,7 +20,7 @@ namespace WipeoutRewrite.Core.Entities
         void RenderShadow();
         void Update();
         void CollideWithTrack(TrackFace face);
-        void CollideWithShip(ShipV2 other);
+        void CollideWithShip(GameObject other);
         Vec3 GetCockpitPosition();
         Vec3 GetNosePosition();
         Vec3 GetWingLeftPosition();

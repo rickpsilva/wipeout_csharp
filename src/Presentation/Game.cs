@@ -449,13 +449,13 @@ namespace WipeoutRewrite
                     switch (selectedIndex)
                     {
                         case 0: // START GAME - Nave
-                            _contentPreview3D.Render<IShipV2>(7);
+                            _contentPreview3D.Render<IGameObject>(7);
                             break;
                         case 1: // OPTIONS - Nave diferente (temporário, depois será "?")
-                            _contentPreview3D.Render<IShipV2>(3);
+                            _contentPreview3D.Render<IGameObject>(3);
                             break;
                         case 2: // QUIT - Outra nave (temporário, depois será "MS DOS")
-                            _contentPreview3D.Render<IShipV2>(0);
+                            _contentPreview3D.Render<IGameObject>(0);
                             break;
                     }
                 }

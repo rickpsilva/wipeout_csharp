@@ -66,7 +66,7 @@ public class ShipRenderWindow : GameWindow
 
     private ISettingsService _settingsManager;
     private readonly ISettingsPanel _settingsPanel;
-    private readonly IShips _ships;
+    private readonly IGameObjectCollection _gameObjects;
 
     // Toggle transform panel
     private bool _showCamera = true;
@@ -106,7 +106,7 @@ public class ShipRenderWindow : GameWindow
     public ShipRenderWindow(
         GameWindowSettings gws,
         NativeWindowSettings nws,
-        IShips ships,
+        IGameObjectCollection gameObjects,
         ILogger<ShipRenderWindow> logger,
         IRenderer renderer,
         ITextureManager textureManager,
@@ -129,7 +129,7 @@ public class ShipRenderWindow : GameWindow
         FileDialogManager fileDialogManager)
         : base(gws, nws)
     {
-        _ships = ships ?? throw new ArgumentNullException(nameof(ships));
+        _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
@@ -357,7 +357,7 @@ public class ShipRenderWindow : GameWindow
             _scene.SelectedObject.Rotation = angle;
         }
 
-        _ships?.ShipsUpdate();
+        _gameObjects.Update();
     }
 
     /// <summary>
@@ -368,8 +368,8 @@ public class ShipRenderWindow : GameWindow
         try
         {
             // Create a new ship instance for this object
-            var shipLogger = new NullLogger<ShipV2>();
-            var newShip = new ShipV2(_renderer, shipLogger, _textureManager);
+            var shipLogger = new NullLogger<GameObject>();
+            var newShip = new GameObject(_renderer, shipLogger, _textureManager);
             newShip.LoadModelFromPath(modelPath, objectIndex);
             newShip.IsVisible = true;  // Enable rendering
 
@@ -1149,13 +1149,13 @@ public class ShipRenderWindow : GameWindow
 
             var shipModel = sceneObject.Ship;
 
-            // Set ship transform directly (ShipV2 will calculate matrix internally)
+            // Set ship transform directly (GameObject will calculate matrix internally)
             shipModel.Position = sceneObject.Position;
             shipModel.Angle = sceneObject.Rotation;
             shipModel.IsVisible = sceneObject.IsVisible;
 
             // Apply only scale via SetModelMatrix
-            // ShipV2.Draw() will apply its own position+rotation transform
+            // GameObject.Draw() will apply its own position+rotation transform
             var scaling = Matrix4.CreateScale(sceneObject.Scale);
             _renderer.SetModelMatrix(scaling);
 

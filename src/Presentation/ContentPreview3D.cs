@@ -8,7 +8,7 @@ namespace WipeoutRewrite.Presentation
     public class ContentPreview3D : IContentPreview3D
     {
         private readonly ILogger<ContentPreview3D> _logger;
-        private readonly IShips _ships;
+        private readonly IGameObjectCollection _gameObjects;
         private readonly IRenderer _renderer;
         private readonly ICamera _camera;
         
@@ -24,13 +24,13 @@ namespace WipeoutRewrite.Presentation
 
         public ContentPreview3D(
             ILogger<ContentPreview3D> logger, 
-            IShips ships,
+            IGameObjectCollection gameObjects,
             IRenderer renderer,
             ICamera camera
         )
         {
            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-           _ships = ships ?? throw new ArgumentNullException(nameof(ships));
+           _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
            _camera = camera ?? throw new ArgumentNullException(nameof(camera));
         }
@@ -89,14 +89,14 @@ namespace WipeoutRewrite.Presentation
                 _logger.LogInformation("Changing preview model from {OldId} to {NewId}", _currentModelId, modelId);
                 
                 // Esconder a nave anterior
-                var oldShip = _ships.AllShips.Find(s => s.ShipId == _currentModelId);
+                var oldShip = _gameObjects.GetAll.Find(s => s.GameObjectId == _currentModelId);
                 if (oldShip != null)
                 {
                     oldShip.IsVisible = false;
                 }
                 
                 // Mostrar a nova nave
-                var newShip = _ships.AllShips.Find(s => s.ShipId == modelId);
+                var newShip = _gameObjects.GetAll.Find(s => s.GameObjectId == modelId);
                 if (newShip != null)
                 {
                     newShip.IsVisible = true;
@@ -113,7 +113,7 @@ namespace WipeoutRewrite.Presentation
                 _rotationAngle -= MathF.PI * 2;
 
             // Atualizar rotação da nave
-            var ship = _ships.AllShips.Find(s => s.ShipId == _currentModelId);
+            var ship = _gameObjects.GetAll.Find(s => s.GameObjectId == _currentModelId);
             if (ship != null)
             {
                 // Rotação em Y para girar da direita para esquerda
@@ -165,19 +165,19 @@ namespace WipeoutRewrite.Presentation
             _logger.LogInformation("Initializing ContentPreview3D with model {ModelId}", modelId);
             
             // Inicializar ships se ainda não foi feito
-            if (_ships.AllShips.Count == 0)
+            if (_gameObjects.GetAll.Count == 0)
             {
-                _ships.ShipsInit(null);
+                _gameObjects.Init(null);
             }
 
             // Tornar INVISÍVEL todas as naves exceto a selecionada
-            foreach (var s in _ships.AllShips)
+            foreach (var s in _gameObjects.GetAll)
             {
-                s.IsVisible = (s.ShipId == modelId);
+                s.IsVisible = (s.GameObjectId == modelId);
             }
 
             // Encontrar e configurar a nave desejada
-            var ship = _ships.AllShips.Find(s => s.ShipId == modelId);
+            var ship = _gameObjects.GetAll.Find(s => s.GameObjectId == modelId);
             if (ship != null)
             {
                 ship.Position = _shipPosition;

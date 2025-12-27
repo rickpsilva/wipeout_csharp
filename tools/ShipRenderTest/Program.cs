@@ -55,9 +55,9 @@ class Program
         services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
         services.AddSingleton<ITimImageLoader, TimImageLoader>();
         services.AddSingleton<ITextureManager, TextureManager>();
-        services.AddSingleton<IShips, Ships>();
-        services.AddTransient<IShipV2, ShipV2>();
-        services.AddTransient<IShipFactory, ShipFactory>();
+        services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
+        services.AddTransient<IGameObject, GameObject>();
+        services.AddTransient<IGameObjectFactory, ShipFactory>();
 
         // Managers with interfaces
         services.AddSingleton<ICameraManager, CameraManager>();

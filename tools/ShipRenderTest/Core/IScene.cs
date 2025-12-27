@@ -20,7 +20,7 @@ namespace WipeoutRewrite.Tools.Core
         DirectionalLight? SelectedLight { get; set; }
         EntityType? SelectedEntityType { get; }
 
-        SceneObject AddObject(string name, ShipV2? ship = null);
+        SceneObject AddObject(string name, GameObject? ship = null);
         void RemoveObject(SceneObject obj);
         void ClearSelection();
     }

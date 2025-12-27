@@ -9,7 +9,7 @@ namespace WipeoutRewrite.Core.Entities
     /// Ship entity - represents a racing ship in the game.
     /// Based on wipeout-rewrite/src/wipeout/ship.c
     /// </summary>
-    [Obsolete("Use ShipV2 instead")]
+    [Obsolete("Use GameObject instead")]
     public class Ship
     {
         // Physics constants (from ship.h) — constants removed because they were not referenced.
