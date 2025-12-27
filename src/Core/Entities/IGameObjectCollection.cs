@@ -10,5 +10,10 @@ namespace WipeoutRewrite.Core.Entities
         void Update();
         void ResetExhaustPlumes();
         void Clear();
+        
+        // Category-based access
+        List<GameObject> GetByCategory(GameObjectCategory category);
+        GameObject? GetByName(string name);
+        List<GameObjectCategory> GetCategories();
     }
 }

@@ -17,6 +17,7 @@ namespace WipeoutRewrite.Core.Entities
 
         public string Name { get; set; } = "Unnamed_GameObject";
         public int GameObjectId { get; private set; } = 0;
+        public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
 
         public Mesh? GetModel()
         {
