@@ -85,7 +85,7 @@ public class Scene : IScene
         _objects = new List<SceneObject>();
     }
 
-    public SceneObject AddObject(string name, ShipV2? ship = null)
+    public SceneObject AddObject(string name, GameObject? ship = null)
     {
         var obj = new SceneObject(name) { Ship = ship };
         _objects.Add(obj);
@@ -120,7 +120,7 @@ public class SceneObject
     public Vec3 Position { get; set; }
     public Vec3 Rotation { get; set; }
     public float Scale { get; set; }
-    public ShipV2? Ship { get; set; }
+    public GameObject? Ship { get; set; }
     #endregion 
 
     public SceneObject(string name)

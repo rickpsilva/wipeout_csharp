@@ -13,17 +13,17 @@ namespace WipeoutRewrite.Tests;
 public class GameStateTests
 {
     private readonly Mock<ILogger<GameState>> _mockLogger;
-    private readonly Mock<IShips> _mockShips;
-    private readonly Mock<IShipV2> _mockPlayerShip;
+    private readonly Mock<IGameObjectCollection> _mockShips;
+    private readonly Mock<IGameObject> _mockPlayerShip;
 
     public GameStateTests()
     {
         _mockLogger = new Mock<ILogger<GameState>>();
-        _mockShips = new Mock<IShips>();
-        _mockPlayerShip = new Mock<IShipV2>();
+        _mockShips = new Mock<IGameObjectCollection>();
+        _mockPlayerShip = new Mock<IGameObject>();
         
         // Setup mock ships to return a list
-        _mockShips.Setup(s => s.AllShips).Returns(new List<ShipV2>());
+        _mockShips.Setup(s => s.GetAll).Returns(new List<GameObject>());
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public class GameStateTests
         // Assert
         Assert.NotNull(gameState.CurrentTrack);
         Assert.Equal("track01", gameState.CurrentTrack.Name);
-        // TODO: Update test after refactoring - Ships are now injected via DI
-        // Assert.NotEmpty(gameState.Ships);
+        // TODO: Update test after refactoring - GameObjectCollection are now injected via DI
+        // Assert.NotEmpty(gameState.GameObjectCollection);
         // Assert.NotNull(gameState.PlayerShip);
     }
     

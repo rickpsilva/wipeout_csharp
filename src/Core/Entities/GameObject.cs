@@ -7,16 +7,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace WipeoutRewrite.Core.Entities
 {
-    public class ShipV2 : IShipV2
+    public class GameObject : IGameObject
     {
-        private readonly ILogger<ShipV2> _logger;
+        private readonly ILogger<GameObject> _logger;
 
         private readonly ITextureManager _textureManager;
 
         private readonly IRenderer _renderer;
 
-        public string Name { get; set; } = "UnnamedShip";
-        public int ShipId { get; private set; } = 0;
+        public string Name { get; set; } = "Unnamed_GameObject";
+        public int GameObjectId { get; private set; } = 0;
 
         public Mesh? GetModel()
         {
@@ -41,16 +41,16 @@ namespace WipeoutRewrite.Core.Entities
         // Debug timestamp for shadow rendering
         private DateTime _lastShadowDebugTime = DateTime.MinValue;
 
-        public ShipV2(
+        public GameObject(
             IRenderer renderer,
-            ILogger<ShipV2> logger,
+            ILogger<GameObject> logger,
             ITextureManager textureManager)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
 
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-            _logger.LogInformation("ShipV2 criada: {Name}", Name);
+            _logger.LogInformation("GameObject created: {Name}", Name);
             Texture = Array.Empty<int>();
             Model = null;
         }
@@ -63,25 +63,25 @@ namespace WipeoutRewrite.Core.Entities
         {
             if (string.IsNullOrEmpty(prmPath))
             {
-                _logger.LogError("[ShipV2] Invalid PRM path");
+                _logger.LogError("[GameObject] Invalid PRM path");
                 return;
             }
 
             try
             {
                 LoadPrm(prmPath, objectIndex);
-                _logger.LogInformation("[ShipV2] Model loaded from: {Path}", prmPath);
+                _logger.LogInformation("[GameObject] Model loaded from: {Path}", prmPath);
                 
                 // Also load CMP textures with same base name
                 string cmpCandidate = System.IO.Path.ChangeExtension(prmPath, ".cmp");
                 if (System.IO.File.Exists(cmpCandidate))
                 {
-                    _logger.LogInformation("[ShipV2] Loading CMP textures from {Cmp}", cmpCandidate);
+                    _logger.LogInformation("[GameObject] Loading CMP textures from {Cmp}", cmpCandidate);
                     LoadCmpTextures(cmpCandidate);
                 }
                 else
                 {
-                    _logger.LogInformation("[ShipV2] No CMP file found alongside PRM ({Cmp})", cmpCandidate);
+                    _logger.LogInformation("[GameObject] No CMP file found alongside PRM ({Cmp})", cmpCandidate);
                 }
                 
                 // Load shadow texture ONLY for ship objects (0-7) from allsh.prm
@@ -115,7 +115,7 @@ namespace WipeoutRewrite.Core.Entities
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[ShipV2] Failed to load model from {Path}", prmPath);
+                _logger.LogError(ex, "[GameObject] Failed to load model from {Path}", prmPath);
             }
         }
 
@@ -134,10 +134,10 @@ namespace WipeoutRewrite.Core.Entities
         public bool IsVisible { get; set; }
         public bool IsFlying => Position.Y > 0;
 
-        public void ShipLoad(int shipIndex = 0)
+        public void Load(int modelIndex = 0)
         {
-            ShipId = shipIndex;
-            Name = "Ship_" + ShipId;
+            GameObjectId = modelIndex;
+            Name = "GameObject_" + GameObjectId;
             // Allow overriding the PRM path via environment variable (used by test script)
             string? envPrm = Environment.GetEnvironmentVariable("SHIPRENDER_PRM");
             string? prmPath = null;
@@ -170,12 +170,12 @@ namespace WipeoutRewrite.Core.Entities
                 string? shipIndexEnv = Environment.GetEnvironmentVariable("SHIP_INDEX");
                 if (!string.IsNullOrEmpty(shipIndexEnv) && int.TryParse(shipIndexEnv, out int parsedIndex))
                 {
-                    shipIndex = parsedIndex;
+                    modelIndex = parsedIndex;
                 }
 
 
-                _logger.LogInformation("Loading PRM model from {Prm}, ship index={Index}", prmPath, shipIndex);
-                LoadPrm(prmPath, shipIndex);
+                _logger.LogInformation("Loading PRM model from {Prm}, model index={Index}", prmPath, modelIndex);
+                LoadPrm(prmPath, modelIndex);
 
                 // Try load CMP with same base name
                 string cmpCandidate = System.IO.Path.ChangeExtension(prmPath, ".cmp");
@@ -193,7 +193,7 @@ namespace WipeoutRewrite.Core.Entities
                 // Load shadow texture (shad1.tim - shad4.tim)
                 // C original uses: ships[i].shadow_texture = shadow_textures_start + (i >> 1)
                 // So ships 0-1 use shad1, 2-3 use shad2, 4-5 use shad3, 6-7 use shad4
-                int shadowIndex = (shipIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
+                int shadowIndex = (modelIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
                 string shadowPath = System.IO.Path.Combine(
                     System.IO.Path.GetDirectoryName(prmPath) ?? "",
                     "..",
@@ -201,7 +201,7 @@ namespace WipeoutRewrite.Core.Entities
                     $"shad{shadowIndex}.tim"
                 );
                 string fullPath = System.IO.Path.GetFullPath(shadowPath);
-                Console.WriteLine($"[SHADOW DEBUG] Object index={shipIndex}, shadow index={shadowIndex}");
+                Console.WriteLine($"[SHADOW DEBUG] Object index={modelIndex}, shadow index={shadowIndex}");
                 Console.WriteLine($"[SHADOW DEBUG] Shadow path: {fullPath}");
                 Console.WriteLine($"[SHADOW DEBUG] File exists: {System.IO.File.Exists(fullPath)}");
                 LoadShadowTexture(shadowPath);
@@ -212,7 +212,7 @@ namespace WipeoutRewrite.Core.Entities
             }
         }
 
-        public void ShipInit(TrackSection? section, int pilot, int position)
+        public void Init(TrackSection? section, int pilot, int position)
         {
             if (section != null)
             {
@@ -362,7 +362,7 @@ namespace WipeoutRewrite.Core.Entities
             
             // Log primitive statistics
             int enginePrimitives = Model.Primitives.Count(p => (p.Flags & PrimitiveFlags.SHIP_ENGINE) != 0);
-            _logger.LogDebug("Ship '{Name}' primitives: {Total} total, {SingleSided} single-sided, {DoubleSided} double-sided, {Engine} engine",
+            _logger.LogDebug("Model '{Name}' primitives: {Total} total, {SingleSided} single-sided, {DoubleSided} double-sided, {Engine} engine",
                 Name, Model.Primitives.Count, singleSidedCount, doubleSidedCount, enginePrimitives);
         }
 
@@ -853,7 +853,7 @@ namespace WipeoutRewrite.Core.Entities
             Velocity = new Vec3(Velocity.X, 0, Velocity.Z);
         }
 
-        public void CollideWithShip(ShipV2 other)
+        public void CollideWithShip(GameObject other)
         {
             var avg = this.Velocity.Add(other.Velocity).Multiply(0.5f);
             this.Velocity = avg;
@@ -887,9 +887,9 @@ namespace WipeoutRewrite.Core.Entities
         private void LoadPrm(string prmPath, int objectIndex = 0)
         {
             if (string.IsNullOrEmpty(prmPath))
-                throw new ArgumentException("prmPath não pode ser nulo ou vazio", nameof(prmPath));
+                throw new ArgumentException("prmPath cannot be null or empty", nameof(prmPath));
 
-            _logger.LogInformation("ShipV2: carregando PRM de {Path} (objectIndex={Index})", prmPath, objectIndex);
+            _logger.LogInformation("GameObject: loading PRM from {Path} (objectIndex={Index})", prmPath, objectIndex);
 
             // Reuse the existing ModelLoader implementation
             var loaderLogger = _logger as ILogger<ModelLoader>;
@@ -897,20 +897,19 @@ namespace WipeoutRewrite.Core.Entities
             var mesh = loader.LoadFromPrmFile(prmPath, objectIndex);
 
             Model = mesh;
-            _logger.LogInformation("ShipV2: PRM carregado: {Name} vertices={Count} prims={PrimCount}", mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+            _logger.LogInformation("GameObject: PRM loaded: {Name} vertices={Count} prims={PrimCount}", mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
         }
 
         private void LoadCmpTextures(string cmpPath)
         {
             if (string.IsNullOrEmpty(cmpPath))
-                throw new ArgumentException("cmpPath não pode ser nulo ou vazio", nameof(cmpPath));
-
-            _logger.LogInformation("ShipV2: carregando CMP de {Path}", cmpPath);
+                throw new ArgumentException("Cmp Path cannot be null or empty", nameof(cmpPath));
+            _logger.LogInformation("GameObject: loading CMP from {Path}", cmpPath);
 
             int[] handles = _textureManager.LoadTexturesFromCmp(cmpPath);
 
             Texture = handles;
-            _logger.LogInformation("ShipV2: CMP carregado: {Count} texturas", handles.Length);
+            _logger.LogInformation("GameObject: CMP loaded: {Count} textures", handles.Length);
             
             // Map texture handles to primitives and normalize UVs by texture size
             if (Model != null && handles.Length > 0)
@@ -967,7 +966,7 @@ namespace WipeoutRewrite.Core.Entities
                         mappedCount++;
                     }
                 }
-                _logger.LogInformation("ShipV2: Mapeadas {Count} texturas para {Total} primitivos texturizados", 
+                _logger.LogInformation("GameObject: Mapped {Count} textures to {Total} textured primitives", 
                     mappedCount, Model.Primitives.Count(p => p is FT3 or FT4 or GT3));
             }
         }
@@ -977,14 +976,14 @@ namespace WipeoutRewrite.Core.Entities
             if (!System.IO.File.Exists(shadowPath))
             {
                 _logger.LogDebug($"[SHADOW DEBUG] Shadow texture NOT FOUND at: {shadowPath}");
-                _logger.LogWarning("ShipV2: Shadow texture not found at {Path}", shadowPath);
+                _logger.LogWarning("GameObject: Shadow texture not found at {Path}", shadowPath);
                 return;
             }
 
             try
             {
                 _logger.LogDebug($"[SHADOW DEBUG] Loading shadow texture from: {shadowPath}");
-                _logger.LogInformation("ShipV2: Loading shadow texture from {Path}", shadowPath);
+                _logger.LogInformation("GameObject: Loading shadow texture from {Path}", shadowPath);
                 var timLoader = new TimImageLoader(NullLogger<TimImageLoader>.Instance);
                 
                 // Load TIM with semi-transparent flag (alpha channel)
@@ -994,16 +993,15 @@ namespace WipeoutRewrite.Core.Entities
                 ShadowTexture = _renderer.CreateTexture(pixels, width, height);
                 
                 _logger.LogDebug($"[SHADOW DEBUG] Shadow texture loaded! Handle={ShadowTexture}, Size={width}x{height}");
-                _logger.LogInformation("ShipV2: Shadow texture loaded successfully ({Width}x{Height}), handle={Handle}", 
+                _logger.LogInformation("GameObject: Shadow texture loaded successfully ({Width}x{Height}), handle={Handle}", 
                     width, height, ShadowTexture);
             }
             catch (Exception ex)
             {
                 _logger.LogDebug($"[SHADOW DEBUG] ERROR loading shadow texture: {ex.Message}");
-                _logger.LogError(ex, "ShipV2: Failed to load shadow texture from {Path}", shadowPath);
+                _logger.LogError(ex, "GameObject: Failed to load shadow texture from {Path}", shadowPath);
                 ShadowTexture = -1;
             }
         }
-
     }
 }

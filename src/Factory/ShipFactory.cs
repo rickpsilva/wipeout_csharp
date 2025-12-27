@@ -4,7 +4,7 @@ using WipeoutRewrite.Core.Entities;
 
 namespace WipeoutRewrite.Factory
 {
-   public class ShipFactory : IShipFactory
+   public class ShipFactory : IGameObjectFactory
 {
     private readonly IServiceProvider _serviceProvider;
     
@@ -13,7 +13,7 @@ namespace WipeoutRewrite.Factory
         _serviceProvider = serviceProvider;
     }
     
-    public IShipV2 CreateShip() => _serviceProvider.GetRequiredService<IShipV2>();
+    public IGameObject CreateModel() => _serviceProvider.GetRequiredService<IGameObject>();
 
     }
 }
