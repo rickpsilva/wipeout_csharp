@@ -1,3 +1,8 @@
+using Microsoft.Extensions.Logging;
+using OpenTK.Graphics.OpenGL;
+using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Infrastructure.Graphics;
+
 namespace WipeoutRewrite.Presentation;
 
 public class ContentPreview3D : IContentPreview3D

@@ -1,3 +1,7 @@
+using Microsoft.Extensions.Logging;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+
 namespace WipeoutRewrite;
 
 public class Camera : ICamera
