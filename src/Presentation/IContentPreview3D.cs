@@ -11,9 +11,16 @@ namespace WipeoutRewrite.Presentation
         void SetModel(int modelId);
 
         /// <summary>
-        /// Renders the 3D content preview.
+        /// Renders a 3D object from a specific category.
         /// </summary>
-        void Render<T>(int modelId);
+        /// <typeparam name="T">Marker type representing the category (CategoryShip, CategoryMsDos, CategoryTeams, etc.)</typeparam>
+        /// <param name="categoryIndex">Index of the object within the category (0-based)</param>
+        /// <example>
+        /// _contentPreview3D.Render&lt;CategoryShip&gt;(0);     // Render first ship (FEISAR)
+        /// _contentPreview3D.Render&lt;CategoryMsDos&gt;(1);    // Render second MsDos object
+        /// _contentPreview3D.Render&lt;CategoryTeams&gt;(3);    // Render fourth team logo
+        /// </example>
+        void Render<T>(int categoryIndex);
         
         /// <summary>
         /// Configura a posição da nave no preview 3D (X, Y, Z)

@@ -21,7 +21,7 @@ public static class MainMenuPages
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, 20),
+            ItemsPos = new Vec2i(0, 120),
             ItemsAnchor = UIAnchor.MiddleCenter
         };
         

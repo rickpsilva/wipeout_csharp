@@ -265,6 +265,28 @@ namespace WipeoutRewrite.Core.Entities
                 return;
 
             Mat4 transformMatrix = CalculateTransformMatrix();
+            
+            // DEBUG: Log bounding box for MsDos objects to check scale
+            if (Category == GameObjectCategory.MsDos && Model.Vertices != null && Model.Vertices.Length > 0)
+            {
+                float minX = float.MaxValue, maxX = float.MinValue;
+                float minY = float.MaxValue, maxY = float.MinValue;
+                float minZ = float.MaxValue, maxZ = float.MinValue;
+                
+                foreach (var v in Model.Vertices)
+                {
+                    minX = MathF.Min(minX, v.X); maxX = MathF.Max(maxX, v.X);
+                    minY = MathF.Min(minY, v.Y); maxY = MathF.Max(maxY, v.Y);
+                    minZ = MathF.Min(minZ, v.Z); maxZ = MathF.Max(maxZ, v.Z);
+                }
+                
+                float sizeX = maxX - minX;
+                float sizeY = maxY - minY;
+                float sizeZ = maxZ - minZ;
+                
+                _logger.LogDebug($"[DRAW DEBUG] {Name}: BoundingBox=({minX:F1},{minY:F1},{minZ:F1})->({maxX:F1},{maxY:F1},{maxZ:F1}) Size=({sizeX:F1}x{sizeY:F1}x{sizeZ:F1})");
+                _logger.LogDebug($"[DRAW DEBUG] {Name}: Position={Position}, Angle={Angle}");
+            }
 
             // Count primitives by type and flags for debugging
             var typeCount = new Dictionary<string, int>();
@@ -643,7 +665,7 @@ namespace WipeoutRewrite.Core.Entities
             Vec3 v1 = vertices[primitive.CoordIndices[1]];
             Vec3 v2 = vertices[primitive.CoordIndices[2]];
             
-            // Per-vertex colors for Gouraud shading
+            // Per-vertex colors for Gouraud shading  
             var c0 = new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f);
             var c1 = new OpenTK.Mathematics.Vector4(primitive.Colors[1].r / 255f, primitive.Colors[1].g / 255f, primitive.Colors[1].b / 255f, primitive.Colors[1].a / 255f);
             var c2 = new OpenTK.Mathematics.Vector4(primitive.Colors[2].r / 255f, primitive.Colors[2].g / 255f, primitive.Colors[2].b / 255f, primitive.Colors[2].a / 255f);
