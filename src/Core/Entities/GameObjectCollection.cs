@@ -67,9 +67,11 @@ namespace WipeoutRewrite.Core.Entities
                 globalObjectId = LoadCategorizedPrm(commonPath, "allsh.prm", GameObjectCategory.Ship, 8, globalObjectId);
                 
                 // UI/Menu
-                globalObjectId = LoadCategorizedPrm(commonPath, "msdos.prm", GameObjectCategory.MsDos, 1, globalObjectId);
+                // msdos.prm contains 4 objects: [0]=championship, [1]=msdos, [2]=single_race, [3]=options/extru1
+                globalObjectId = LoadCategorizedPrm(commonPath, "msdos.prm", GameObjectCategory.MsDos, 4, globalObjectId);
                 globalObjectId = LoadCategorizedPrm(commonPath, "teams.prm", GameObjectCategory.Teams, 1, globalObjectId);
-                globalObjectId = LoadCategorizedPrm(commonPath, "alopt.prm", GameObjectCategory.Options, 1, globalObjectId);
+                // alopt.prm contains 5 objects: stopwatch, save, load, headphones, cd
+                globalObjectId = LoadCategorizedPrm(commonPath, "alopt.prm", GameObjectCategory.Options, 5, globalObjectId);
                 
                 // Weapons
                 globalObjectId = LoadCategorizedPrm(commonPath, "miss.prm", GameObjectCategory.Weapon, 1, globalObjectId);
@@ -132,16 +134,16 @@ namespace WipeoutRewrite.Core.Entities
                     model.Category = category;
                     model.LoadModelFromPath(prmPath, i);
                     
-                    // Use reflection to set GameObjectId since it has a private setter
+                    // Use reflection to set GameObjectId as the index within the category (0-based)
                     var idProperty = typeof(GameObject).GetProperty("GameObjectId");
                     if (idProperty != null)
                     {
-                        idProperty.SetValue(model, startId);
+                        idProperty.SetValue(model, i); // Use category index instead of global ID
                     }
                     
                     GetAll.Add(model);
-                    _logger.LogInformation("[GameObjectCollection] [{Category}] Loaded object {Id}: {Name}", 
-                                         category, startId, model.Name);
+                    _logger.LogInformation("[GameObjectCollection] [{Category}] Loaded object {CategoryIndex}: {Name}", 
+                                         category, i, model.Name);
                     startId++;
                 }
             }

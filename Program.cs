@@ -103,7 +103,7 @@ namespace WipeoutRewrite
             // Ship Services
             services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
             services.AddTransient<IGameObject, GameObject>();
-            services.AddTransient<IGameObjectFactory, ShipFactory>();
+            services.AddTransient<IGameObjectFactory, GameObjectFactory>();
 
             // Graphics
             services.AddSingleton<ITextureManager, TextureManager>();

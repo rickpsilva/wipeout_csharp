@@ -57,7 +57,7 @@ class Program
         services.AddSingleton<ITextureManager, TextureManager>();
         services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
         services.AddTransient<IGameObject, GameObject>();
-        services.AddTransient<IGameObjectFactory, ShipFactory>();
+        services.AddTransient<IGameObjectFactory, GameObjectFactory>();
 
         // Managers with interfaces
         services.AddSingleton<ICameraManager, CameraManager>();

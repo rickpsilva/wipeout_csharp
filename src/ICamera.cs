@@ -12,7 +12,7 @@ namespace WipeoutRewrite
         void SetAspectRatio(float aspectRatio);
 
         // Propriedades de câmera
-        Vector3 Position { get; }
+        Vector3 Position { get; set; }
         Vector3 Target { get; set; }
         float Fov { get; set; }
         float Yaw { get; set; }

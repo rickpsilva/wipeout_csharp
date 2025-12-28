@@ -212,11 +212,10 @@ namespace WipeoutRewrite
                 {
                     _gameState.CurrentMode = GameMode.Menu;
                     
-                    // Initialize ship preview for menu background
-                    _contentPreview3D.SetModel(7);
-                    // Posicionar nave muito mais afastada (Z negativo = mais longe)
-                    _contentPreview3D.SetShipPosition(0, -100, -800);  // Z=-80 para ver a nave completa de longe
-                    _contentPreview3D.SetRotationSpeed(0.015f);     // Velocidade de rotação suave
+                    // Initialize preview for menu - position objects at origin
+                    // Camera looks at (0,0,0) from (0,0,50), so place objects at origin
+                    _contentPreview3D.SetShipPosition(0, 0, 0);
+                    _contentPreview3D.SetRotationSpeed(0.015f);
                     
                     // Pass dependencies to MainMenuPages
                     MainMenuPages.GameStateRef = _gameState as GameState;
@@ -224,7 +223,7 @@ namespace WipeoutRewrite
                     
                     _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
                     
-                    _logger.LogInformation("Entrando no menu principal: {Title}, {Count} items", 
+                    _logger.LogInformation("Entering main menu: {Title}, {Count} items", 
                         _menuManager?.CurrentPage?.Title ?? "<no page>", _menuManager?.CurrentPage?.Items?.Count ?? 0);
                     // Force input update so next frame doesn't immediately trigger Select
                     InputManager.Update(KeyboardState);
@@ -233,7 +232,7 @@ namespace WipeoutRewrite
                 {
                     _gameState.CurrentMode = GameMode.AttractMode;
                     _creditsScreen.Reset();
-                    _logger.LogInformation("Iniciando attract mode (credits)...");
+                    _logger.LogInformation("Starting attract mode (credits)...");
                     // TODO: When racing engine is implemented, start race with AI + credits
                 }
             }
@@ -248,7 +247,7 @@ namespace WipeoutRewrite
                 {
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _titleScreen.Reset();
-                    _logger.LogInformation("Voltando ao splash screen...");
+                    _logger.LogInformation("Returning to splash screen...");
                 }
             }
 
@@ -290,14 +289,14 @@ namespace WipeoutRewrite
                 {
                     if (_menuManager.CurrentPage != null && _menuManager.HandleInput(MenuAction.Back))
                     {
-                        _logger.LogInformation("Menu: BACKSPACE - voltou para página anterior");
+                        _logger.LogInformation("Menu: BACKSPACE - returned to previous page");
                     }
                     else
                     {
                         // No more pages, go back to title
                         _gameState.CurrentMode = GameMode.SplashScreen;
                         _titleScreen.Reset();
-                        _logger.LogInformation("Menu: BACKSPACE - voltando para title screen...");
+                        _logger.LogInformation("Menu: BACKSPACE - returning to title screen...");
                     }
                 }
                 if (InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
@@ -305,7 +304,7 @@ namespace WipeoutRewrite
                     // ESC in menu goes back to splash screen
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _titleScreen.Reset();
-                    _logger.LogInformation("Menu: ESC - voltando para title screen...");
+                    _logger.LogInformation("Menu: ESC - returning to title screen...");
                 }
             }
 
@@ -319,16 +318,16 @@ namespace WipeoutRewrite
                 {
                     _attractMode.Stop();
                     _titleScreen.OnAttractComplete();
-                    _logger.LogInformation("Saindo do attract mode...");
+                    _logger.LogInformation("Exiting attract mode...");
                 }
             }
 
-            // Atualizar estado do jogo
+            // Update game state
             if (_gameState != null)
             {
                 _gameState.Update((float)args.Time);
                 
-                // Se temos um jogador, processar input
+                // If we have a player, process input
          
                 _gameState.SetPlayerShip(
                     InputManager.IsActionDown(GameAction.Accelerate, KeyboardState),
@@ -341,7 +340,7 @@ namespace WipeoutRewrite
                     
             }
 
-            // Movimento do sprite baseado em input (para teste visual)
+            // Sprite movement based on input (for visual testing)
             float speed = 5f;
             if (InputManager.IsActionDown(GameAction.Accelerate, KeyboardState))
                 _spriteY -= speed;
@@ -352,7 +351,7 @@ namespace WipeoutRewrite
             if (InputManager.IsActionDown(GameAction.TurnRight, KeyboardState))
                 _spriteX += speed;
 
-            // Clamp sprite dentro dos limites da janela
+            // Clamp sprite within window bounds
             float spriteSize = 128;
             _spriteX = Math.Max(0, Math.Min(_spriteX, Size.X - spriteSize));
             _spriteY = Math.Max(0, Math.Min(_spriteY, Size.Y - spriteSize));
@@ -406,7 +405,7 @@ namespace WipeoutRewrite
                     _introVideoPlayer.Dispose();
                     _gameState.CurrentMode = GameMode.SplashScreen;
                     _musicPlayer?.SetMode(MusicMode.Random); // Start music on splash
-                    _logger.LogInformation("Intro terminada, a mostrar splash screen...");
+                    _logger.LogInformation("Intro finished, showing splash screen...");
                 }
             }
             else if (_gameState.CurrentMode == GameMode.SplashScreen)
@@ -448,14 +447,14 @@ namespace WipeoutRewrite
                     
                     switch (selectedIndex)
                     {
-                        case 0: // START GAME - Nave
-                            _contentPreview3D.Render<IGameObject>(7);
+                        case 0:
+                            _contentPreview3D.Render<CategoryShip>(7);
                             break;
-                        case 1: // OPTIONS - Nave diferente (temporário, depois será "?")
-                            _contentPreview3D.Render<IGameObject>(3);
+                        case 1:
+                            _contentPreview3D.Render<CategoryMsDos>(3);
                             break;
-                        case 2: // QUIT - Outra nave (temporário, depois será "MS DOS")
-                            _contentPreview3D.Render<IGameObject>(0);
+                        case 2:
+                            _contentPreview3D.Render<CategoryMsDos>(1);
                             break;
                     }
                 }
