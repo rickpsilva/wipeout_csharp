@@ -115,6 +115,13 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             GL.Uniform1(lightIntensityLoc, intensity);
         }
 
+        public void SetLightingEnabled(bool enabled)
+        {
+            GL.UseProgram(_shaderProgram);
+            int enableLightingLoc = GL.GetUniformLocation(_shaderProgram, "enableLighting");
+            GL.Uniform1(enableLightingLoc, enabled ? 1 : 0);
+        }
+
         public void UpdateScreenSize(int width, int height)
         {
             _screenWidth = width;
@@ -186,6 +193,9 @@ namespace WipeoutRewrite.Infrastructure.Graphics
                 new Vector3(1.0f, 1.0f, 1.0f),
                 0.7f
             );
+            
+            // Enable lighting by default
+            SetLightingEnabled(true);
         }
 
         /// <summary>
@@ -699,6 +709,7 @@ namespace WipeoutRewrite.Infrastructure.Graphics
             uniform vec3 lightDir;
             uniform vec3 lightColor;
             uniform float lightIntensity;
+            uniform int enableLighting;
             void main() {
                 vec4 texColor = texture(texture0, v_uv);
                 vec4 color = texColor * v_color;
@@ -708,23 +719,25 @@ namespace WipeoutRewrite.Infrastructure.Graphics
                 // PSX colors are typically 128,128,128 (half intensity) so multiply by 2.0 like original
                 color.rgb = color.rgb * 2.0;
                 
-                // Calculate normal from screen-space derivatives
-                vec3 normal = normalize(cross(dFdx(v_fragPos), dFdy(v_fragPos)));
-                
-                // Calculate lighting
-                float diffuse = max(dot(normal, -lightDir), 0.0);
-                vec3 lighting = lightColor * lightIntensity * diffuse;
-                
-                // Add ambient light so objects aren't completely black
-                vec3 ambient = vec3(0.3, 0.3, 0.3);
-                vec3 finalLighting = ambient + lighting;
-                
-                color.rgb *= finalLighting;
-                
-                // Ambient lighting: darken backfaces to simulate interior shadowing
-                // gl_FrontFacing is true for front faces, false for back faces
-                if (!gl_FrontFacing) {
-                    color.rgb *= 0.08; // Darken backfaces to 8% brightness (92% darker)
+                if (enableLighting == 1) {
+                    // Calculate normal from screen-space derivatives
+                    vec3 normal = normalize(cross(dFdx(v_fragPos), dFdy(v_fragPos)));
+                    
+                    // Calculate lighting
+                    float diffuse = max(dot(normal, -lightDir), 0.0);
+                    vec3 lighting = lightColor * lightIntensity * diffuse;
+                    
+                    // Add ambient light so objects aren't completely black
+                    vec3 ambient = vec3(0.3, 0.3, 0.3);
+                    vec3 finalLighting = ambient + lighting;
+                    
+                    color.rgb *= finalLighting;
+                    
+                    // Ambient lighting: darken backfaces to simulate interior shadowing
+                    // gl_FrontFacing is true for front faces, false for back faces
+                    if (!gl_FrontFacing) {
+                        color.rgb *= 0.08; // Darken backfaces to 8% brightness (92% darker)
+                    }
                 }
                 FragColor = color;
             }

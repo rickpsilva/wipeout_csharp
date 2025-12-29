@@ -2,6 +2,7 @@ using WipeoutRewrite.Core.Services;
 using WipeoutRewrite.Core.Entities;
 using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 using Microsoft.Extensions.Logging;
+using WipeoutRewrite.Presentation;
 
 namespace WipeoutRewrite.Presentation.Menus;
 
@@ -30,6 +31,7 @@ public static class MainMenuPages
         {
             Label = Strings.MenuStartGame,
             Data = 0,
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 7),
             OnClick = (menu, data) =>
             {
                 var raceClassPage = CreateRaceClassMenu();
@@ -42,6 +44,7 @@ public static class MainMenuPages
         {
             Label = Strings.MenuOptions,
             Data = 1,
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 3),
             OnClick = (menu, data) =>
             {
                 var optionsPage = CreateOptionsMenu();
@@ -54,6 +57,7 @@ public static class MainMenuPages
         {
             Label = Strings.MenuQuit,
             Data = 2,
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 1),
             OnClick = (menu, data) =>
             {
                 var confirmPage = CreateQuitConfirmation();
@@ -61,8 +65,8 @@ public static class MainMenuPages
             }
         });
         
-        // DrawCallback removido - preview 3D será controlado pelo Game.cs
-        // apenas quando estivermos na página principal do menu
+        // DrawCallback removed - preview 3D will be controlled by Game.cs
+        // only when we are on the main menu page
         
         return page;
     }
@@ -115,6 +119,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CONTROLS",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 1, -6000), // Controller model needs more distance
             OnClick = (menu, data) =>
             {
                 // TODO: Create controls page
@@ -124,6 +129,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VIDEO",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 0),
             OnClick = (menu, data) =>
             {
                 var videoPage = CreateVideoOptionsMenu();
@@ -134,6 +140,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "AUDIO",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),
             OnClick = (menu, data) =>
             {
                 var audioPage = CreateAudioOptionsMenu();
@@ -144,6 +151,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "BEST TIMES",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
             OnClick = (menu, data) =>
             {
                 // TODO: Create best times page
@@ -251,6 +259,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VENOM CLASS",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();
@@ -262,6 +271,7 @@ public static class MainMenuPages
         {
             Label = "RAPIER CLASS",
             IsEnabled = false, // Locked until unlocked
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();
@@ -287,6 +297,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "SINGLE RACE",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 6),
             OnClick = (menu, data) =>
             {
                 var teamPage = CreateTeamMenu();
@@ -297,6 +308,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "TIME TRIAL",
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 7),
             OnClick = (menu, data) =>
             {
                 var teamPage = CreateTeamMenu();
@@ -321,11 +333,14 @@ public static class MainMenuPages
         
         string[] teams = new[] { "FEISAR", "GOTEKI 45", "AG SYSTEMS", "AURICOM" };
         
-        foreach (var team in teams)
+        for (int i = 0; i < teams.Length; i++)
         {
+            var team = teams[i];
+            int shipIndex = i; // Capture index for ship model
             page.Items.Add(new MenuButton
             {
                 Label = team,
+                PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), shipIndex),
                 OnClick = (menu, data) =>
                 {
                     var pilotPage = CreatePilotMenu(team);
