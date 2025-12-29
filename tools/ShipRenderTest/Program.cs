@@ -76,11 +76,12 @@ class Program
         services.AddSingleton<ISceneHierarchyPanel, SceneHierarchyPanel>();
         services.AddSingleton<ITransformPanel, TransformPanel>();
         services.AddSingleton<ICameraPanel, CameraPanel>();
-        services.AddSingleton<ILightPanel,LightPanel>();
+        services.AddSingleton<ILightPanel, LightPanel>();
         services.AddSingleton<ISettingsPanel, SettingsPanel>();
         services.AddSingleton<IViewportInfoPanel, ViewportInfoPanel>();
-        services.AddSingleton<IPropertiesPanel,PropertiesPanel>();
+        services.AddSingleton<IPropertiesPanel, PropertiesPanel>();
         services.AddSingleton<IAssetBrowserPanel, AssetBrowserPanel>();
+        services.AddSingleton<ITexturePanel, TexturePanel>();
         services.AddSingleton<FileDialogManager>();
 
         services.AddSingleton<ShipRenderWindow>();
