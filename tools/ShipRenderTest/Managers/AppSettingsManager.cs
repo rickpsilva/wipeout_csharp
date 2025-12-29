@@ -16,6 +16,7 @@ public class AppSettings
     public bool ShowGizmo { get; set; } = true;
     public bool ShowGrid { get; set; } = true;
     public bool ShowProperties { get; set; } = true;
+    public bool ShowTextures { get; set; } = true;
     public bool ShowTransform { get; set; } = true;
     public bool ShowViewport { get; set; } = true;
     public float UIScale { get; set; } = 1.0f;

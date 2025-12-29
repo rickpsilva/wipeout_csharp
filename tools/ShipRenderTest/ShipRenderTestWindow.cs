@@ -28,6 +28,7 @@ public class ShipRenderWindow : GameWindow
     private readonly ICameraPanel _cameraPanel;
     private float _currentUIScale = 1.0f;
     private readonly FileDialogManager _fileDialogManager;
+    private readonly IGameObjectCollection _gameObjects;
     private ImGuiController? _imGuiController;
     private bool _isDraggingOrbit = false;
     private bool _isDraggingPan = false;
@@ -66,7 +67,6 @@ public class ShipRenderWindow : GameWindow
 
     private ISettingsService _settingsManager;
     private readonly ISettingsPanel _settingsPanel;
-    private readonly IGameObjectCollection _gameObjects;
 
     // Toggle transform panel
     private bool _showCamera = true;
@@ -82,6 +82,7 @@ public class ShipRenderWindow : GameWindow
     private bool _showTransform = true;
     private bool _showViewport = true;
     private readonly ITextureManager _textureManager;
+    private readonly ITexturePanel _texturePanel;
     private float _totalTime = 0f;
     private readonly ITransformPanel _transformPanel;
 
@@ -126,6 +127,7 @@ public class ShipRenderWindow : GameWindow
         IViewportInfoPanel viewportInfoPanel,
         IPropertiesPanel propertiesPanel,
         IAssetBrowserPanel assetBrowserPanel,
+        ITexturePanel texturePanel,
         FileDialogManager fileDialogManager)
         : base(gws, nws)
     {
@@ -149,6 +151,7 @@ public class ShipRenderWindow : GameWindow
         _viewportInfoPanel = viewportInfoPanel ?? throw new ArgumentNullException(nameof(viewportInfoPanel));
         _propertiesPanel = propertiesPanel ?? throw new ArgumentNullException(nameof(propertiesPanel));
         _assetBrowserPanel = assetBrowserPanel ?? throw new ArgumentNullException(nameof(assetBrowserPanel));
+        _texturePanel = texturePanel ?? throw new ArgumentNullException(nameof(texturePanel));
         _fileDialogManager = fileDialogManager ?? throw new ArgumentNullException(nameof(fileDialogManager));
     }
 
@@ -218,6 +221,9 @@ public class ShipRenderWindow : GameWindow
         // Configure PropertiesPanel
         _propertiesPanel.WireframeMode = _settingsManager.Settings.WireframeMode;
         _propertiesPanel.IsVisible = _settingsManager.Settings.ShowProperties;
+
+        // Configure TexturePanel
+        _texturePanel.IsVisible = _settingsManager.Settings.ShowTextures;
 
         // Configure AssetBrowserPanel
         _assetBrowserPanel.OnAddToSceneRequested += AddModelToScene;
@@ -763,6 +769,12 @@ public class ShipRenderWindow : GameWindow
                     if (ImGui.MenuItem("Properties", null, ref show))
                         _propertiesPanel.IsVisible = show;
                 }
+                if (_texturePanel != null)
+                {
+                    bool show = _texturePanel.IsVisible;
+                    if (ImGui.MenuItem("Textures", null, ref show))
+                        _texturePanel.IsVisible = show;
+                }
                 if (_transformPanel != null)
                 {
                     bool show = _transformPanel.IsVisible;
@@ -892,6 +904,7 @@ public class ShipRenderWindow : GameWindow
         _assetBrowserPanel.Render();
         _viewportInfoPanel.Render();
         _propertiesPanel.Render();
+        _texturePanel.Render();
         _transformPanel.Render();
         _cameraPanel.Render();
         _lightPanel.Render();

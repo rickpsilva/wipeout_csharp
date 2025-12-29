@@ -26,6 +26,13 @@ Advanced tool for debugging and editing 3D ship models with a visual UI overlay.
 - **Properties Panel**:
   - Display file information (name, size, path)
   - Show model statistics (polygons, textures, vertices)
+
+- **Textures Panel**:
+  - Visual preview of all textures used by the selected model
+  - Adjustable preview size (64-256 pixels)
+  - Displays texture ID, dimensions and aspect ratio
+  - Hover over textures for detailed information
+  - Grid layout automatically adjusts to window size
   
 - **Rendering Options**:
   - Auto-rotate checkbox for continuous rotation
