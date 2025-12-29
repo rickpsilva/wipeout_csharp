@@ -25,6 +25,9 @@ public class ContentPreview3D : IContentPreview3D
 
     // Camera offset relative to the ship
     private float _rotationSpeed = 0.01f;
+    
+    // Custom Z position (optional override)
+    private float? _customZPosition = null;
 
     // Positioning configurations (adjustable)
     private Vec3 _shipPosition = new Vec3(0, 0, -15);
@@ -63,6 +66,14 @@ public class ContentPreview3D : IContentPreview3D
 
     public void Render<T>(int categoryIndex)
     {
+        Render<T>(categoryIndex, null);
+    }
+
+    public void Render<T>(int categoryIndex, float? customZPosition)
+    {
+        // Store custom Z position for use when updating object position
+        _customZPosition = customZPosition;
+        
         // Config the camera - ALWAYS reconfigure for testing
         // if (!_cameraConfigured)  // Commented out to force reconfiguration
         {
@@ -137,8 +148,11 @@ public class ContentPreview3D : IContentPreview3D
             // Show the new object
             targetObject.IsVisible = true;
 
-            // Position based on category (Ships further back, MsDos closer)
-            float zPosition = category == GameObjectCategory.Ship ? -700 : -400;
+            // Position based on category or custom Z position
+            // Default: Ships at -700, MsDos at -400
+            // Custom Z positions from original code: controller at -6000, headphones at -300, stopwatch at -400
+            float defaultZ = category == GameObjectCategory.Ship ? -700 : -400;
+            float zPosition = _customZPosition ?? defaultZ;
             targetObject.Position = new Vec3(0, 0, zPosition);
 
             // Both Ships and MsDos need 180° flip on Z axis (Ships for orientation, MsDos to flip text)
@@ -226,7 +240,9 @@ public class ContentPreview3D : IContentPreview3D
             _renderer.SetDepthWrite(true);
             _renderer.SetFaceCulling(true);
 
-            _renderer.SetCurrentTexture(_renderer.WhiteTexture);
+            // Disable lighting for ContentPreview3D to match original wipeout-rewrite behavior
+            // Original only uses vertex colors * 2.0, no dynamic lighting calculations
+            _renderer.SetLightingEnabled(false);
 
             // Render only the selected object
             targetObject.Draw();
@@ -241,6 +257,9 @@ public class ContentPreview3D : IContentPreview3D
 
             // CRITICAL: Flush shadow geometry before returning to caller
             _renderer.Flush();
+
+            // Re-enable lighting for normal game rendering
+            _renderer.SetLightingEnabled(true);
 
             _renderer.SetDepthTest(false);
             _renderer.SetDepthWrite(false);

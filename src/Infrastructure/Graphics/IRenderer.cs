@@ -84,6 +84,12 @@ public interface IRenderer
     void SetCurrentTexture(int textureId);
 
     /// <summary>
+    /// Enable or disable dynamic lighting calculations.
+    /// When disabled, only vertex colors * 2.0 are used (like original PS1).
+    /// </summary>
+    void SetLightingEnabled(bool enabled);
+
+    /// <summary>
     /// Get the white texture handle for solid color rendering.
     /// </summary>
     int WhiteTexture { get; }

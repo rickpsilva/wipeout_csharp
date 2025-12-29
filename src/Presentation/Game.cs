@@ -432,30 +432,21 @@ namespace WipeoutRewrite
                 }
                 _renderer.EndFrame2D();
                 
-                // 3D preview - APENAS na página principal do menu
-                // Renderizar objeto diferente baseado no item selecionado
+                // 3D preview - render based on selected menu item's PreviewInfo
                 var currentPage = _menuManager.CurrentPage;
-                bool isMainMenuPage = currentPage != null && 
-                                     currentPage.Title == "OPTIONS" && 
-                                     currentPage.Items.Count == 3 &&
-                                     currentPage.Items[0].Label == "START GAME";
-                
-                if (isMainMenuPage && currentPage != null)
+                if (currentPage != null && currentPage.SelectedItem != null)
                 {
-                    // Renderizar modelo diferente baseado no item selecionado
-                    int selectedIndex = currentPage.SelectedIndex;
-                    
-                    switch (selectedIndex)
+                    var selectedItem = currentPage.SelectedItem;
+                    if (selectedItem.PreviewInfo != null)
                     {
-                        case 0:
-                            _contentPreview3D.Render<CategoryShip>(7);
-                            break;
-                        case 1:
-                            _contentPreview3D.Render<CategoryMsDos>(3);
-                            break;
-                        case 2:
-                            _contentPreview3D.Render<CategoryMsDos>(1);
-                            break;
+                        var previewInfo = selectedItem.PreviewInfo;
+                        // Specify parameter types to resolve ambiguity between the two Render overloads
+                        var renderMethod = typeof(IContentPreview3D)
+                            .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
+                            ?.MakeGenericMethod(previewInfo.CategoryType);
+                        
+                        // Pass both ModelIndex and CustomZPosition
+                        renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomZPosition });
                     }
                 }
                 
