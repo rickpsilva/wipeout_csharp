@@ -10,8 +10,8 @@ public class GameObject : IGameObject
 {
     #region properties
 
-    // Rotação inicial: PI em Z para corrigir orientação do modelo 3D
-    // (modelo PRM vem invertido, precisa rotação de 180° para ficar correto)
+    // Rotation Initial rotation: PI on Z to correct 3D model orientation
+    // (PRM model comes inverted, needs 180° rotation to be correct)
     public Vec3 Angle { get; set; } = new Vec3(0, 0, MathF.PI);
 
     public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
@@ -46,7 +46,7 @@ public class GameObject : IGameObject
 
     public int TotalSectionNum { get; set; }
     public Vec3 Velocity { get; set; } = new Vec3(0, 0, 0);
-    #endregion
+    #endregion 
 
     // Debug timestamp for shadow rendering
     private DateTime _lastShadowDebugTime = DateTime.MinValue;
@@ -94,17 +94,17 @@ public class GameObject : IGameObject
     }
 
     /*
-             Render the ship model using the provided renderer.
-             Order:
-                F3 (flat triangles, sem cor)
-                F4 (flat quads, sem cor)
-                FT3 (flat textured triangles, uma cor + textura)
-                FT4 (flat textured quads, uma cor + textura)
-                G3 (Gouraud triangles, cores por vértice, sem textura)
-                G4 (Gouraud quads, cores por vértice, sem textura)
-                GT3 (Gouraud textured triangles, cores por vértice + textura)
-                GT4 (não renderizado diretamente pois é expandido em GT3 pelo ModelLoader)
-            */
+        Render the ship model using the provided renderer.
+        Order:
+        F3 (flat triangles, sem cor)
+        F4 (flat quads, sem cor)
+        FT3 (flat textured triangles, uma cor + textura)
+        FT4 (flat textured quads, uma cor + textura)
+        G3 (Gouraud triangles, cores por vértice, sem textura)
+        G4 (Gouraud quads, cores por vértice, sem textura)
+        GT3 (Gouraud textured triangles, cores por vértice + textura)
+        GT4 (não renderizado diretamente pois é expandido em GT3 pelo ModelLoader)
+    */
     public void Draw()
     {
         // Based on object_draw() from wipeout-rewrite/src/wipeout/object.c
