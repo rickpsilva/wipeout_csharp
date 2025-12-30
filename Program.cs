@@ -113,7 +113,7 @@ namespace WipeoutRewrite
             services.AddSingleton<ITimImageLoader, TimImageLoader>();
             
             // Model Loaders
-            services.AddSingleton<ModelLoader>();
+            services.AddSingleton<IModelLoader, ModelLoader>();
              
             // Game - The main application class
             services.AddSingleton<IGame, Game>();

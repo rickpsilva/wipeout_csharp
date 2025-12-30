@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using WipeoutRewrite.Presentation;
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Tests;
@@ -275,10 +276,11 @@ public class ContentPreview3DTests
         var mockRenderer = new Mock<IRenderer>();
         var mockLogger = new Mock<ILogger<GameObject>>();
         var mockTextureManager = new Mock<ITextureManager>();
+        var mockModelLoader = new Mock<IModelLoader>();
 
         mockRenderer.Setup(r => r.WhiteTexture).Returns(1);
 
-        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object)
+        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object)
         {
             Name = name,
             Category = category,

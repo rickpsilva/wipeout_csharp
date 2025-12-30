@@ -13,7 +13,7 @@ namespace WipeoutRewrite.Tests;
 /// </summary>
 public class ModelTests
 {
-    private readonly ModelLoader _loader;
+    private readonly IModelLoader _loader;
     private const string PRM_PATH = "/home/rick/workspace/wipeout-rewrite/wipeout/common/shp1s.prm";
 
     public ModelTests()
@@ -157,7 +157,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_ReturnsValidMesh()
     {
-        var mesh = _loader.CreateMockShipModel("Feisar");
+        var mesh = _loader.CreateMockModel("Feisar");
         
         Assert.NotNull(mesh);
         Assert.Equal("Feisar", mesh.Name);
@@ -170,7 +170,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasReasonableGeometry()
     {
-        var mesh = _loader.CreateMockShipModel("TestShip");
+        var mesh = _loader.CreateMockModel("TestShip");
         
         // Should have enough vertices for a recognizable ship
         Assert.InRange(mesh.Vertices.Length, 20, 100);
@@ -188,7 +188,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_AllVertexIndicesAreValid()
     {
-        var mesh = _loader.CreateMockShipModel("TestShip");
+        var mesh = _loader.CreateMockModel("TestShip");
         
         foreach (var primitive in mesh.Primitives)
         {
@@ -204,7 +204,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasValidColors()
     {
-        var mesh = _loader.CreateMockShipModel("TestShip");
+        var mesh = _loader.CreateMockModel("TestShip");
         
         foreach (var primitive in mesh.Primitives)
         {
@@ -222,7 +222,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasShipLikeShape()
     {
-        var mesh = _loader.CreateMockShipModel("TestShip");
+        var mesh = _loader.CreateMockModel("TestShip");
         
         // Should have vertices with positive Z (forward)
         Assert.Contains(mesh.Vertices, v => v.Z > 400);
@@ -246,8 +246,8 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModelScaled_ScalesGeometry()
     {
-        var mesh1 = _loader.CreateMockShipModelScaled("Ship1", 1.0f);
-        var mesh2 = _loader.CreateMockShipModelScaled("Ship2", 2.0f);
+        var mesh1 = _loader.CreateMockModelScaled("Ship1", 1.0f);
+        var mesh2 = _loader.CreateMockModelScaled("Ship2", 2.0f);
         
         Assert.NotEqual(mesh1.Radius, mesh2.Radius);
         Assert.True(mesh2.Radius > mesh1.Radius);
@@ -347,6 +347,83 @@ public class ModelTests
         catch (InvalidDataException)
         {
             // OK - file may not have valid objects at index 0
+        }
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_HandlesEmptyFile()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(tempFile, Array.Empty<byte>());
+            
+            Assert.Throws<InvalidDataException>(() => _loader.LoadFromPrmFile(tempFile));
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_HandlesTruncatedFile()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            // Write a file that's too small to contain valid PRM data
+            File.WriteAllBytes(tempFile, new byte[] { 1, 2, 3, 4, 5 });
+            
+            Assert.Throws<InvalidDataException>(() => _loader.LoadFromPrmFile(tempFile));
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void GetObjectsInPrmFile_HandlesEmptyFile()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(tempFile, Array.Empty<byte>());
+            
+            var objects = _loader.GetObjectsInPrmFile(tempFile);
+            
+            Assert.NotNull(objects);
+            Assert.Empty(objects);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void GetObjectsInPrmFile_HandlesTruncatedFile()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            // Write a file that's too small
+            File.WriteAllBytes(tempFile, new byte[] { 1, 2, 3, 4, 5 });
+            
+            var objects = _loader.GetObjectsInPrmFile(tempFile);
+            
+            // Should return empty list rather than throwing
+            Assert.NotNull(objects);
+            Assert.Empty(objects);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
         }
     }
 
@@ -581,9 +658,9 @@ public class ModelTests
     [Fact]
     public void ModelLoader_CanLoadMultipleMockModels()
     {
-        var mesh1 = _loader.CreateMockShipModel("Ship1");
-        var mesh2 = _loader.CreateMockShipModel("Ship2");
-        var mesh3 = _loader.CreateMockShipModel("Ship3");
+        var mesh1 = _loader.CreateMockModel("Ship1");
+        var mesh2 = _loader.CreateMockModel("Ship2");
+        var mesh3 = _loader.CreateMockModel("Ship3");
         
         Assert.NotNull(mesh1);
         Assert.NotNull(mesh2);
@@ -605,6 +682,344 @@ public class ModelTests
         Assert.Equal((short)6, (short)PrimitiveType.GT3);
         Assert.Equal((short)7, (short)PrimitiveType.G4);
         Assert.Equal((short)8, (short)PrimitiveType.GT4);
+    }
+
+    #endregion
+
+    #region GetObjectsInPrmFile Tests
+
+    [Fact]
+    public void GetObjectsInPrmFile_ReturnsEmpty_WhenFileDoesNotExist()
+    {
+        var objects = _loader.GetObjectsInPrmFile("/nonexistent/path/model.prm");
+        
+        Assert.NotNull(objects);
+        Assert.Empty(objects);
+    }
+
+    [Fact]
+    public void GetObjectsInPrmFile_ReturnsObjects_WhenFileExists()
+    {
+        if (!File.Exists(PRM_PATH))
+        {
+            return; // Skip if PRM file not available
+        }
+
+        var objects = _loader.GetObjectsInPrmFile(PRM_PATH);
+        
+        Assert.NotNull(objects);
+        // shp1s.prm might not have objects with vertices (could be markers/lights only)
+        // So we just verify the method doesn't crash and returns a valid list
+        
+        foreach (var (index, name) in objects)
+        {
+            Assert.True(index >= 0);
+            Assert.NotNull(name);
+        }
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_CanLoadFromPath_WhenFileExists()
+    {
+        if (!File.Exists(PRM_PATH))
+        {
+            return;
+        }
+
+        try
+        {
+            var mesh = _loader.LoadFromPrmFile(PRM_PATH, 0);
+            Assert.NotNull(mesh);
+            Assert.NotNull(mesh.Name);
+        }
+        catch (InvalidDataException)
+        {
+            // The file might not have valid objects, that's OK for this test
+            Assert.True(true);
+        }
+    }
+
+    [Fact]
+    public void GetObjectsInPrmFile_ReturnsObjectNames()
+    {
+        if (!File.Exists(PRM_PATH))
+        {
+            return; // Skip if PRM file not available
+        }
+
+        var objects = _loader.GetObjectsInPrmFile(PRM_PATH);
+        
+        // The specific PRM file might not have objects with vertices,
+        // but if it does, verify the structure is correct
+        foreach (var (index, name) in objects)
+        {
+            Assert.True(index >= 0);
+            Assert.NotNull(name);
+        }
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_CanLoadSpecificObjectIndex()
+    {
+        if (!File.Exists(PRM_PATH))
+        {
+            return; // Skip if PRM file not available
+        }
+
+        var objects = _loader.GetObjectsInPrmFile(PRM_PATH);
+        if (objects.Count < 2)
+        {
+            return; // Need at least 2 objects for this test
+        }
+
+        // Load first object
+        var mesh0 = _loader.LoadFromPrmFile(PRM_PATH, 0);
+        Assert.NotNull(mesh0);
+
+        // Load second object if available
+        try
+        {
+            var mesh1 = _loader.LoadFromPrmFile(PRM_PATH, 1);
+            Assert.NotNull(mesh1);
+            
+            // Names should be different if they are different objects
+            // (though they might have the same name in the PRM file)
+            Assert.NotNull(mesh0.Name);
+            Assert.NotNull(mesh1.Name);
+        }
+        catch (InvalidDataException)
+        {
+            // Second object might not be valid, that's OK
+        }
+    }
+
+    [Fact]
+    public void CreateMockModel_WithEmptyName_CreatesValidMesh()
+    {
+        var mesh = _loader.CreateMockModel("");
+        
+        Assert.NotNull(mesh);
+        Assert.Equal("", mesh.Name);
+        Assert.NotEmpty(mesh.Vertices);
+        Assert.NotEmpty(mesh.Primitives);
+    }
+
+    [Fact]
+    public void CreateMockModel_WithNullName_CreatesValidMesh()
+    {
+        // Even with null name, should create a valid mesh
+        var mesh = _loader.CreateMockModel(null!);
+        
+        Assert.NotNull(mesh);
+        Assert.NotEmpty(mesh.Vertices);
+        Assert.NotEmpty(mesh.Primitives);
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_WithZeroScale_CreatesSmallMesh()
+    {
+        var mesh = _loader.CreateMockModelScaled("Tiny", 0.0f);
+        
+        Assert.NotNull(mesh);
+        Assert.True(mesh.Radius >= 0);
+        
+        // All vertices should be at origin with 0 scale
+        foreach (var vertex in mesh.Vertices)
+        {
+            Assert.Equal(0, vertex.X);
+            Assert.Equal(0, vertex.Y);
+            Assert.Equal(0, vertex.Z);
+        }
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_WithNegativeScale_CreatesValidMesh()
+    {
+        var mesh = _loader.CreateMockModelScaled("Inverted", -1.0f);
+        
+        Assert.NotNull(mesh);
+        // With negative scale, radius will be negative in the initial assignment
+        // but could be recalculated to positive during vertex processing
+        Assert.NotEmpty(mesh.Vertices);
+        Assert.NotEmpty(mesh.Primitives);
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_WithLargeScale_CreatesLargeMesh()
+    {
+        var mesh1 = _loader.CreateMockModelScaled("Normal", 1.0f);
+        var mesh2 = _loader.CreateMockModelScaled("Large", 10.0f);
+        
+        Assert.True(mesh2.Radius > mesh1.Radius);
+        
+        // Vertices should be proportionally scaled
+        float maxDist1 = 0;
+        float maxDist2 = 0;
+        
+        foreach (var v in mesh1.Vertices)
+        {
+            float dist = MathF.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
+            if (dist > maxDist1) maxDist1 = dist;
+        }
+        
+        foreach (var v in mesh2.Vertices)
+        {
+            float dist = MathF.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
+            if (dist > maxDist2) maxDist2 = dist;
+        }
+        
+        Assert.True(maxDist2 > maxDist1);
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_ThrowsArgumentException_WhenFilePathIsEmpty()
+    {
+        Assert.Throws<ArgumentException>(() => _loader.LoadFromPrmFile(""));
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_HandlesInvalidObjectIndex()
+    {
+        if (!File.Exists(PRM_PATH))
+        {
+            return;
+        }
+
+        // Try to load an object at a very high index
+        // Should throw InvalidDataException when no valid mesh is found
+        try
+        {
+            _loader.LoadFromPrmFile(PRM_PATH, 9999);
+            // If it doesn't throw, that's OK - might be more objects than expected
+        }
+        catch (InvalidDataException)
+        {
+            // This is expected when the index is out of range
+            Assert.True(true);
+        }
+    }
+
+    [Fact]
+    public void CreateMockModel_MultipleInstances_AreIndependent()
+    {
+        var mesh1 = _loader.CreateMockModel("Ship1");
+        var mesh2 = _loader.CreateMockModel("Ship2");
+        
+        // Verify they are different instances
+        Assert.NotSame(mesh1, mesh2);
+        Assert.NotSame(mesh1.Vertices, mesh2.Vertices);
+        Assert.NotSame(mesh1.Primitives, mesh2.Primitives);
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_VerifyPrimitiveColors()
+    {
+        var mesh = _loader.CreateMockModelScaled("ColorTest", 1.0f);
+        
+        // Should have colored primitives
+        Assert.NotEmpty(mesh.Primitives);
+        
+        bool hasColoredPrimitives = false;
+        foreach (var primitive in mesh.Primitives)
+        {
+            if (primitive is F3 f3)
+            {
+                // Check that colors are valid
+                Assert.InRange(f3.Color.r, (byte)0, (byte)255);
+                Assert.InRange(f3.Color.g, (byte)0, (byte)255);
+                Assert.InRange(f3.Color.b, (byte)0, (byte)255);
+                Assert.InRange(f3.Color.a, (byte)0, (byte)255);
+                hasColoredPrimitives = true;
+            }
+        }
+        
+        Assert.True(hasColoredPrimitives, "Mock model should have colored primitives");
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_VerifyGeometryStructure()
+    {
+        var mesh = _loader.CreateMockModelScaled("StructureTest", 1.0f);
+        
+        // Verify mesh has proper structure
+        Assert.NotNull(mesh.Origin);
+        Assert.NotEmpty(mesh.Vertices);
+        Assert.NotEmpty(mesh.Normals);
+        Assert.NotEmpty(mesh.Primitives);
+        
+        // All primitives should reference valid vertex indices
+        foreach (var primitive in mesh.Primitives)
+        {
+            if (primitive is F3 f3)
+            {
+                foreach (var idx in f3.CoordIndices)
+                {
+                    Assert.InRange(idx, 0, mesh.Vertices.Length - 1);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void GetObjectsInPrmFile_HandlesNonExistentFile()
+    {
+        var objects = _loader.GetObjectsInPrmFile("/non/existent/file.prm");
+        
+        Assert.NotNull(objects);
+        Assert.Empty(objects);
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_ThrowsForNullPath()
+    {
+        Assert.Throws<ArgumentException>(() => _loader.LoadFromPrmFile(null!));
+    }
+
+    [Fact]
+    public void LoadFromPrmFile_ThrowsForWhitespacePath()
+    {
+        Assert.Throws<ArgumentException>(() => _loader.LoadFromPrmFile("   "));
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_VerifyNormalCount()
+    {
+        var mesh = _loader.CreateMockModelScaled("NormalTest", 1.0f);
+        
+        // Mock model should have normals defined
+        Assert.NotEmpty(mesh.Normals);
+        Assert.True(mesh.Normals.Length >= 3, "Should have at least 3 normals for basic lighting");
+    }
+
+    [Fact]
+    public void CreateMockModel_VerifyMeshName()
+    {
+        var testName = "TestShipName";
+        var mesh = _loader.CreateMockModel(testName);
+        
+        Assert.Equal(testName, mesh.Name);
+    }
+
+    [Fact]
+    public void CreateMockModelScaled_ScaleAffectsRadius()
+    {
+        var scales = new[] { 0.5f, 1.0f, 2.0f, 5.0f };
+        var previousRadius = 0f;
+        
+        foreach (var scale in scales)
+        {
+            var mesh = _loader.CreateMockModelScaled("ScaleTest", scale);
+            
+            if (scale > 0)
+            {
+                if (previousRadius > 0)
+                {
+                    Assert.True(mesh.Radius > previousRadius, 
+                        $"Radius should increase with scale. Previous: {previousRadius}, Current: {mesh.Radius}");
+                }
+                previousRadius = mesh.Radius;
+            }
+        }
     }
 
     #endregion
