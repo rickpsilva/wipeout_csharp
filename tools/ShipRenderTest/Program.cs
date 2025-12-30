@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Factory;
 using WipeoutRewrite.Infrastructure.Assets;
 using WipeoutRewrite.Infrastructure.Graphics;
@@ -49,6 +50,9 @@ class Program
         };
         services.AddSingleton(nws);
 
+        // Core services with interfaces
+        services.AddSingleton<IModelLoader, ModelLoader>();
+
         services.AddSingleton<ICamera, Camera>();
         services.AddSingleton<ICameraFactory, CameraFactory>();
         services.AddSingleton<IRenderer, GLRenderer>();
@@ -83,7 +87,6 @@ class Program
         services.AddSingleton<IAssetBrowserPanel, AssetBrowserPanel>();
         services.AddSingleton<ITexturePanel, TexturePanel>();
         services.AddSingleton<FileDialogManager>();
-
         services.AddSingleton<ShipRenderWindow>();
     }
 

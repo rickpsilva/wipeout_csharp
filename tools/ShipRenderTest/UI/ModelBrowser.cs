@@ -10,6 +10,7 @@ namespace WipeoutRewrite.Tools.UI;
 /// </summary>
 public class ModelBrowser : IModelBrowser
 {
+
     /// <summary>
     /// Get the last loaded file path.
     /// </summary>
@@ -31,28 +32,31 @@ public class ModelBrowser : IModelBrowser
     public int SelectedObjectIndex => _selectedObjectIndex;
 
     private string? _lastLoadedFile;
-    private readonly ILogger? _logger;
+    private readonly ILogger<ModelBrowser> _logger;
+    private readonly IModelLoader _modelLoader;
+
     private List<PrmFileInfo> _prmFiles = new();
     private int _selectedFileIndex = -1;
     private int _selectedObjectIndex = -1;
 
-    public ModelBrowser(ILogger? logger = null)
+    public ModelBrowser(
+        ILogger<ModelBrowser> logger, 
+        IModelLoader modelLoader)
     {
-        _logger = logger;
         _prmFiles = new List<PrmFileInfo>();
         _selectedFileIndex = -1;
         _selectedObjectIndex = -1;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _modelLoader = modelLoader ?? throw new ArgumentNullException(nameof(modelLoader));
     }
 
-    #region methods
+    #region methods 
 
     /// <summary>
     /// Add PRM files to the model browser.
     /// </summary>
     public void AddModels(params string[] filePaths)
     {
-        var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
-
         foreach (var path in filePaths)
         {
             if (!string.IsNullOrEmpty(path) && File.Exists(path) && path.EndsWith(".prm", StringComparison.OrdinalIgnoreCase))
@@ -69,7 +73,7 @@ public class ModelBrowser : IModelBrowser
                     // Scan for objects
                     try
                     {
-                        var objects = modelLoader.GetObjectsInPrmFile(path);
+                        var objects = _modelLoader.GetObjectsInPrmFile(path);
                         foreach (var (index, objName) in objects)
                         {
                             fileInfo.Objects.Add(new PrmObjectInfo
@@ -81,7 +85,7 @@ public class ModelBrowser : IModelBrowser
                     }
                     catch (Exception ex)
                     {
-                        _logger?.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
+                        _logger.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
                     }
 
                     _prmFiles.Add(fileInfo);
@@ -143,12 +147,11 @@ public class ModelBrowser : IModelBrowser
     {
         if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
         {
-            _logger?.LogWarning("Invalid folder path: {Path}", folderPath);
+            _logger.LogWarning("Invalid folder path: {Path}", folderPath);
             return;
         }
 
         _prmFiles.Clear();
-        var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
 
         var prmFiles = ModelFileDialog.GetPrmFilesFromDirectory(folderPath);
         int loadedCount = 0;
@@ -164,7 +167,7 @@ public class ModelBrowser : IModelBrowser
             // Scan the PRM file for objects
             try
             {
-                var objects = modelLoader.GetObjectsInPrmFile(path);
+                var objects = _modelLoader.GetObjectsInPrmFile(path);
                 foreach (var (index, objName) in objects)
                 {
                     fileInfo.Objects.Add(new PrmObjectInfo
@@ -179,14 +182,14 @@ public class ModelBrowser : IModelBrowser
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
+                _logger.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
             }
         }
 
         _selectedFileIndex = _prmFiles.Count > 0 ? 0 : -1;
         _selectedObjectIndex = (_prmFiles.Count > 0 && _prmFiles[0].Objects.Count > 0) ? _prmFiles[0].Objects[0].Index : -1;
 
-        _logger?.LogInformation("Loaded {Count} PRM files from {Path}", loadedCount, folderPath);
+        _logger.LogInformation("Loaded {Count} PRM files from {Path}", loadedCount, folderPath);
     }
 
     /// <summary>
@@ -196,14 +199,13 @@ public class ModelBrowser : IModelBrowser
     {
         if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
         {
-            _logger?.LogWarning("Invalid folder path: {Path}", folderPath);
+            _logger.LogWarning("Invalid folder path: {Path}", folderPath);
             return;
         }
 
         await Task.Run(() =>
         {
             _prmFiles.Clear();
-            var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
 
             var prmFiles = ModelFileDialog.GetPrmFilesFromDirectory(folderPath).ToList();
             int loadedCount = 0;
@@ -225,7 +227,7 @@ public class ModelBrowser : IModelBrowser
                 // Scan the PRM file for objects
                 try
                 {
-                    var objects = modelLoader.GetObjectsInPrmFile(path);
+                    var objects = _modelLoader.GetObjectsInPrmFile(path);
                     foreach (var (index, objName) in objects)
                     {
                         fileInfo.Objects.Add(new PrmObjectInfo
@@ -240,14 +242,14 @@ public class ModelBrowser : IModelBrowser
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
+                    _logger.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
                 }
             }
 
             _selectedFileIndex = _prmFiles.Count > 0 ? 0 : -1;
             _selectedObjectIndex = (_prmFiles.Count > 0 && _prmFiles[0].Objects.Count > 0) ? _prmFiles[0].Objects[0].Index : -1;
 
-            _logger?.LogInformation("Loaded {Count} PRM files from {Path}", loadedCount, folderPath);
+            _logger.LogInformation("Loaded {Count} PRM files from {Path}", loadedCount, folderPath);
             progress?.Report((loadedCount, totalFiles, "Complete"));
         }, cancellationToken);
     }
@@ -259,18 +261,17 @@ public class ModelBrowser : IModelBrowser
     {
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
         {
-            _logger?.LogWarning("Invalid file path: {Path}", filePath);
+            _logger.LogWarning("Invalid file path: {Path}", filePath);
             return;
         }
 
         if (!filePath.EndsWith(".prm", StringComparison.OrdinalIgnoreCase))
         {
-            _logger?.LogWarning("File is not a PRM file: {Path}", filePath);
+            _logger.LogWarning("File is not a PRM file: {Path}", filePath);
             return;
         }
 
         _prmFiles.Clear();
-        var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
 
         var fileInfo = new PrmFileInfo
         {
@@ -281,7 +282,7 @@ public class ModelBrowser : IModelBrowser
         // Scan the PRM file for objects
         try
         {
-            var objects = modelLoader.GetObjectsInPrmFile(filePath);
+            var objects = _modelLoader.GetObjectsInPrmFile(filePath);
             foreach (var (index, objName) in objects)
             {
                 fileInfo.Objects.Add(new PrmObjectInfo
@@ -295,11 +296,11 @@ public class ModelBrowser : IModelBrowser
             _selectedFileIndex = 0;
             _selectedObjectIndex = fileInfo.Objects.Count > 0 ? fileInfo.Objects[0].Index : 0;
 
-            _logger?.LogInformation("Loaded single PRM file: {Path}", filePath);
+            _logger.LogInformation("Loaded single PRM file: {Path}", filePath);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to load PRM file: {Path}", filePath);
+            _logger.LogError(ex, "Failed to load PRM file: {Path}", filePath);
         }
     }
 
@@ -309,7 +310,6 @@ public class ModelBrowser : IModelBrowser
     public void RefreshModelList()
     {
         _prmFiles.Clear();
-        var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
 
         foreach (var (path, name) in ModelFileDialog.GetAvailablePrmFiles())
         {
@@ -322,7 +322,7 @@ public class ModelBrowser : IModelBrowser
             // Scan the PRM file for objects
             try
             {
-                var objects = modelLoader.GetObjectsInPrmFile(path);
+                var objects = _modelLoader.GetObjectsInPrmFile(path);
                 foreach (var (index, objName) in objects)
                 {
                     fileInfo.Objects.Add(new PrmObjectInfo
@@ -334,7 +334,7 @@ public class ModelBrowser : IModelBrowser
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
+                _logger.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
             }
 
             _prmFiles.Add(fileInfo);
@@ -352,7 +352,6 @@ public class ModelBrowser : IModelBrowser
         await Task.Run(() =>
         {
             _prmFiles.Clear();
-            var modelLoader = new ModelLoader(_logger as ILogger<ModelLoader>);
 
             var availableFiles = ModelFileDialog.GetAvailablePrmFiles().ToList();
             int totalFiles = availableFiles.Count;
@@ -372,7 +371,7 @@ public class ModelBrowser : IModelBrowser
                 // Scan the PRM file for objects
                 try
                 {
-                    var objects = modelLoader.GetObjectsInPrmFile(path);
+                    var objects = _modelLoader.GetObjectsInPrmFile(path);
                     foreach (var (index, objName) in objects)
                     {
                         fileInfo.Objects.Add(new PrmObjectInfo
@@ -384,7 +383,7 @@ public class ModelBrowser : IModelBrowser
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
+                    _logger.LogWarning(ex, "Failed to scan PRM file: {Path}", path);
                 }
 
                 _prmFiles.Add(fileInfo);

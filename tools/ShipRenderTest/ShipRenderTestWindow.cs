@@ -6,6 +6,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Factory;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Tools.Core;
@@ -375,7 +376,9 @@ public class ShipRenderWindow : GameWindow
         {
             // Create a new ship instance for this object
             var shipLogger = new NullLogger<GameObject>();
-            var newShip = new GameObject(_renderer, shipLogger, _textureManager);
+            var modelLoaderLogger = new NullLogger<ModelLoader>();
+            var modelLoader = new ModelLoader(modelLoaderLogger);
+            var newShip = new GameObject(_renderer, shipLogger, _textureManager, modelLoader);
             newShip.LoadModelFromPath(modelPath, objectIndex);
             newShip.IsVisible = true;  // Enable rendering
 

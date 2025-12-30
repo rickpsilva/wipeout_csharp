@@ -54,14 +54,17 @@ public class GameObject : IGameObject
     private readonly ILogger<GameObject> _logger;
     private readonly IRenderer _renderer;
     private readonly ITextureManager _textureManager;
+    private readonly IModelLoader _modelLoader;
 
     public GameObject(
         IRenderer renderer,
         ILogger<GameObject> logger,
-        ITextureManager textureManager)
+        ITextureManager textureManager,
+        IModelLoader modelLoader)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
+        _modelLoader = modelLoader ?? throw new ArgumentNullException(nameof(modelLoader));
 
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _logger.LogInformation("GameObject created: {Name}", Name);
@@ -676,10 +679,7 @@ public class GameObject : IGameObject
 
         _logger.LogInformation("GameObject: loading PRM from {Path} (objectIndex={Index})", prmPath, objectIndex);
 
-        // Reuse the existing ModelLoader implementation
-        var loaderLogger = _logger as ILogger<ModelLoader>;
-        var loader = new ModelLoader(loaderLogger);
-        var mesh = loader.LoadFromPrmFile(prmPath, objectIndex);
+        var mesh = _modelLoader.LoadFromPrmFile(prmPath, objectIndex);
 
         Model = mesh;
         _logger.LogInformation("GameObject: PRM loaded: {Name} vertices={Count} prims={PrimCount}", mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
@@ -723,6 +723,14 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderF3(IRenderer renderer, F3 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices to prevent crashes (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
+        {
+            return; // Skip invalid primitive
+        }
+        
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -755,6 +763,15 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderF4(IRenderer renderer, F4 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
+            primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
+        {
+            return;
+        }
+        
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -803,6 +820,14 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderFT3(IRenderer renderer, FT3 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
+        {
+            return;
+        }
+        
         // Get vertices
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
@@ -851,6 +876,15 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderFT4(IRenderer renderer, FT4 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
+            primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
+        {
+            return;
+        }
+        
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -915,9 +949,23 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderG3(IRenderer renderer, G3 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
+        {
+            return;
+        }
+        
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
+
+        // Validate Colors array bounds
+        if (primitive.Colors == null || primitive.Colors.Length < 3)
+        {
+            return; // Skip if colors are invalid
+        }
 
         // Per-vertex colors for Gouraud shading  
         var c0 = new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f);
@@ -946,10 +994,25 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderG4(IRenderer renderer, G4 primitive, Vec3[] vertices, Mat4 transform)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
+            primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
+        {
+            return;
+        }
+        
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
         Vec3 v3 = vertices[primitive.CoordIndices[3]];
+
+        // Validate Colors array bounds
+        if (primitive.Colors == null || primitive.Colors.Length < 4)
+        {
+            return; // Skip if colors are invalid
+        }
 
         // Per-vertex colors
         var c0 = new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f);
@@ -992,6 +1055,14 @@ public class GameObject : IGameObject
     /// </summary>
     private static void RenderGT3(IRenderer renderer, GT3 primitive, Vec3[] vertices, Mat4 transform, bool isEngine = false)
     {
+        // Validate indices (both negative and out of bounds)
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+            primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
+        {
+            return;
+        }
+        
         // Similar to FT3 but with per-vertex colors
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
@@ -1001,16 +1072,16 @@ public class GameObject : IGameObject
         // Engine primitives use their original texture but with overridden vertex colors
         int texHandle = primitive.TextureHandle > 0 ? primitive.TextureHandle : renderer.WhiteTexture;
 
+        // Validate UVs array before accessing
+        if (primitive.UVsF == null || primitive.UVsF.Length < 3)
+        {
+            return; // Skip primitive with invalid UVs
+        }
+
         // Get UV coordinates from primitive (normalized 0..1)
-        var uv0 = (primitive.UVsF != null && primitive.UVsF.Length > 0)
-            ? new OpenTK.Mathematics.Vector2(primitive.UVsF[0].u, primitive.UVsF[0].v)
-            : new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
-        var uv1 = (primitive.UVsF != null && primitive.UVsF.Length > 1)
-            ? new OpenTK.Mathematics.Vector2(primitive.UVsF[1].u, primitive.UVsF[1].v)
-            : new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
-        var uv2 = (primitive.UVsF != null && primitive.UVsF.Length > 2)
-            ? new OpenTK.Mathematics.Vector2(primitive.UVsF[2].u, primitive.UVsF[2].v)
-            : new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
+        var uv0 = new OpenTK.Mathematics.Vector2(primitive.UVsF[0].u, primitive.UVsF[0].v);
+        var uv1 = new OpenTK.Mathematics.Vector2(primitive.UVsF[1].u, primitive.UVsF[1].v);
+        var uv2 = new OpenTK.Mathematics.Vector2(primitive.UVsF[2].u, primitive.UVsF[2].v);
 
         // Per-vertex colors for Gouraud shading
         // Special handling for PRM_SHIP_ENGINE: override colors to make exhaust visible
@@ -1029,9 +1100,18 @@ public class GameObject : IGameObject
         }
         else
         {
-            c0 = new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f);
-            c1 = new OpenTK.Mathematics.Vector4(primitive.Colors[1].r / 255f, primitive.Colors[1].g / 255f, primitive.Colors[1].b / 255f, primitive.Colors[1].a / 255f);
-            c2 = new OpenTK.Mathematics.Vector4(primitive.Colors[2].r / 255f, primitive.Colors[2].g / 255f, primitive.Colors[2].b / 255f, primitive.Colors[2].a / 255f);
+            // Validate Colors array bounds
+            if (primitive.Colors == null || primitive.Colors.Length < 3)
+            {
+                // Default to white if colors are invalid
+                c0 = c1 = c2 = new OpenTK.Mathematics.Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+            else
+            {
+                c0 = new OpenTK.Mathematics.Vector4(primitive.Colors[0].r / 255f, primitive.Colors[0].g / 255f, primitive.Colors[0].b / 255f, primitive.Colors[0].a / 255f);
+                c1 = new OpenTK.Mathematics.Vector4(primitive.Colors[1].r / 255f, primitive.Colors[1].g / 255f, primitive.Colors[1].b / 255f, primitive.Colors[1].a / 255f);
+                c2 = new OpenTK.Mathematics.Vector4(primitive.Colors[2].r / 255f, primitive.Colors[2].g / 255f, primitive.Colors[2].b / 255f, primitive.Colors[2].a / 255f);
+            }
         }
 
         renderer.SetCurrentTexture(texHandle);

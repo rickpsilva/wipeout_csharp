@@ -58,9 +58,33 @@ public class AssetBrowserPanel : IAssetBrowserPanel, IUIPanel
                             $"Selected: {selectedObj.Name}");
                     }
 
-                    if (ImGui.Button("+ Add to Scene", new System.Numerics.Vector2(-1, 0)))
+                    // Two buttons side by side
+                    float buttonWidth = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+                    
+                    if (ImGui.Button("+ Add to Scene", new System.Numerics.Vector2(buttonWidth, 0)))
                     {
                         OnAddToSceneRequested?.Invoke(modelPath, objIdx);
+                    }
+                    
+                    ImGui.SameLine();
+                    
+                    if (ImGui.Button("+ Add All Models", new System.Numerics.Vector2(buttonWidth, 0)))
+                    {
+                        // Load all objects from the selected file (async to avoid UI freeze)
+                        _logger.LogInformation("[UI] Loading all {Count} models from {File}", selectedFile.Objects.Count, selectedFile.FileName);
+                        
+                        // Use Task.Run to avoid blocking UI thread
+                        var objectsToLoad = selectedFile.Objects.ToList();
+                        var filePath = selectedFile.FilePath;
+                        Task.Run(() =>
+                        {
+                            foreach (var obj in objectsToLoad)
+                            {
+                                OnAddToSceneRequested?.Invoke(filePath, obj.Index);
+                                // Small delay to let UI breathe
+                                System.Threading.Thread.Sleep(10);
+                            }
+                        });
                     }
                 }
             }

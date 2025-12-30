@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Factory;
 using Xunit;
 
@@ -51,10 +52,12 @@ public class GameObjectCollectionTests
         _mockFactory.Setup(f => f.CreateModel()).Returns(mockObject.Object);
         
         // Manually add an object to the collection
+        var mockModelLoader = new Mock<IModelLoader>();
         var obj = new GameObject(
             Mock.Of<Infrastructure.Graphics.IRenderer>(),
             Mock.Of<ILogger<GameObject>>(),
-            Mock.Of<Infrastructure.Graphics.ITextureManager>());
+            Mock.Of<Infrastructure.Graphics.ITextureManager>(),
+            mockModelLoader.Object);
         _collection.GetAll.Add(obj);
 
         // Act
@@ -221,9 +224,10 @@ public class GameObjectCollectionTests
         var mockRenderer = new Mock<Infrastructure.Graphics.IRenderer>();
         var mockLogger = new Mock<ILogger<GameObject>>();
         var mockTextureManager = new Mock<Infrastructure.Graphics.ITextureManager>();
+        var mockModelLoader = new Mock<IModelLoader>();
         
-        var obj1 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object);
-        var obj2 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object);
+        var obj1 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object);
+        var obj2 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object);
         
         _collection.GetAll.Add(obj1);
         _collection.GetAll.Add(obj2);
@@ -243,9 +247,10 @@ public class GameObjectCollectionTests
         var mockRenderer = new Mock<Infrastructure.Graphics.IRenderer>();
         var mockLogger = new Mock<ILogger<GameObject>>();
         var mockTextureManager = new Mock<Infrastructure.Graphics.ITextureManager>();
+        var mockModelLoader = new Mock<IModelLoader>();
         
-        var obj1 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object);
-        var obj2 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object);
+        var obj1 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object);
+        var obj2 = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object);
         
         _collection.GetAll.Add(obj1);
         _collection.GetAll.Add(obj2);
@@ -263,8 +268,9 @@ public class GameObjectCollectionTests
         var mockRenderer = new Mock<Infrastructure.Graphics.IRenderer>();
         var mockLogger = new Mock<ILogger<GameObject>>();
         var mockTextureManager = new Mock<Infrastructure.Graphics.ITextureManager>();
+        var mockModelLoader = new Mock<IModelLoader>();
         
-        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object)
+        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object)
         {
             Name = name,
             Category = category

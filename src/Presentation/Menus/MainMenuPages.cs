@@ -119,7 +119,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CONTROLS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 1, -6000), // Controller model needs more distance
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 0),
             OnClick = (menu, data) =>
             {
                 // TODO: Create controls page
@@ -129,7 +129,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VIDEO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 0),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 1),
             OnClick = (menu, data) =>
             {
                 var videoPage = CreateVideoOptionsMenu();
@@ -140,7 +140,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "AUDIO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 2),
             OnClick = (menu, data) =>
             {
                 var audioPage = CreateAudioOptionsMenu();
@@ -151,7 +151,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "BEST TIMES",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 3),
             OnClick = (menu, data) =>
             {
                 // TODO: Create best times page
@@ -259,7 +259,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VENOM CLASS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 4),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();
@@ -271,7 +271,7 @@ public static class MainMenuPages
         {
             Label = "RAPIER CLASS",
             IsEnabled = false, // Locked until unlocked
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 5),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();
