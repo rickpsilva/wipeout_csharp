@@ -5,10 +5,10 @@ namespace WipeoutRewrite.Core.Services
 {
     public interface IGameState
     {
+        ITrack CurrentTrack { get; }
         void SetPlayerShip(bool accelerate, bool brake, bool turnLeft, bool turnRight, bool boostLeft, bool boostRight);
         GameMode CurrentMode { get; set; }
-        Track CurrentTrack { get; }
-        void Initialize(Track track, int playerShipId = 0);
+        void Initialize(int playerShipId = 0);
         void Update(float deltaTime);
         void Render(GLRenderer renderer);
     }

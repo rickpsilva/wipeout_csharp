@@ -1,4 +1,5 @@
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Tools.Managers;
 
 namespace WipeoutRewrite.Tools.Core;
@@ -10,6 +11,10 @@ namespace WipeoutRewrite.Tools.Core;
 public class Scene : IScene
 {
     #region properties
+    public Track? ActiveTrack { get; set; }
+    
+    public TrackLoader? TrackLoader { get; set; }
+    
     public ICameraManager CameraManager => _cameraManager;
     public ILightManager LightManager => _lightManager;
     public IReadOnlyList<SceneObject> Objects => _objects.AsReadOnly();
@@ -115,12 +120,15 @@ public class Scene : IScene
 public class SceneObject
 {
     #region properties
+    public bool IsSky { get; set; }
     public bool IsVisible { get; set; }
     public string Name { get; set; }
     public Vec3 Position { get; set; }
     public Vec3 Rotation { get; set; }
     public float Scale { get; set; }
     public GameObject? Ship { get; set; }
+    public Vec3 SkyOffset { get; set; }
+    public string? SourceFilePath { get; set; }
     #endregion 
 
     public SceneObject(string name)
@@ -128,8 +136,11 @@ public class SceneObject
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Position = new Vec3(0, 0, 0);
         Rotation = new Vec3(0, 0, 0);
-        Scale = 0.1f;
+        Scale = 0.001f;  // Default to 0.001f to match PSX coordinate scale
         IsVisible = true;
+        SourceFilePath = null;
+        IsSky = false;
+        SkyOffset = new Vec3(0, 0, 0);
     }
 
     public override string ToString() => Name;

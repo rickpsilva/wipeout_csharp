@@ -8,6 +8,7 @@ using OpenTK.Windowing.Desktop;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Factory;
+using WipeoutRewrite.Infrastructure.Assets;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Tools.Core;
 using WipeoutRewrite.Tools.Managers;
@@ -82,9 +83,19 @@ public class ShipRenderWindow : GameWindow
 
     private bool _showTransform = true;
     private bool _showViewport = true;
+
+    // Spline debug visualization
+    private SplineDebugRenderer? _splineDebugRenderer = null;
+
+    private TrackNavigationCalculator? _splineNavigationCalculator = null;
     private readonly ITextureManager _textureManager;
     private readonly ITexturePanel _texturePanel;
     private float _totalTime = 0f;
+    private readonly ITrack _track;
+    private readonly ITrackFactory _trackFactory;
+    private TrackAnimator? _trackAnimator;
+    private readonly ITrackViewerPanel _trackViewerPanel;
+    private readonly ITrackDataPanel _trackDataPanel;
     private readonly ITransformPanel _transformPanel;
 
     // World grid and coordinate axes
@@ -129,7 +140,11 @@ public class ShipRenderWindow : GameWindow
         IPropertiesPanel propertiesPanel,
         IAssetBrowserPanel assetBrowserPanel,
         ITexturePanel texturePanel,
-        FileDialogManager fileDialogManager)
+        ITrackViewerPanel trackViewerPanel,
+        ITrackDataPanel trackDataPanel,
+        FileDialogManager fileDialogManager,
+        ITrack track,
+        ITrackFactory trackFactory)
         : base(gws, nws)
     {
         _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
@@ -153,7 +168,11 @@ public class ShipRenderWindow : GameWindow
         _propertiesPanel = propertiesPanel ?? throw new ArgumentNullException(nameof(propertiesPanel));
         _assetBrowserPanel = assetBrowserPanel ?? throw new ArgumentNullException(nameof(assetBrowserPanel));
         _texturePanel = texturePanel ?? throw new ArgumentNullException(nameof(texturePanel));
+        _trackViewerPanel = trackViewerPanel ?? throw new ArgumentNullException(nameof(trackViewerPanel));
+        _trackDataPanel = trackDataPanel ?? throw new ArgumentNullException(nameof(trackDataPanel));
         _fileDialogManager = fileDialogManager ?? throw new ArgumentNullException(nameof(fileDialogManager));
+        _track = track ?? throw new ArgumentNullException(nameof(track));
+        _trackFactory = trackFactory ?? throw new ArgumentNullException(nameof(trackFactory));
     }
 
     #region methods
@@ -229,6 +248,22 @@ public class ShipRenderWindow : GameWindow
         // Configure AssetBrowserPanel
         _assetBrowserPanel.OnAddToSceneRequested += AddModelToScene;
         _assetBrowserPanel.IsVisible = _settingsManager.Settings.ShowAssetBrowser;
+
+        // Configure TrackViewerPanel
+        // Find the wipeout assets directory by going up from bin/Debug/net8.0 to project root
+        string execDir = AppDomain.CurrentDomain.BaseDirectory;
+        string? foundDir = FindWipeoutAssetsDirectory(execDir);
+        string wipoutDataDir = foundDir ?? Path.GetFullPath(Path.Combine(execDir, "..", "..", "..", "..", "..", "assets", "wipeout"));
+        _logger.LogInformation("[INIT] Wipeout assets directory: {Dir}", wipoutDataDir);
+        _trackViewerPanel.SetWipeoutDataDirectory(wipoutDataDir);
+        _trackViewerPanel.OnTrackLoadRequested += LoadTrack;
+        _trackViewerPanel.IsVisible = _settingsManager.Settings.ShowTrackViewer;
+
+        // Configure Directional Lights visibility
+        _lightPanel.IsVisible = _settingsManager.Settings.ShowDirectionalLights;
+
+        // Configure TrackDataPanel
+        _trackDataPanel.IsVisible = _settingsManager.Settings.ShowTrackDataInspector;
 
         // Configure SettingsPanel
         _settingsPanel.SetUIScale(_currentUIScale);
@@ -365,6 +400,120 @@ public class ShipRenderWindow : GameWindow
         }
 
         _gameObjects.Update();
+
+        // Update track animation (pickups blinking)
+        if (_trackAnimator != null)
+        {
+            _trackAnimator.Update((float)args.Time);
+        }
+    }
+
+    /// <summary>
+    /// Add ALL models from a PRM file.
+    /// This loads all objects from the specified PRM file and their corresponding textures.
+    /// </summary>
+    private void AddAllModelsFromPrmFile(string prmPath, bool isTrack, Vec3? trackPosition = null, float trackScale = 1.0f, bool isSky = false, Vec3? skyOffset = null)
+    {
+        _logger.LogWarning("[SCENE] *** AddAllModelsFromPrmFile CALLED with path: {Path}, isTrack: {IsTrack} ***", prmPath, isTrack);
+
+        try
+        {
+            _logger.LogWarning("[SCENE] Loading ALL objects from track file: {Path}", prmPath);
+
+            // Create a logger that will show output
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Debug);
+                builder.AddConsole();
+            });
+            var modelLoaderLogger = loggerFactory.CreateLogger<ModelLoader>();
+            var modelLoader = new ModelLoader(modelLoaderLogger);
+
+            // Load ALL objects from the PRM file at once
+            var allMeshes = modelLoader.LoadAllObjectsFromPrmFile(prmPath);
+
+            _logger.LogInformation("[SCENE] Loaded {Count} objects from {Path}", allMeshes.Count, prmPath);
+
+            // Load CMP textures
+            string cmpPath = Path.ChangeExtension(prmPath, ".cmp");
+            int[]? textures = null;
+            if (File.Exists(cmpPath))
+            {
+                _logger.LogInformation("[SCENE] Loading textures from {Cmp}", cmpPath);
+                textures = _textureManager.LoadTexturesFromCmp(cmpPath);
+            }
+
+            // Create a GameObject for each mesh
+            float spacing = 50.0f;
+            int addedCount = 0;
+
+            foreach (var mesh in allMeshes)
+            {
+                var shipLogger = new NullLogger<GameObject>();
+                var newObject = new GameObject(_renderer, shipLogger, _textureManager, modelLoader)
+                {
+                    // Track/scene/sky meshes come already oriented
+                    Angle = new Vec3(0, 0, 0)
+                };
+
+                // Set the model directly (we already loaded it!)
+                newObject.SetModel(mesh);
+
+                // Apply textures with UV normalization
+                if (textures != null)
+                {
+                    newObject.ApplyTexturesWithNormalization(textures);
+                }
+
+                newObject.IsVisible = true;
+
+                var sceneObject = _scene.AddObject(mesh.Name, newObject);
+
+                // Scene/sky objects use their mesh Origin directly (from PRM int32 origin field)
+                // Like C: mat4_set_translation(&obj->mat, obj->origin)
+                if (isSky)
+                {
+                    sceneObject.Scale = 1.0f;
+                }
+
+                if (trackPosition.HasValue || trackScale != 1.0f || !isSky)
+                {
+                    // Use the mesh's Origin directly from PRM file (int32 values cast to float)
+                    sceneObject.Position = mesh.Origin;  // No inversion - C uses raw coordinates
+                    // Sky uses scale 1.0f, scene/track objects use 0.001f scale
+                    sceneObject.Scale = 0.001f;  // Sky vs regular objects
+                    _logger.LogInformation("[SCENE] Using origin for '{Name}': origin={Origin}, scale={Scale}", mesh.Name, mesh.Origin, sceneObject.Scale);
+                }
+                else
+                {
+                    // Original behavior for non-track files loaded manually
+                    float xOffset = _scene.Objects.Count * spacing;
+                    sceneObject.Position = new Vec3(xOffset, 0, 0);
+                    // Keep default scale of 0.001f for all objects (PSX coordinate scale)
+                }
+
+                // Use identity rotation like in C: mat4_identity()
+                sceneObject.Rotation = new Vec3(0, 0, 0);  // No rotation
+                sceneObject.SourceFilePath = prmPath;  // Track the source file
+                sceneObject.IsSky = isSky;
+                sceneObject.SkyOffset = skyOffset ?? new Vec3(0, 0, 0);  // No inversion
+
+                addedCount++;
+                _logger.LogInformation("[SCENE] Added '{Name}' to scene at position {Pos}", mesh.Name, sceneObject.Position);
+            }
+
+            _logger.LogInformation("[SCENE] Added {Count} objects from {Path} to scene", addedCount, prmPath);
+
+            // Select last added object
+            if (_scene.Objects.Count > 0)
+                _scene.SelectedObject = _scene.Objects[_scene.Objects.Count - 1];
+
+            _recentFiles.AddRecentFile(prmPath, false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[SCENE] Failed to add all models from track file: {Path}", prmPath);
+        }
     }
 
     /// <summary>
@@ -372,15 +521,17 @@ public class ShipRenderWindow : GameWindow
     /// </summary>
     private void AddModelToScene(string modelPath, int objectIndex)
     {
+        _logger.LogWarning("[SCENE] *** AddModelToScene called: path={Path}, index={Index} ***", modelPath, objectIndex);
+
         try
         {
-            // Create a new ship instance for this object
+            // For regular files or specific object index, load single object
             var shipLogger = new NullLogger<GameObject>();
             var modelLoaderLogger = new NullLogger<ModelLoader>();
             var modelLoader = new ModelLoader(modelLoaderLogger);
             var newShip = new GameObject(_renderer, shipLogger, _textureManager, modelLoader);
             newShip.LoadModelFromPath(modelPath, objectIndex);
-            newShip.IsVisible = true;  // Enable rendering
+            newShip.IsVisible = true;
 
             _logger.LogInformation("[SCENE] Ship created: Model={HasModel}, Textures={TexCount}, ShadowTexture={Shadow}",
                 newShip.Model != null, newShip.Texture?.Length ?? 0, newShip.ShadowTexture);
@@ -422,11 +573,23 @@ public class ShipRenderWindow : GameWindow
             // Add to scene with ship
             var sceneObject = _scene.AddObject(objectName, newShip);
             sceneObject.Position = new Vec3(xOffset, 0, 0);  // Offset each object
-            sceneObject.Rotation = new Vec3(0, 0, MathF.PI); // 180° rotation in Z to orient correctly
-            sceneObject.Scale = 0.1f;
+            //sceneObject.Rotation = new Vec3(0, 0, MathF.PI); // 180° rotation in Z to orient correctly
+            // Keep default scale of 1.0f (set in SceneObject constructor)
+            sceneObject.SourceFilePath = modelPath;  // Track the source file
             _scene.SelectedObject = sceneObject;
 
             _logger.LogInformation($"[SCENE] Added {sceneObject.Name} to scene");
+
+            // Calculate and adjust grid position to match the model's bounding box
+            // The grid should be positioned at the lowest point of the model
+            var (minY, maxY) = newShip.GetModelBounds();
+
+            // Calculate world-space Y position: model's minY scaled and offset by object's position
+            // minY is in model space, multiply by scale to get world space distance
+            // Add object's Y position to get final world position
+            float modelMinYWorldSpace = (minY * sceneObject.Scale) + sceneObject.Position.Y;
+            _worldGrid.GridYPosition = modelMinYWorldSpace;
+            _logger.LogInformation($"[SCENE] Set GridYPosition to {modelMinYWorldSpace:F2} (model bounds: {minY:F2} to {maxY:F2}, scale: {sceneObject.Scale:F2})");
 
             // Add to recent files
             _recentFiles.AddRecentFile(modelPath, false);
@@ -435,6 +598,104 @@ public class ShipRenderWindow : GameWindow
         {
             _logger.LogError(ex, "[SCENE] Failed to add model to scene: {Path}", modelPath);
         }
+    }
+
+    private int[] BuildTrackLibraryTextures(string ttfPath, string cmpPath)
+    {
+        if (!File.Exists(ttfPath) || !File.Exists(cmpPath))
+        {
+            _logger.LogWarning("[TRACK] Missing TTF ({Ttf}) or CMP ({Cmp}) for track textures", ttfPath, cmpPath);
+            return Array.Empty<int>();
+        }
+
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Warning);
+        });
+        var cmpLoader = new CmpImageLoader(loggerFactory.CreateLogger<CmpImageLoader>());
+        var timLoader = new TimImageLoader(loggerFactory.CreateLogger<TimImageLoader>());
+
+        byte[][] cmpImages = cmpLoader.LoadCompressed(cmpPath);
+        if (cmpImages.Length == 0)
+        {
+            _logger.LogWarning("[TRACK] CMP had no images: {Cmp}", cmpPath);
+            return Array.Empty<int>();
+        }
+
+        byte[] ttfBytes = File.ReadAllBytes(ttfPath);
+        int tileCount = ttfBytes.Length / 42; // 16 near (32 bytes) + 4 med (8 bytes) + 1 far (2 bytes)
+        var handles = new int[tileCount];
+
+        int p = 0;
+        for (int tile = 0; tile < tileCount; tile++)
+        {
+            short[] near = new short[16];
+            for (int i = 0; i < 16; i++) near[i] = ReadI16BE(ttfBytes, ref p);
+            for (int i = 0; i < 4; i++) ReadI16BE(ttfBytes, ref p); // med (unused)
+            ReadI16BE(ttfBytes, ref p); // far (unused)
+
+            byte[] pixels = new byte[128 * 128 * 4];
+
+            for (int ty = 0; ty < 4; ty++)
+            {
+                for (int tx = 0; tx < 4; tx++)
+                {
+                    int idx = near[ty * 4 + tx];
+                    if (idx < 0 || idx >= cmpImages.Length)
+                    {
+                        continue;
+                    }
+
+                    var (subPixels, w, h) = timLoader.LoadTimFromBytes(cmpImages[idx], false);
+                    if (subPixels == null || subPixels.Length == 0)
+                        continue;
+
+                    int destX = tx * 32;
+                    int destY = ty * 32;
+                    int copyW = Math.Min(w, 32);
+                    int copyH = Math.Min(h, 32);
+
+                    for (int y = 0; y < copyH; y++)
+                    {
+                        for (int x = 0; x < copyW; x++)
+                        {
+                            int srcIndex = (y * w + x) * 4;
+                            int dstIndex = ((destY + y) * 128 + (destX + x)) * 4;
+                            pixels[dstIndex + 0] = subPixels[srcIndex + 0];
+                            pixels[dstIndex + 1] = subPixels[srcIndex + 1];
+                            pixels[dstIndex + 2] = subPixels[srcIndex + 2];
+                            pixels[dstIndex + 3] = subPixels[srcIndex + 3];
+                        }
+                    }
+                }
+            }
+
+            handles[tile] = _textureManager.CreateTexture(pixels, 128, 128);
+        }
+
+        _logger.LogInformation("[TRACK] Built {Count} track tiles from {Ttf}", handles.Length, ttfPath);
+        return handles;
+    }
+
+    private static (Vec3 min, Vec3 max) ComputeBounds(Mesh mesh)
+    {
+        if (mesh.Vertices == null || mesh.Vertices.Length == 0)
+            return (new Vec3(0, 0, 0), new Vec3(0, 0, 0));
+
+        float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
+
+        foreach (var v in mesh.Vertices)
+        {
+            minX = MathF.Min(minX, v.X);
+            minY = MathF.Min(minY, v.Y);
+            minZ = MathF.Min(minZ, v.Z);
+            maxX = MathF.Max(maxX, v.X);
+            maxY = MathF.Max(maxY, v.Y);
+            maxZ = MathF.Max(maxZ, v.Z);
+        }
+
+        return (new Vec3(minX, minY, minZ), new Vec3(maxX, maxY, maxZ));
     }
 
     /// <summary>
@@ -476,6 +737,51 @@ public class ShipRenderWindow : GameWindow
 
         // Default to 1.0 (100%)
         return 1.0f;
+    }
+
+    /// <summary>
+    /// Find the wipeout assets directory by searching up from the current directory.
+    /// </summary>
+    private string? FindWipeoutAssetsDirectory(string startDir)
+    {
+        DirectoryInfo? current = new DirectoryInfo(startDir);
+
+        // Search up to 10 levels up
+        for (int i = 0; i < 10 && current != null; i++)
+        {
+            string assetsPath = Path.Combine(current.FullName, "assets", "wipeout");
+            if (Directory.Exists(assetsPath))
+            {
+                _logger.LogInformation("[INIT] Found wipeout assets at: {Path}", assetsPath);
+                return assetsPath;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    private float GetSkyYOffset(int trackNumber)
+    {
+        return trackNumber switch
+        {
+            1 => -820f,
+            2 => -2520f,
+            3 => -1930f,
+            4 => -5000f,
+            5 => -5000f,
+            6 => 0f,
+            7 => -2260f,
+            8 => -40f,
+            9 => -2700f,
+            10 => 0f,
+            11 => -240f,
+            12 => -2120f,
+            13 => -2700f,
+            14 => 0f,
+            _ => 0f
+        };
     }
 
     /// <summary>
@@ -569,6 +875,420 @@ public class ShipRenderWindow : GameWindow
     }
 
     /// <summary>
+    /// Load an entire track for visualization.
+    /// Loads track.trv + track.trf geometry, scene.prm, sky.prm and their textures, then adds them to the scene.
+    /// </summary>
+    private void LoadTrack(int trackNumber, string wipoutDataDir)
+    {
+        _logger.LogWarning("[TRACK] *** LoadTrack called: trackNumber={Track}, dataDir={Dir} ***", trackNumber, wipoutDataDir);
+
+        try
+        {
+            // Clear existing objects
+            var objectsToRemove = _scene.Objects.ToList();
+            foreach (var obj in objectsToRemove)
+            {
+                _scene.RemoveObject(obj);
+            }
+            _logger.LogInformation("[TRACK] Cleared {Count} existing objects", objectsToRemove.Count);
+
+            // Reset track data and spline navigation for new track
+            _scene.TrackLoader = null;
+            _scene.ActiveTrack = null;
+            _splineNavigationCalculator = null;
+            _splineDebugRenderer = null;
+            _logger.LogInformation("[TRACK] Reset track data, spline navigation calculator and renderer for new track");
+
+            // Build track directory path
+            string trackDir = Path.Combine(wipoutDataDir, $"track{trackNumber:D2}");
+            if (!Directory.Exists(trackDir))
+            {
+                _logger.LogError("[TRACK] Track directory not found: {Dir}", trackDir);
+                return;
+            }
+
+            string scenePrmPath = Path.Combine(trackDir, "scene.prm");
+            string skyPrmPath = Path.Combine(trackDir, "sky.prm");
+            string trvPath = Path.Combine(trackDir, "track.trv");
+            string trfPath = Path.Combine(trackDir, "track.trf");
+            string libraryTtfPath = Path.Combine(trackDir, "library.ttf");
+            string libraryCmpPath = Path.Combine(trackDir, "library.cmp");
+
+            _logger.LogWarning("[TRACK] Loading track {Track} from {Dir}", trackNumber, trackDir);
+
+            // Track object to be populated with sections for fly-through navigation
+            //var track = new Track($"track{trackNumber:D2}");
+            Mesh? trackMesh = null;
+
+            // Load track geometry first (main track mesh)
+            if (File.Exists(trvPath) && File.Exists(trfPath))
+            {
+                _logger.LogInformation("[TRACK] Loading track geometry from {Trv} and {Trf}", trvPath, trfPath);
+                try
+                {
+                    // Create logger for TrackLoader
+                    var trackLoaderLogger = LoggerFactory.Create(builder =>
+                    {
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                        builder.AddConsole();
+                    }).CreateLogger<TrackLoader>();
+
+                    var trackLoader = new TrackLoader(trackLoaderLogger);
+                    trackLoader.LoadVertices(trvPath);
+                    trackLoader.LoadFaces(trfPath);
+                    trackMesh = trackLoader.ConvertToMesh();
+
+                    // Store track loader in scene for diagnostic panel access
+                    _scene.TrackLoader = trackLoader;
+
+                    _logger.LogInformation("[TRACK] Loaded track mesh with {Vertices} vertices and {Primitives} primitives",
+                        trackMesh.Vertices.Length, trackMesh.Primitives.Count);
+
+                    // Initialize track animator for pickup/boost zone animations
+                    var animatorLogger = LoggerFactory.Create(builder =>
+                    {
+                        builder.SetMinimumLevel(LogLevel.Information);
+                    }).CreateLogger<TrackAnimator>();
+
+                    _trackAnimator = new TrackAnimator(animatorLogger);
+                    _trackAnimator.RegisterAnimatedFaces(trackMesh, trackLoader.LoadedFaces ?? new());
+
+                    // No scaling or centering - track is rendered at original coordinates like in C
+                    // Track uses identity matrix transformation
+
+                    // Load library textures for the track
+                    int[]? libraryTextures = null;
+                    if (File.Exists(libraryCmpPath) && File.Exists(libraryTtfPath))
+                    {
+                        _logger.LogInformation("[TRACK] Building track textures from {Ttf} + {Cmp}", libraryTtfPath, libraryCmpPath);
+                        libraryTextures = BuildTrackLibraryTextures(libraryTtfPath, libraryCmpPath);
+                    }
+
+                    // Create GameObject for track
+                    var trackLogger = LoggerFactory.Create(builder =>
+                    {
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                        builder.AddConsole();
+                    }).CreateLogger<GameObject>();
+
+                    var modelLoaderLogger = LoggerFactory.Create(builder =>
+                    {
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                        builder.AddConsole();
+                    }).CreateLogger<ModelLoader>();
+
+                    var trackObject = new GameObject(_renderer, trackLogger, _textureManager, new ModelLoader(modelLoaderLogger))
+                    {
+                        Angle = new Vec3(0, 0, 0)
+                    };
+                    trackObject.SetModel(trackMesh);
+
+                    // Apply library textures
+                    if (libraryTextures != null)
+                    {
+                        trackObject.ApplyTexturesWithNormalization(libraryTextures);
+                    }
+
+                    trackObject.IsVisible = true;
+
+                    var trackSceneObject = _scene.AddObject("Track Geometry", trackObject);
+                    // Track coordinates are int32 values (tens/hundreds of thousands)
+                    // Apply 0.001f scale to convert PSX coordinates to reasonable viewing scale
+                    trackSceneObject.Position = new Vec3(0, 0, 0);
+                    trackSceneObject.Rotation = new Vec3(0, 0, 0);  // Track uses identity rotation
+                    trackSceneObject.Scale = 0.001f;  // Scale down from PSX coordinates
+                    trackSceneObject.SourceFilePath = trvPath;
+
+                    _logger.LogInformation("[TRACK] Added track geometry to scene");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[TRACK] Failed to load track geometry: {Message}", ex.Message);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("[TRACK] Track geometry files not found: {Trv} or {Trf}", trvPath, trfPath);
+            }
+
+            // Scene and sky objects use their own origins directly (no track-based transform)
+            // Like in C: scene objects have mat4_set_translation(&obj->mat, obj->origin)
+
+            // Load scene first (buildings, track elements)
+            if (File.Exists(scenePrmPath))
+            {
+                _logger.LogInformation("[TRACK] Loading scene.prm: {Path}", scenePrmPath);
+                AddAllModelsFromPrmFile(scenePrmPath, false, null, 1.0f);
+            }
+            else
+            {
+                _logger.LogWarning("[TRACK] scene.prm not found: {Path}", scenePrmPath);
+            }
+
+            // Load sky (skybox elements)
+            if (File.Exists(skyPrmPath))
+            {
+                _logger.LogInformation("[TRACK] Loading sky.prm: {Path}", skyPrmPath);
+                float skyYOffset = GetSkyYOffset(trackNumber);  // No scaling - use raw value
+                var skyOffsetVec = new Vec3(0, skyYOffset, 0);
+                _logger.LogInformation("[TRACK] Sky offset for track {Track}: Y={SkyY}", trackNumber, skyYOffset);
+                AddAllModelsFromPrmFile(skyPrmPath, false, null, 1.0f, true, skyOffsetVec);
+            }
+            else
+            {
+                _logger.LogWarning("[TRACK] sky.prm not found: {Path}", skyPrmPath);
+            }
+
+            _logger.LogInformation("[TRACK] Track {Track} loaded successfully with {Count} objects",
+                trackNumber, _scene.Objects.Count);
+
+            // Create a new Track instance for this load to avoid stale data
+            var newTrack = _trackFactory.Create() as Track;
+            if (newTrack == null)
+            {
+                _logger.LogError("[TRACK] Failed to create Track instance from factory");
+                return;
+            }
+            
+            // Load track sections from track.trs file (pre-calculated by wipeout track editor)
+            LoadTrackSections(trackDir, newTrack);
+
+            _scene.ActiveTrack = newTrack;
+            _logger.LogInformation("[TRACK] Set ActiveTrack to {TrackName} with {SectionCount} sections",
+                newTrack.Name, newTrack.Sections.Count);
+
+            // Make all objects visible and ensure they are properly rendered
+            foreach (var obj in _scene.Objects)
+            {
+                obj.IsVisible = true;
+                _logger.LogDebug("[TRACK] Object: {Name}, Visible: {Visible}", obj.Name, obj.IsVisible);
+            }
+
+            // Select first object for camera focus and reset grid
+            if (_scene.Objects.Count > 0)
+            {
+                _scene.SelectedObject = _scene.Objects[0];
+
+                // Adjust grid position to ground level
+                _worldGrid.GridYPosition = 0.0f;
+                _logger.LogInformation("[TRACK] Set grid position to Y=0");
+
+                // Position camera at reasonable distance for full track coordinates (int32 values)
+                // Track coordinates are in the tens of thousands range, so use fixed reasonable values
+                var trackGeometry = _scene.Objects.FirstOrDefault(o => o.Name == "Track Geometry")?.Ship;
+                if (trackGeometry?.Model?.Vertices != null && trackGeometry.Model.Vertices.Length > 0)
+                {
+                    // Use fixed camera position values that work well with PSX-scale coordinates
+                    // Similar to external camera in game: ~1000-2000 units back and ~200-500 units up
+                    _camera.Position = new Vector3(0, 2000, 5000);
+                    _camera.Target = new Vector3(0, 0, 0);
+                    _logger.LogInformation("[TRACK] Camera positioned at fixed distance for PSX coordinates");
+                }
+            }
+
+            _logger.LogWarning("[TRACK] Track {Track} rendering should start now", trackNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[TRACK] Failed to load track {Track}: {Message}", trackNumber, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Load track sections from track.trs file (pre-calculated by track editor).
+    /// This matches wipeout-rewrite, which loads sections instead of generating synthetically.
+    /// File format is big-endian (PSX format).
+    /// </summary>
+    private void LoadTrackSections(string trackDataPath, ITrack track)
+    {
+        const int SECTION_DATA_SIZE = 156;  // bytes per section in track.trs
+        const float TRACK_SCALE = 0.001f;
+
+        string trsPath = Path.Combine(trackDataPath, "track.trs");
+        if (!File.Exists(trsPath))
+        {
+            _logger.LogWarning("[TRACK] track.trs not found at {Path}, cannot load sections", trsPath);
+            return;
+        }
+
+        try
+        {
+            byte[] trsData = File.ReadAllBytes(trsPath);
+            int sectionCount = trsData.Length / SECTION_DATA_SIZE;
+
+            _logger.LogInformation("[TRACK] Loading {SectionCount} track sections from track.trs", sectionCount);
+
+            // First pass: load all section data
+            for (int i = 0; i < sectionCount; i++)
+            {
+                int baseOffset = i * SECTION_DATA_SIZE;
+
+                // Read section structure (BIG ENDIAN - PSX format)
+                // matching wipeout-rewrite track.c:205-245
+
+                int junctionIndex = ReadInt32BE(trsData, baseOffset + 0);
+                int prevIndex = ReadInt32BE(trsData, baseOffset + 4);
+                int nextIndex = ReadInt32BE(trsData, baseOffset + 8);
+
+                // Center coordinates (int32 values in PSX coords)
+                int centerX = ReadInt32BE(trsData, baseOffset + 12);
+                int centerY = ReadInt32BE(trsData, baseOffset + 16);
+                int centerZ = ReadInt32BE(trsData, baseOffset + 20);
+
+                // Face data
+                short faceStart = ReadInt16BE(trsData, baseOffset + 104);
+                short faceCount = ReadInt16BE(trsData, baseOffset + 106);
+
+                // Flags and section number
+                short flags = ReadInt16BE(trsData, baseOffset + 132);
+                short sectionNum = ReadInt16BE(trsData, baseOffset + 134);
+
+                var section = new TrackSection
+                {
+                    Center = new Vec3(centerX, centerY, centerZ),
+                    SectionNumber = i,
+                    FaceStart = faceStart,
+                    FaceCount = faceCount,
+                    Flags = flags,
+                    Prev = null,  // Will be linked in second pass
+                    Next = null,
+                    Junction = null
+                };
+
+                track.Sections.Add(section);
+
+                // Log first, middle and last sections
+                if (i == 0 || i == sectionCount - 1 || i == sectionCount / 2)
+                {
+                    _logger.LogInformation(
+                        "[TRACK] Section {Index}: Center=({X}, {Y}, {Z}) World=({WX:F2}, {WY:F2}, {WZ:F2}), Flags={Flags}",
+                        i, centerX, centerY, centerZ,
+                        centerX * TRACK_SCALE, centerY * TRACK_SCALE, centerZ * TRACK_SCALE, flags);
+                }
+            }
+
+            // Second pass: link sections using indices
+            for (int i = 0; i < sectionCount; i++)
+            {
+                int baseOffset = i * SECTION_DATA_SIZE;
+
+                int junctionIndex = ReadInt32BE(trsData, baseOffset + 0);
+                int prevIndex = ReadInt32BE(trsData, baseOffset + 4);
+                int nextIndex = ReadInt32BE(trsData, baseOffset + 8);
+
+                // Link sections
+                if (junctionIndex >= 0 && junctionIndex < sectionCount)
+                {
+                    track.Sections[i].Junction = track.Sections[junctionIndex];
+                }
+                if (prevIndex >= 0 && prevIndex < sectionCount)
+                {
+                    track.Sections[i].Prev = track.Sections[prevIndex];
+                }
+                if (nextIndex >= 0 && nextIndex < sectionCount)
+                {
+                    track.Sections[i].Next = track.Sections[nextIndex];
+                }
+            }
+
+            // Third pass: detect and smooth out problem sections
+            // Calculate average distance between consecutive sections (for dynamic threshold)
+            float totalDistance = 0;
+            int distanceCount = 0;
+
+            for (int i = 1; i < sectionCount; i++)
+            {
+                var prev = track.Sections[i - 1].Center;
+                var curr = track.Sections[i].Center;
+                float dx = curr.X - prev.X;
+                float dy = curr.Y - prev.Y;
+                float dz = curr.Z - prev.Z;
+                float dist = MathF.Sqrt(dx * dx + dy * dy + dz * dz);
+                totalDistance += dist;
+                distanceCount++;
+            }
+
+            float averageDistance = totalDistance / distanceCount;
+            float OUTLIER_THRESHOLD = averageDistance * 3.0f;  // 3x average distance is suspect
+
+            _logger.LogInformation("[TRACK] Average section distance: {AvgDist:F0} PSX units, outlier threshold: {Threshold:F0}",
+                averageDistance, OUTLIER_THRESHOLD);
+
+            int smoothedCount = 0;
+            for (int i = 1; i < sectionCount - 1; i++)
+            {
+                var prev = track.Sections[i - 1].Center;
+                var curr = track.Sections[i].Center;
+                var next = track.Sections[i + 1].Center;
+
+                float dx = curr.X - prev.X;
+                float dy = curr.Y - prev.Y;
+                float dz = curr.Z - prev.Z;
+                float dist = MathF.Sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist > OUTLIER_THRESHOLD)
+                {
+                    // Detected outlier, smooth by averaging with neighbors
+                    _track.Sections[i].Center.X = (prev.X + next.X) / 2;
+                    _track.Sections[i].Center.Y = (prev.Y + next.Y) / 2;
+                    _track.Sections[i].Center.Z = (prev.Z + next.Z) / 2;
+                    smoothedCount++;
+
+                    _logger.LogWarning("[TRACK] Smoothed outlier section {Index} (dist={Dist:F0}) to ({X}, {Y}, {Z})",
+                        i, dist,
+                        _track.Sections[i].Center.X,
+                        _track.Sections[i].Center.Y,
+                        _track.Sections[i].Center.Z);
+                }
+            }
+
+            _logger.LogInformation("[TRACK] Outlier smoothing disabled - preserving original section geometry");
+
+            // Fourth pass: identify all junction sections
+            var junctionSections = new List<int>();
+            for (int i = 0; i < sectionCount; i++)
+            {
+                if (track.Sections[i].Junction != null)
+                {
+                    junctionSections.Add(i);
+                }
+            }
+
+            if (junctionSections.Count > 0)
+            {
+                _logger.LogInformation("[TRACK] === Junction sections ({Count} found) ===", junctionSections.Count);
+                for (int i = 0; i < junctionSections.Count && i < 20; i++)
+                {
+                    int idx = junctionSections[i];
+                    var sect = track.Sections[idx];
+                    var juncSect = sect.Junction;
+
+                    if (juncSect == null) continue;
+
+                    _logger.LogInformation(
+                        "[TRACK] Sec[{Index:D3}] has Junction->Sec[{JuncIdx:D3}]: " +
+                        "Main Next={NextIdx}, Junc Next={JuncNextIdx}, " +
+                        "Pos=({X},{Y},{Z})->{JX},{JY},{JZ}",
+                        idx, juncSect.SectionNumber,
+                        sect.Next != null ? sect.Next.SectionNumber : -1,
+                        juncSect.Next != null ? juncSect.Next.SectionNumber : -1,
+                        (int)sect.Center.X, (int)sect.Center.Y, (int)sect.Center.Z,
+                        (int)juncSect.Center.X, (int)juncSect.Center.Y, (int)juncSect.Center.Z);
+                }
+
+                _logger.LogWarning("[TRACK] Track has {JunctionCount} bifurcation points - spline may diverge here",
+                    junctionSections.Count);
+            }
+
+            _logger.LogInformation("[TRACK] Loaded {SectionCount} track sections from track.trs (wipeout-rewrite algorithm)", track.Sections.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("[TRACK] Error loading track.trs: {Error}", ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Open a folder dialog and load all PRM files from the selected folder.
     /// </summary>
     private void OpenFolderDialog()
@@ -595,6 +1315,30 @@ public class ShipRenderWindow : GameWindow
             _logger.LogError(ex, "[EDITOR] Error opening folder dialog");
             _fileDialogManager?.ShowFolderDialog(ModelFileDialog.GetModelDirectory());
         }
+    }
+
+    private static short ReadI16BE(byte[] bytes, ref int p)
+    {
+        short value = (short)((bytes[p] << 8) | bytes[p + 1]);
+        p += 2;
+        return value;
+    }
+
+    /// <summary>
+    /// Helper to read big-endian int16 from byte array.
+    /// </summary>
+    private static short ReadInt16BE(byte[] data, int offset)
+    {
+        return (short)((data[offset] << 8) | data[offset + 1]);
+    }
+
+    /// <summary>
+    /// Helper to read big-endian int32 from byte array.
+    /// </summary>
+    private static int ReadInt32BE(byte[] data, int offset)
+    {
+        return (data[offset] << 24) | (data[offset + 1] << 16) |
+               (data[offset + 2] << 8) | data[offset + 3];
     }
 
     /// <summary>
@@ -766,6 +1510,22 @@ public class ShipRenderWindow : GameWindow
                     if (ImGui.MenuItem("Asset Browser", null, ref show))
                         _assetBrowserPanel.IsVisible = show;
                 }
+                if (_trackViewerPanel != null)
+                {
+                    bool show = _trackViewerPanel.IsVisible;
+                    if (ImGui.MenuItem("Track Viewer", null, ref show))
+                        _trackViewerPanel.IsVisible = show;
+                }
+                if (_trackDataPanel != null)
+                {
+                    bool show = _trackDataPanel.IsVisible;
+                    if (ImGui.MenuItem("Track Data Inspector", null, ref show))
+                    {
+                        _trackDataPanel.IsVisible = show;
+                        _settingsManager.Settings.ShowTrackDataInspector = show;
+                        _settingsManager.SaveSettings();
+                    }
+                }
                 if (_propertiesPanel != null)
                 {
                     bool show = _propertiesPanel.IsVisible;
@@ -891,6 +1651,63 @@ public class ShipRenderWindow : GameWindow
     }
 
     /// <summary>
+    /// Render the camera spline as a red line for debug visualization.
+    /// </summary>
+    private void RenderSplineDebug(ICamera activeCamera)
+    {
+        // Only render if track is loaded AND spline is enabled in properties
+        if (_scene?.ActiveTrack == null || !_propertiesPanel.ShowSpline)
+            return;
+
+        // Create navigation calculator if needed (whenever track is available)
+        if (_splineNavigationCalculator == null)
+        {
+            var navLogger = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Debug);
+                builder.AddConsole();
+            }).CreateLogger<TrackNavigationCalculator>();
+
+            _splineNavigationCalculator = new TrackNavigationCalculator(_scene.ActiveTrack, navLogger);
+            _logger.LogInformation("[SPLINE] Created navigation calculator with {SectionCount} sections",
+                _splineNavigationCalculator.GetSectionCount());
+        }
+
+        // Create debug renderer if needed
+        if (_splineDebugRenderer == null)
+        {
+            _splineDebugRenderer = new SplineDebugRenderer();
+
+            // Build from waypoints
+            var waypoints = _splineNavigationCalculator.GetWaypoints();
+            _splineDebugRenderer.BuildFromWaypoints(waypoints);
+
+            _logger.LogInformation("[SPLINE] Built debug renderer with {WaypointCount} waypoints", waypoints.Count);
+
+            // Debug: Log first and last waypoint coordinates
+            if (waypoints.Count > 0)
+            {
+                var first = waypoints[0];
+                var last = waypoints[waypoints.Count - 1];
+                _logger.LogInformation("[SPLINE] First waypoint: Position={Position}", first.Position);
+                _logger.LogInformation("[SPLINE] Last waypoint: Position={Position}", last.Position);
+
+                // Log camera current position for comparison
+                _logger.LogInformation("[SPLINE] Camera position: {Position}", activeCamera.Position);
+            }
+        }
+
+        // Render the spline
+        if (_splineDebugRenderer != null)
+        {
+            _splineDebugRenderer.Render(
+                activeCamera.GetProjectionMatrix(),
+                activeCamera.GetViewMatrix()
+            );
+        }
+    }
+
+    /// <summary>
     /// Render ImGui UI (without 3D rendering which is done separately in RenderViewportToFBO).
     /// </summary>
     private void RenderUIWithoutViewport()
@@ -905,6 +1722,8 @@ public class ShipRenderWindow : GameWindow
         RenderViewportDisplayPanel();
         _scenePanel.Render();
         _assetBrowserPanel.Render();
+        _trackViewerPanel.Render();
+        _trackDataPanel.Render();
         _viewportInfoPanel.Render();
         _propertiesPanel.Render();
         _texturePanel.Render();
@@ -1021,12 +1840,12 @@ public class ShipRenderWindow : GameWindow
                         else if (mouseDelta.LengthSquared > 0.01f)
                         {
                             // Orbit sensitivity
-                            float sensitivity = 0.005f;
+                            float sensitivity = 0.003f;
 
-                            // Update yaw (horizontal rotation)
+                            // Update yaw (horizontal rotation) - full 360° rotation
                             activeCam.Yaw += mouseDelta.X * sensitivity;
 
-                            // Update pitch (vertical rotation)
+                            // Update pitch (vertical rotation) - limited to -89° to 89° to avoid gimbal lock
                             activeCam.Pitch -= mouseDelta.Y * sensitivity;
                         }
                     }
@@ -1035,8 +1854,8 @@ public class ShipRenderWindow : GameWindow
                         _isDraggingOrbit = false;
                     }
 
-                    // Alt + Left mouse button: Pan camera
-                    if (ImGui.IsMouseDown(ImGuiMouseButton.Left) && io.KeyAlt)
+                    // Middle mouse button OR Alt + Left mouse button: Pan camera
+                    if ((ImGui.IsMouseDown(ImGuiMouseButton.Middle) || (ImGui.IsMouseDown(ImGuiMouseButton.Left) && io.KeyAlt)))
                     {
                         if (!_isDraggingPan)
                         {
@@ -1062,15 +1881,58 @@ public class ShipRenderWindow : GameWindow
                         _isDraggingPan = false;
                     }
 
-                    // Mouse wheel: Zoom
-                    if (io.MouseWheel != 0)
+                    // Mouse wheel: Zoom (supports both vertical scroll and trackpad pinch)
+                    float scrollDelta = io.MouseWheel;
+
+                    // Also check horizontal scroll wheel (some trackpads use this)
+                    if (io.MouseWheelH != 0)
+                    {
+                        scrollDelta = io.MouseWheelH;
+                    }
+
+                    // Check for mouse scroll delta from OpenTK (alternative method for trackpad)
+                    if (scrollDelta == 0 && MouseState.ScrollDelta.Y != 0)
+                    {
+                        scrollDelta = MouseState.ScrollDelta.Y;
+                    }
+
+                    if (scrollDelta != 0)
                     {
                         // Zoom sensitivity based on current distance
-                        float zoomSpeed = activeCam.Distance * 0.1f;
-                        activeCam.Distance -= io.MouseWheel * zoomSpeed;
+                        // Higher sensitivity for trackpad zooming
+                        float zoomSpeed = activeCam.Distance * 0.2f;
+
+                        // Invert if needed for more intuitive trackpad control
+                        activeCam.Distance -= scrollDelta * zoomSpeed;
 
                         // Clamp distance to reasonable values
-                        activeCam.Distance = MathHelper.Clamp(activeCam.Distance, 0.1f, 100.0f);
+                        activeCam.Distance = MathHelper.Clamp(activeCam.Distance, 0.1f, 5000.0f);
+                    }
+
+                    // Keyboard controls for camera movement
+                    float moveSpeed = 1.0f;  // Much faster base speed
+                    if (io.KeyShift)
+                        moveSpeed = 4.0f;  // Much faster with Shift (4x base speed)
+
+                    var moveDirection = Vector3.Zero;
+
+                    // WASD keys for movement
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.S))
+                        moveDirection += Vector3.UnitZ * moveSpeed;
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.W))
+                        moveDirection -= Vector3.UnitZ * moveSpeed;
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.D))
+                        moveDirection -= Vector3.UnitX * moveSpeed;
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.A))
+                        moveDirection += Vector3.UnitX * moveSpeed;
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.E))
+                        moveDirection += Vector3.UnitY * moveSpeed;
+                    if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Q))
+                        moveDirection -= Vector3.UnitY * moveSpeed;
+
+                    if (moveDirection.LengthSquared > 0.01f)
+                    {
+                        activeCam.Move(moveDirection);  // Direct movement, no delta time scaling
                     }
 
                     _lastMousePosition = mousePos;
@@ -1165,6 +2027,36 @@ public class ShipRenderWindow : GameWindow
 
             var shipModel = sceneObject.Ship;
 
+            // Special handling for sky: follow camera and don't use object's position/rotation
+            if (sceneObject.IsSky)
+            {
+                // Sky follows camera with offset
+                var skyPos = activeCamera.Position + new Vector3(sceneObject.SkyOffset.X, sceneObject.SkyOffset.Y, sceneObject.SkyOffset.Z);
+
+                // Build transformation: Translation * Scale (no rotation - like in C)
+                var positionSky = Matrix4.CreateTranslation(skyPos);
+                var scaleSky = Matrix4.CreateScale(sceneObject.Scale);  // Scale for sky
+                _renderer.SetModelMatrix(positionSky * scaleSky);
+
+                // Disable depth write and face culling for sky
+                _renderer.SetDepthWrite(false);
+                GL.Disable(EnableCap.CullFace);
+
+                if (_propertiesPanel?.WireframeMode == true)
+                    GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
+
+                shipModel.Draw();
+
+                if (_propertiesPanel?.WireframeMode == true)
+                    GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+
+                _renderer.SetDepthWrite(true);
+                GL.Enable(EnableCap.CullFace);
+                GL.CullFace(TriangleFace.Back);
+                continue;
+            }
+
+            // Regular object rendering
             // Set ship transform directly (GameObject will calculate matrix internally)
             shipModel.Position = sceneObject.Position;
             shipModel.Angle = sceneObject.Rotation;
@@ -1175,8 +2067,18 @@ public class ShipRenderWindow : GameWindow
             var scaling = Matrix4.CreateScale(sceneObject.Scale);
             _renderer.SetModelMatrix(scaling);
 
-            // Reset face culling for each object
-            _renderer.SetFaceCulling(false);
+            // Conditional face culling based on object type
+            // Track geometry should have culling disabled to show both sides
+            if (sceneObject.Name == "Track Geometry")
+            {
+                _renderer.SetFaceCulling(false);
+            }
+            else
+            {
+                // Ships and other objects should have culling enabled
+                _renderer.SetFaceCulling(true);
+                GL.CullFace(TriangleFace.Back);
+            }
 
             // Wireframe toggle
             if (_propertiesPanel?.WireframeMode == true)
@@ -1200,6 +2102,9 @@ public class ShipRenderWindow : GameWindow
         // Flush batched rendering for scene objects
         // This ensures single objects are visible without requiring multiple objects
         _renderer.Flush();
+
+        // Render camera spline debug visualization (if fly-through is enabled)
+        RenderSplineDebug(activeCamera);
 
         // Restore rendering state
         _renderer.SetDepthTest(false);

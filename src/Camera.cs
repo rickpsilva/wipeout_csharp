@@ -33,9 +33,21 @@ public class Camera : ICamera
         get => pitch;
         set
         {
-            // Limit pitch to approximately -89° to 89° (in radians: -1.553 to 1.553)
-            pitch = MathHelper.Clamp(value, MathHelper.DegreesToRadians(-89f), MathHelper.DegreesToRadians(89f));
-            UpdatePosition();
+            // Limit pitch to approximately -89° to 89° (in radians: -1.553 to 1.553) to avoid gimbal lock
+            //pitch = MathHelper.Clamp(value, MathHelper.DegreesToRadians(-89f), MathHelper.DegreesToRadians(89f));
+            pitch = MathHelper.Clamp(value, MathHelper.DegreesToRadians(-180f), MathHelper.DegreesToRadians(180f));
+            if (!_isFlythroughMode)
+                UpdatePosition();
+        }
+    }
+
+    public float Roll
+    {
+        get => roll;
+        set
+        {
+            roll = value;
+            // Roll only affects view matrix; no position update needed.
         }
     }
 
@@ -56,8 +68,23 @@ public class Camera : ICamera
         set
         {
             target = value;
-            UpdatePosition();
+            // Don't call UpdatePosition here if we're in fly-through mode
+            // The fly-through navigation sets both Position and Target explicitly
+            if (!_isFlythroughMode)
+            {
+                UpdatePosition();
+            }
         }
+    }
+
+    /// <summary>
+    /// Enable/disable fly-through mode where Position and Target are set directly.
+    /// When enabled, UpdatePosition() won't be called automatically.
+    /// </summary>
+    public bool IsFlythroughMode
+    {
+        get => _isFlythroughMode;
+        set => _isFlythroughMode = value;
     }
 
     public float Yaw
@@ -68,7 +95,8 @@ public class Camera : ICamera
             // Normalize yaw to keep within 0 to 2π (0 to 360 degrees)
             yaw = value % (MathF.PI * 2);
             if (yaw < 0) yaw += MathF.PI * 2;
-            UpdatePosition();
+            if (!_isFlythroughMode)
+                UpdatePosition();
         }
     }
 
@@ -78,9 +106,10 @@ public class Camera : ICamera
     private readonly ILogger<Camera> _logger;
     private float aspectRatio;
     private float distance;
+    private bool _isFlythroughMode = false;  // Flag to disable UpdatePosition() calls
 
     // NEAR_PLANE do C
-    private float farClip = 64000f;
+    private float farClip = 2048576f;
 
     // Configuração de câmera (baseado em wipeout-rewrite/src/render_gl.c)
     // Vertical FOV de 73.75° (horizontal 90° em 4:3)
@@ -102,9 +131,9 @@ public class Camera : ICamera
     private bool isRotating = false;
 
     private Vector2 lastMousePos;
-    private float maxDistance = 150f;
+    private float maxDistance = 10000f;
     private float maxFov = 120f;
-    private float minDistance = 5f;
+    private float minDistance = 1f;  // Allow very close camera with 0.001f scale
     private float minFov = 5f;
 
     // FAR_PLANE do C (RENDER_FADEOUT_FAR)
@@ -112,8 +141,9 @@ public class Camera : ICamera
     // Controles
     private float moveSpeed = 200f;
 
-    private float nearClip = 16.0f;
+    private float nearClip = 0.01f;
     private float pitch = 0f;
+    private float roll = 0f;
 
     // Posição e orientação
     private Vector3 position = new(0, 15, 30);
@@ -176,7 +206,54 @@ public class Camera : ICamera
 
     public Matrix4 GetViewMatrix()
     {
-        return Matrix4.LookAt(position, target, up);
+        // Use look-at so Position/Target define the view (matches JS fly-through expectation).
+        var forward = target - position;
+        if (forward.LengthSquared < 1e-6f)
+            forward = Vector3.UnitZ;
+        forward = forward.Normalized();
+
+        // Build an orthonormal basis
+        var upBase = -Vector3.UnitY; // flip up to match scene's orientation
+        var right = Vector3.Cross(forward, upBase);
+        if (right.LengthSquared < 1e-6f)
+            right = Vector3.UnitX; // fallback if looking straight up/down
+        else
+            right = right.Normalized();
+
+        var up = Vector3.Cross(right, forward);
+
+        // Apply base orientation: original pipeline had a +π around Z; emulate via base roll
+        float effectiveRoll = roll;
+
+        // Apply roll by rotating right/up around forward (Rodrigues)
+        if (MathF.Abs(effectiveRoll) > 1e-6f)
+        {
+            float cosR = MathF.Cos(effectiveRoll);
+            float sinR = MathF.Sin(effectiveRoll);
+
+            var rightRolled = right * cosR + up * sinR;
+            var upRolled = -right * sinR + up * cosR;
+
+            right = rightRolled;
+            up = upRolled;
+
+            _logger?.LogDebug(
+                "[CAMERA ROLL] effectiveRoll={Roll:F4}rad({RollDeg:F2}°) | " +
+                "right=({RX:F3},{RY:F3},{RZ:F3}) | up=({UX:F3},{UY:F3},{UZ:F3})",
+                effectiveRoll, effectiveRoll * 180f / MathF.PI,
+                rightRolled.X, rightRolled.Y, rightRolled.Z,
+                upRolled.X, upRolled.Y, upRolled.Z);
+        }
+
+        // Build view matrix using the rolled up vector
+        var viewMatrix = new Matrix4(
+            right.X, up.X, -forward.X, 0,
+            right.Y, up.Y, -forward.Y, 0,
+            right.Z, up.Z, -forward.Z, 0,
+            -Vector3.Dot(right, position), -Vector3.Dot(up, position), Vector3.Dot(forward, position), 1
+        );
+
+        return viewMatrix;
     }
 
     public void Move(Vector3 direction)
@@ -194,6 +271,7 @@ public class Camera : ICamera
         fov = initialFov;
         yaw = 0f;
         pitch = 0f;
+        roll = 0f;
         distance = Vector3.Distance(initialPosition, initialTarget);
         _logger.LogInformation("[CAMERA] View reset: pos={Position}, target={Target}, distance={Distance}", position, target, distance);
         UpdatePosition();
@@ -352,14 +430,19 @@ public class Camera : ICamera
 
     private void UpdatePosition()
     {
-        // yaw and pitch are already in radians, no need to convert
+        // Orbit-style positioning: compute forward from yaw/pitch and place camera
+        // at 'distance' behind the target along that forward vector.
+        float cy = MathF.Cos(pitch);
+        float sy = MathF.Sin(pitch);
+        float sx = MathF.Sin(yaw);
+        float cx = MathF.Cos(yaw);
 
-        // Calculate new position around the target
-        float x = distance * MathF.Cos(pitch) * MathF.Sin(yaw);
-        float y = distance * MathF.Sin(pitch);
-        float z = distance * MathF.Cos(pitch) * MathF.Cos(yaw);
+        var forward = new Vector3(sx * cy, sy, cx * cy);
+        if (forward.LengthSquared > 1e-6f)
+            forward = forward.Normalized();
 
-        position = target + new Vector3(x, y, z);
+        position = target - forward * distance;
+        
         _logger.LogInformation("[CAMERA] UpdatePosition: pos={Position}, target={Target}, yaw={Yaw}rad, pitch={Pitch}rad, dist={Distance}",
             position, target, yaw, pitch, distance);
     }

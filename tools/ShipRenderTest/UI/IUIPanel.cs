@@ -1,4 +1,3 @@
-
 namespace WipeoutRewrite.Tools.UI;
 
 /// <summary>

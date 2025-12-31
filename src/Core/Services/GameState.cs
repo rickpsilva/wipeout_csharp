@@ -24,9 +24,13 @@ namespace WipeoutRewrite.Core.Services
 
         private readonly IGameObjectCollection _gameObjects;
 
+        private readonly ITrack _track;
+
         private readonly IGameObject _model;
+
         public GameMode CurrentMode { get; set; }
-        public Track CurrentTrack { get; set; } = null!;
+
+        public ITrack CurrentTrack { get; private set; }
 
         // Dados de corrida
         public int LapNumber { get; set; }
@@ -42,12 +46,14 @@ namespace WipeoutRewrite.Core.Services
         public GameState(
             ILogger<GameState> logger,
             IGameObjectCollection gameObjects,
-            IGameObject model
+            IGameObject model,
+            ITrack track
         )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
             _model = model ?? throw new ArgumentNullException(nameof(model));
+            _track = track ?? throw new ArgumentNullException(nameof(track));
             
             CurrentMode = GameMode.Menu;
             LapNumber = 1;
@@ -59,17 +65,19 @@ namespace WipeoutRewrite.Core.Services
             EnableAI = true;
         }
 
-        public void Initialize(Track track, int playerShipId = 0)
+        public void Initialize(int playerShipId = 0)
         {
-            CurrentTrack = track;
+            CurrentTrack = GetCurrentTrack();
             CurrentMode = GameMode.Loading;
             _gameObjects.Clear();
             LapNumber = 1;
             RaceTime = 0;
             _gameObjects.Init(null);
            
-            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", track.Name, _gameObjects.GetAll.Count);
+            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", GetCurrentTrack().Name, _gameObjects.GetAll.Count);
         }
+
+        private ITrack GetCurrentTrack() => _track;
 
         public void Update(float deltaTime)
         {

@@ -9,15 +9,16 @@ namespace WipeoutRewrite.Tools.UI;
 public class PropertiesPanel : IPropertiesPanel, IUIPanel
 {
     public bool IsVisible { get; set; } = true;
+    public bool ShowSpline { get; set; } = true;
     public bool WireframeMode { get; set; }
-
-    private readonly IModelBrowser _modelBrowser;
     private readonly IScene _scene;
 
-    public PropertiesPanel(IModelBrowser modelBrowser, IScene scene)
+    public PropertiesPanel(IScene scene)
     {
-        _modelBrowser = modelBrowser ?? throw new ArgumentNullException(nameof(modelBrowser));
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+
+        // Default: Enable spline visualization for easier debugging
+        ShowSpline = true;
     }
 
     public void Render()
@@ -75,6 +76,12 @@ public class PropertiesPanel : IPropertiesPanel, IUIPanel
                 if (ImGui.Checkbox("Wireframe", ref wireframe))
                 {
                     WireframeMode = wireframe;
+                }
+
+                bool showSpline = ShowSpline;
+                if (ImGui.Checkbox("Spline (Red Debug Line)", ref showSpline))
+                {
+                    ShowSpline = showSpline;
                 }
             }
             else

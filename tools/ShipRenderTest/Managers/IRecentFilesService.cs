@@ -15,7 +15,6 @@ public interface IRecentFilesService
     /// Add a file to the recent files list.
     /// </summary>
     void AddRecentFile(string filePath, bool isFolder = false);
-
     /// <summary>
     /// Clear the recent files list.
     /// </summary>

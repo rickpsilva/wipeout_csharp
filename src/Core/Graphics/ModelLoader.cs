@@ -279,6 +279,210 @@ public class ModelLoader : IModelLoader
 
         return objects;
     }
+
+    /// <summary>
+    /// Load ALL objects from a PRM file and return them as a list.
+    /// This matches the behavior of objects_load() in object.c which returns a linked list of ALL objects.
+    /// Useful for scene.prm and sky.prm files that contain multiple models.
+    /// </summary>
+    public List<Mesh> LoadAllObjectsFromPrmFile(string filepath)
+    {
+        var allMeshes = new List<Mesh>();
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(filepath))
+            {
+                throw new ArgumentException("File path cannot be null or empty", nameof(filepath));
+            }
+
+            if (!File.Exists(filepath))
+            {
+                throw new FileNotFoundException($"PRM file not found: {filepath}", filepath);
+            }
+
+            byte[] bytes = File.ReadAllBytes(filepath);
+            _logger.LogWarning("Loading ALL objects from PRM: {Path} ({Size} bytes)", filepath, bytes.Length);
+
+            // Start at the beginning - objects are stored SEQUENTIALLY in the file
+            // (nextPtr is used in memory, but is 0 in the file)
+            int p = 0;
+            int objectCount = 0;
+
+            // Loop through ALL objects sequentially (NOT using nextPtr!)
+            while (p < bytes.Length - 144) // Need at least header size
+            {
+                int objectStart = p; // Save start position for this object
+                objectCount++;
+                
+                _logger.LogWarning("=== Reading object #{Num} at position {Pos} (remaining: {Remain} bytes) ===", 
+                    objectCount, p, bytes.Length - p);
+
+                // Debug: show first 32 bytes at this position
+                if (p + 32 <= bytes.Length)
+                {
+                    var hexPreview = string.Join(" ", bytes.Skip(p).Take(32).Select(b => b.ToString("X2")));
+                    _logger.LogWarning("[DEBUG] Hex bytes at {Pos}: {Hex}", p, hexPreview);
+                }
+
+                // Read object header
+                string name = ReadFixedString(bytes, ref p, 16);
+
+                short verticesLen = ReadI16(bytes, ref p); p += 2;
+                int verticesPtr = ReadI32(bytes, ref p);
+
+                short normalsLen = ReadI16(bytes, ref p); p += 2;
+                int normalsPtr = ReadI32(bytes, ref p);
+
+                short primitivesLen = ReadI16(bytes, ref p); p += 2;
+                int primitivesPtr = ReadI32(bytes, ref p);
+
+                p += 4; p += 4; p += 4; // unused ptrs + skeleton ref
+
+                int extent = ReadI32(bytes, ref p);
+                short flags = ReadI16(bytes, ref p); p += 2;
+                int nextPtr = ReadI32(bytes, ref p); // NOTE: This is 0 in files!
+
+                p += 3 * 3 * 2 + 2; // relative rotation matrix + padding
+
+                int originX = ReadI32(bytes, ref p);
+                int originY = ReadI32(bytes, ref p);
+                int originZ = ReadI32(bytes, ref p);
+
+                p += 3 * 3 * 2 + 2; // absolute rotation matrix + padding
+                p += 3 * 4 + 2 + 2; // absolute translation + skeleton flags
+                p += 4 + 4 + 4; // skeleton pointers
+
+                _logger.LogWarning("Object #{Num}: '{Name}', Verts={VertCount}, Normals={NormCount}, Prims={PrimCount}",
+                    objectCount, name, verticesLen, normalsLen, primitivesLen);
+
+                // Check for obviously invalid counts - likely reached EOF
+                if ((verticesLen < 0 || normalsLen < 0 || primitivesLen < 0) ||
+                    (verticesLen > 5000 || normalsLen > 5000 || primitivesLen > 5000))
+                {
+                    _logger.LogWarning("Invalid object counts - likely EOF or corrupted data. Stopping parse at position {Pos}", objectStart);
+                    break;
+                }
+
+                // Allow objects with zero vertices or zero primitives - just skip them
+                if (verticesLen == 0 && normalsLen == 0 && primitivesLen == 0)
+                {
+                    _logger.LogWarning("Skipping object '{Name}': all counts are zero", name);
+                    continue;
+                }
+
+                // Skip objects with no vertices - but consume their data
+                if (verticesLen == 0)
+                {
+                    _logger.LogDebug("Skipping object '{Name}' with no vertices", name);
+                    p += normalsLen * 8; // Skip normals
+
+                    // Skip primitives
+                    for (int i = 0; i < primitivesLen; i++)
+                    {
+                        if (p + 4 > bytes.Length) break;
+                        short prmType = ReadI16(bytes, ref p);
+                        short prmFlag = ReadI16(bytes, ref p);
+                        int skipped = SkipPrimitive(bytes, ref p, prmType);
+                        if (skipped < 0) break;
+                    }
+                    
+                    // Continue to next object (read sequentially, don't use nextPtr)
+                    continue;
+                }
+
+                // Create mesh for this object
+                var mesh = new Mesh(name)
+                {
+                    Origin = new Vec3(originX, originY, originZ),
+                    Flags = flags,
+                    Vertices = new Vec3[verticesLen]
+                };
+
+                float radius = 0;
+                for (int i = 0; i < verticesLen; i++)
+                {
+                    short x = ReadI16(bytes, ref p);
+                    short y = ReadI16(bytes, ref p);
+                    short z = ReadI16(bytes, ref p);
+                    p += 2;
+                    mesh.Vertices[i] = new Vec3(x, y, z);
+                    if (Math.Abs(x) > radius) radius = Math.Abs(x);
+                    if (Math.Abs(y) > radius) radius = Math.Abs(y);
+                    if (Math.Abs(z) > radius) radius = Math.Abs(z);
+                }
+                mesh.Radius = radius;
+
+                // Read normals
+                mesh.Normals = new Vec3[normalsLen];
+                for (int i = 0; i < normalsLen; i++)
+                {
+                    short nx = ReadI16(bytes, ref p);
+                    short ny = ReadI16(bytes, ref p);
+                    short nz = ReadI16(bytes, ref p);
+                    p += 2;
+                    mesh.Normals[i] = new Vec3(nx, ny, nz);
+                }
+
+                // Read primitives
+                mesh.Primitives = new List<Primitive>();
+                for (int i = 0; i < primitivesLen; i++)
+                {
+                    short prmType = ReadI16(bytes, ref p);
+                    short prmFlag = ReadI16(bytes, ref p);
+
+                    try
+                    {
+                        var parsed = ParsePrimitive(bytes, ref p, prmType, prmFlag);
+                        if (parsed != null && parsed.Count > 0)
+                            mesh.Primitives.AddRange(parsed);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Failed to parse primitive {Index} type {Type}: {Error}", i, prmType, ex.Message);
+                        // Try to skip this primitive and continue with the next one
+                        // This is safer than break, which would leave p in an unknown state
+                        try
+                        {
+                            SkipPrimitive(bytes, ref p, prmType);
+                        }
+                        catch
+                        {
+                            _logger.LogWarning("Failed to skip primitive {Index}, stopping object parsing", i);
+                            break;
+                        }
+                    }
+                }
+
+                // Add to list if valid
+                if (mesh.Vertices.Length > 0 && mesh.Primitives.Count > 0)
+                {
+                    allMeshes.Add(mesh);
+                    _logger.LogWarning("Loaded object '{Name}': {VertCount} vertices, {PrimCount} primitives",
+                        mesh.Name, mesh.Vertices.Length, mesh.Primitives.Count);
+                }
+                else
+                {
+                    _logger.LogWarning("Skipped object '{Name}': no vertices or primitives", name);
+                }
+                
+                _logger.LogWarning("After object #{Num}: position={Pos}, remaining={Remain} bytes, condition={Cond}", 
+                    objectCount, p, bytes.Length - p, p < bytes.Length - 144);
+                
+                // Continue to next object sequentially (don't use nextPtr - it's 0 in files!)
+                // The loop will naturally advance p through the file
+            }
+
+            _logger.LogWarning("Loaded {Count} total objects from {Path}", allMeshes.Count, filepath);
+            return allMeshes;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading all objects from PRM file: {Message}", ex.Message);
+            throw;
+        }
+    }
+
     /// <summary>
     /// Creates the original simple mock model (kept for compatibility)
     /// </summary>
@@ -375,8 +579,8 @@ public class ModelLoader : IModelLoader
                 if (verticesLen == 0)
                 {
                     // Console.WriteLine($"[ModelLoader] Skipping object '{name}' (p={p})");
-                    _logger.LogDebug("Skipping object '{Name}' with no vertices (consuming {NormCount} normals, {PrimCount} primitives)",
-                        name, normalsLen, primitivesLen);
+                    _logger.LogDebug("Skipping object '{Name}' (index {Index}) with no vertices (consuming {NormCount} normals, {PrimCount} primitives)",
+                        name, currentObjectIndex, normalsLen, primitivesLen);
 
                     // Skip normals data
                     p += normalsLen * 8; // Each normal: 3*i16 + pad = 8 bytes
@@ -413,11 +617,46 @@ public class ModelLoader : IModelLoader
 
                     // Console.WriteLine($"[ModelLoader] Skipped to position {p} after {primitivesLen} primitives");
                     _logger.LogDebug("Skipped to position {Pos}", p);
+                    currentObjectIndex++;  // CRITICAL: Increment even for objects without vertices!
                     continue; // Go to next object
                 }
 
-                // Create mesh
-                _logger.LogInformation("Loading object '{Name}' with {VertCount} vertices, {NormCount} normals, {PrimCount} primitives", name, verticesLen, normalsLen, primitivesLen);
+                // Check if this is the object we want (by index) BEFORE creating the mesh
+                bool isTargetObject = (currentObjectIndex == objectIndex);
+                
+                _logger.LogInformation("Object at position {Pos}: currentIndex={CurrentIdx}, targetIndex={TargetIdx}, name='{Name}', isTarget={IsTarget}", 
+                    p, currentObjectIndex, objectIndex, name, isTargetObject);
+                
+                // If not the target object, skip it without creating mesh
+                if (!isTargetObject)
+                {
+                    _logger.LogDebug("Skipping non-target object '{Name}' at index {Index}", name, currentObjectIndex);
+                    
+                    // Skip vertices
+                    p += verticesLen * 8;
+                    // Skip normals
+                    p += normalsLen * 8;
+                    
+                    // Skip primitives
+                    for (int i = 0; i < primitivesLen; i++)
+                    {
+                        if (p + 4 > bytes.Length)
+                            break;
+                        
+                        short prmType = ReadI16(bytes, ref p);
+                        short prmFlag = ReadI16(bytes, ref p);
+                        int skipped = SkipPrimitive(bytes, ref p, prmType);
+                        if (skipped < 0)
+                            break;
+                    }
+                    
+                    currentObjectIndex++;
+                    continue;
+                }
+                
+                // Create mesh ONLY for target object
+                _logger.LogInformation("Loading TARGET object {Index} '{Name}' with {VertCount} vertices, {NormCount} normals, {PrimCount} primitives", 
+                    currentObjectIndex, name, verticesLen, normalsLen, primitivesLen);
 
                 var mesh = new Mesh(name)
                 {
@@ -506,19 +745,11 @@ public class ModelLoader : IModelLoader
                             g3.Colors[0].b, g3.Colors[1].b, g3.Colors[2].b);
                 }
 
-                // Check if this is the object we want (by index)
-                if (verticesLen > 0 && mesh.Primitives.Count > 0)
-                {
-                    if (currentObjectIndex == objectIndex)
-                    {
-                        _logger.LogInformation("Found target object at index {Index}: '{Name}'", objectIndex, mesh.Name);
-                        resultMesh = mesh;
-                        break; // We found our target, stop parsing
-                    }
-                    currentObjectIndex++;
-                }
+                // We found the target object, return it!
+                _logger.LogInformation("Found and loaded target object at index {Index}: '{Name}'", objectIndex, mesh.Name);
+                resultMesh = mesh;
+                break; // Stop parsing, we got what we wanted
 
-                _logger.LogDebug("End of object, p={Pos}, remaining={Remaining}", p, bytes.Length - p);
             } // end while loop
 
             _logger.LogDebug("Exited loop, p={Pos}, fileSize={Size}", p, bytes.Length);
@@ -859,7 +1090,7 @@ public class ModelLoader : IModelLoader
             case 10: // PRM_TYPE_TSPR - Transparent sprite
             case 11: // PRM_TYPE_BSPR - Billboard sprite
                      // Skip sprite primitives
-                p += 14; // sizeof(SPR) - 2 (type already read)
+                p += 12; // Skip remaining sprite data (type+flag already read)
                 return new System.Collections.Generic.List<Primitive>();
 
             case 20: // PRM_TYPE_SPLINE
