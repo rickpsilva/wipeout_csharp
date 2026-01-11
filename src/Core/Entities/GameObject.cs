@@ -27,6 +27,16 @@ public class GameObject : IGameObject
     /// </summary>
     public Mesh? Model { get; private set; }
 
+    /// <summary>
+    /// Set the model directly (used when mesh is already loaded)
+    /// </summary>
+    public void SetModel(Mesh mesh)
+    {
+        Model = mesh;
+        _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
+            mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+    }
+
     public string Name { get; set; } = "Unnamed_GameObject";
 
     // --- Minimal runtime state (subset of ship_t) ---
@@ -81,6 +91,29 @@ public class GameObject : IGameObject
     public Mat4 CalculateTransformMatrix()
     {
         return Mat4.FromPositionAndAngles(Position, Angle);
+    }
+
+    /// <summary>
+    /// Calculate the bounding box of the model's vertices.
+    /// Returns (minY, maxY) where minY is the lowest point and maxY is the highest.
+    /// </summary>
+    public (float minY, float maxY) GetModelBounds()
+    {
+        if (Model?.Vertices == null || Model.Vertices.Length == 0)
+        {
+            return (0, 0);
+        }
+
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        foreach (var v in Model.Vertices)
+        {
+            minY = MathF.Min(minY, v.Y);
+            maxY = MathF.Max(maxY, v.Y);
+        }
+
+        return (minY, maxY);
     }
 
     public void CollideWithShip(GameObject other)
@@ -575,8 +608,17 @@ public class GameObject : IGameObject
 
         int[] handles = _textureManager.LoadTexturesFromCmp(cmpPath);
 
+        ApplyTexturesWithNormalization(handles);
+    }
+
+    /// <summary>
+    /// Apply texture handles to model with UV normalization.
+    /// This normalizes UV coordinates by texture size so primitives render correctly.
+    /// </summary>
+    public void ApplyTexturesWithNormalization(int[] handles)
+    {
         Texture = handles;
-        _logger.LogInformation("GameObject: CMP loaded: {Count} textures", handles.Length);
+        _logger.LogInformation("GameObject: Applying textures: {Count} handles", handles.Length);
 
         // Count valid handles
         int validHandles = handles.Count(h => h > 0);
@@ -1072,16 +1114,20 @@ public class GameObject : IGameObject
         // Engine primitives use their original texture but with overridden vertex colors
         int texHandle = primitive.TextureHandle > 0 ? primitive.TextureHandle : renderer.WhiteTexture;
 
-        // Validate UVs array before accessing
-        if (primitive.UVsF == null || primitive.UVsF.Length < 3)
-        {
-            return; // Skip primitive with invalid UVs
-        }
-
         // Get UV coordinates from primitive (normalized 0..1)
-        var uv0 = new OpenTK.Mathematics.Vector2(primitive.UVsF[0].u, primitive.UVsF[0].v);
-        var uv1 = new OpenTK.Mathematics.Vector2(primitive.UVsF[1].u, primitive.UVsF[1].v);
-        var uv2 = new OpenTK.Mathematics.Vector2(primitive.UVsF[2].u, primitive.UVsF[2].v);
+        // If UVsF is not populated, use default UVs
+        OpenTK.Mathematics.Vector2 uv0, uv1, uv2;
+        if (primitive.UVsF != null && primitive.UVsF.Length >= 3)
+        {
+            uv0 = new OpenTK.Mathematics.Vector2(primitive.UVsF[0].u, primitive.UVsF[0].v);
+            uv1 = new OpenTK.Mathematics.Vector2(primitive.UVsF[1].u, primitive.UVsF[1].v);
+            uv2 = new OpenTK.Mathematics.Vector2(primitive.UVsF[2].u, primitive.UVsF[2].v);
+        }
+        else
+        {
+            // Use default UVs if not available
+            uv0 = uv1 = uv2 = new OpenTK.Mathematics.Vector2(0.5f, 0.5f);
+        }
 
         // Per-vertex colors for Gouraud shading
         // Special handling for PRM_SHIP_ENGINE: override colors to make exhaust visible

@@ -15,7 +15,6 @@ public class LightPanel : ILightPanel
     public LightPanel(IScene scene)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
-        IsVisible = false;
     }
 
     public void Render()

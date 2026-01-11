@@ -62,12 +62,14 @@ class Program
         services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
         services.AddTransient<IGameObject, GameObject>();
         services.AddTransient<IGameObjectFactory, GameObjectFactory>();
+        services.AddSingleton<ITrackNavigationCalculator, TrackNavigationCalculator>();
 
         // Managers with interfaces
         services.AddSingleton<ICameraManager, CameraManager>();
         services.AddSingleton<ILightManager, LightManager>();
         services.AddSingleton<ISettingsService, AppSettingsManager>();
         services.AddSingleton<IRecentFilesService, RecentFilesManager>();
+
         // Scene and rendering services with interfaces
         services.AddSingleton<IScene, Scene>();
         services.AddSingleton<IWorldGrid, WorldGrid>();
@@ -75,6 +77,10 @@ class Program
 
         // UI services with interfaces
         services.AddSingleton<IModelBrowser, ModelBrowser>();
+
+        // Factories
+        services.AddSingleton<ITrackNavigationCalculatorFactory, TrackNavigationCalculatorFactory>();
+        services.AddSingleton<ITrackFactory, TrackFactory>();
 
         // UI Panels - Singleton para manter estado entre renders
         services.AddSingleton<ISceneHierarchyPanel, SceneHierarchyPanel>();
@@ -86,8 +92,15 @@ class Program
         services.AddSingleton<IPropertiesPanel, PropertiesPanel>();
         services.AddSingleton<IAssetBrowserPanel, AssetBrowserPanel>();
         services.AddSingleton<ITexturePanel, TexturePanel>();
+        services.AddSingleton<ITrackViewerPanel, TrackViewerPanel>();
+        services.AddSingleton<ITrackDataPanel, TrackDataPanel>();
         services.AddSingleton<FileDialogManager>();
         services.AddSingleton<ShipRenderWindow>();
+
+        // Core Entities
+        // Track is Transient: new instance created each time to avoid stale data when loading new tracks
+        services.AddTransient<ITrack, Track>();
+
     }
 
     static void Main(string[] args)

@@ -14,6 +14,13 @@ public class WorldGrid : IWorldGrid
     public float GridFadeDistance { get; set; } = 100.0f;
 
     public float GridSize { get; set; } = 1.0f;
+
+    public float GridYPosition
+    {
+        get => _gridYPosition;
+        set => _gridYPosition = value;
+    }
+
     public bool ShowAxes { get; set; } = true;
     public bool ShowGrid { get; set; } = true;
 
@@ -32,6 +39,8 @@ public class WorldGrid : IWorldGrid
     private int _gridVAO;
     private int _gridVBO;
     private int _gridViewLocation;
+    private float _gridYPosition = 0.0f;
+    private int _gridYPositionLocation;
     private bool _initialized = false;
     #endregion 
 
@@ -88,6 +97,7 @@ public class WorldGrid : IWorldGrid
             GL.Uniform3(_gridCameraPosLocation, cameraPosition);
             GL.Uniform1(_gridNearLocation, near);
             GL.Uniform1(_gridFarLocation, far);
+            GL.Uniform1(_gridYPositionLocation, _gridYPosition);
 
             GL.BindVertexArray(_gridVAO);
             GL.DrawElements(GLPrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
@@ -186,6 +196,7 @@ public class WorldGrid : IWorldGrid
             uniform vec3 uCameraPos;
             uniform float uNear;
             uniform float uFar;
+            uniform float uGridYPosition;
             
             vec4 grid(vec3 fragPos3D, float scale) {
                 vec2 coord = fragPos3D.xz * scale;
@@ -219,7 +230,7 @@ public class WorldGrid : IWorldGrid
             }
             
             void main() {
-                float t = -nearPoint.y / (farPoint.y - nearPoint.y);
+                float t = -(nearPoint.y - uGridYPosition) / (farPoint.y - nearPoint.y);
                 
                 // Clip to valid range
                 if(t <= 0.0) {
@@ -287,6 +298,7 @@ public class WorldGrid : IWorldGrid
         _gridCameraPosLocation = GL.GetUniformLocation(_gridShaderProgram, "uCameraPos");
         _gridNearLocation = GL.GetUniformLocation(_gridShaderProgram, "uNear");
         _gridFarLocation = GL.GetUniformLocation(_gridShaderProgram, "uFar");
+        _gridYPositionLocation = GL.GetUniformLocation(_gridShaderProgram, "uGridYPosition");
 
         // Compile axes shader
         int axesVertexShader = GL.CreateShader(ShaderType.VertexShader);

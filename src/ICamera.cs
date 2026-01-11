@@ -17,7 +17,9 @@ namespace WipeoutRewrite
         float Fov { get; set; }
         float Yaw { get; set; }
         float Pitch { get; set; }
+        float Roll { get; set; }
         float Distance { get; set; }
+        bool IsFlythroughMode { get; set; }  // Enable/disable fly-through mode
         
         // Atualização com input
         void Update(KeyboardState keyboardState, MouseState mouseState);

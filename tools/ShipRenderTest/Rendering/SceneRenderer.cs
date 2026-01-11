@@ -50,14 +50,58 @@ public class SceneRenderer : ISceneRenderer
 
             var shipModel = sceneObject.Ship;
 
-            // Set ship transform
-            shipModel.Position = sceneObject.Position;
-            shipModel.Angle = sceneObject.Rotation;
+            // Only set visibility (don't override Position/Angle here)
             shipModel.IsVisible = sceneObject.IsVisible;
 
-            // Apply scale via SetModelMatrix
-            var scaling = Matrix4.CreateScale(sceneObject.Scale);
-            _renderer.SetModelMatrix(scaling);
+            // Sky: follow camera and disable depth write so it always wraps the scene
+            if (sceneObject.IsSky)
+            {
+                var skyPos = new Vector3(
+                    camera.Position.X + sceneObject.SkyOffset.X,
+                    camera.Position.Y + sceneObject.SkyOffset.Y,
+                    camera.Position.Z + sceneObject.SkyOffset.Z
+                );
+
+                // Build complete transformation matrix for sky:
+                // Translation * Scale (no rotation - like in C)
+                var positionSky = Matrix4.CreateTranslation(skyPos);
+                var scaleSky = Matrix4.CreateScale(sceneObject.Scale);  // Keep object's scale
+                _renderer.SetModelMatrix(positionSky * scaleSky);
+
+                _renderer.SetDepthWrite(false);
+                // Disable face culling completely so we see sky from both inside and outside
+                GL.Disable(EnableCap.CullFace);
+
+                if (wireframeMode)
+                    GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
+
+                shipModel.Draw();
+
+                if (wireframeMode)
+                    GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+
+                _renderer.SetDepthWrite(true);
+                // Restore normal backface culling for other objects
+                GL.Enable(EnableCap.CullFace);
+                GL.CullFace(TriangleFace.Back);
+                continue;
+            }
+
+            // Build complete transformation matrix from SceneObject:
+            // Translation * Rotation * Scale
+            var position = Matrix4.CreateTranslation(sceneObject.Position.X, sceneObject.Position.Y, sceneObject.Position.Z);
+
+            // Apply rotation (convert from Vec3 euler angles to rotation matrix)
+            var rotX = Matrix4.CreateRotationX(sceneObject.Rotation.X);
+            var rotY = Matrix4.CreateRotationY(sceneObject.Rotation.Y);
+            var rotZ = Matrix4.CreateRotationZ(sceneObject.Rotation.Z);
+            var rotation = rotZ * rotY * rotX;  // ZYX order
+
+            var scale = Matrix4.CreateScale(sceneObject.Scale);
+
+            // Complete transformation: Position * Rotation * Scale
+            var modelMatrix = position * rotation * scale;
+            _renderer.SetModelMatrix(modelMatrix);
 
             // Reset face culling
             _renderer.SetFaceCulling(false);

@@ -1,27 +1,67 @@
-using System.Collections.Generic;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Tools.Managers;
 
-namespace WipeoutRewrite.Tools.Core
+namespace WipeoutRewrite.Tools.Core;
+
+/// <summary>
+/// Represents a scene interface that manages objects, cameras, lights, and their selections within a 3D environment.
+/// </summary>
+public interface IScene
 {
     /// <summary>
-    /// Interface for a 3D scene containing objects, cameras, and lights.
-    /// Follows Interface Segregation Principle.
+    /// Gets or sets the active track in the scene.
     /// </summary>
-    public interface IScene
-    {
-        IReadOnlyList<SceneObject> Objects { get; }
-        ILightManager LightManager { get; }
-        ICameraManager CameraManager { get; }
+    Track? ActiveTrack { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the track loader used to load track geometry data.
+    /// </summary>
+    TrackLoader? TrackLoader { get; set; }
+    
+    /// <summary>
+    /// Gets the camera manager responsible for managing cameras in the scene.
+    /// </summary>
+    ICameraManager CameraManager { get; }
+    /// <summary>
+    /// Gets the light manager responsible for managing lights in the scene.
+    /// </summary>
+    ILightManager LightManager { get; }
+    /// <summary>
+    /// Gets a read-only list of all scene objects currently in the scene.
+    /// </summary>
+    IReadOnlyList<SceneObject> Objects { get; }
+    /// <summary>
+    /// Gets or sets the currently selected camera in the scene.
+    /// </summary>
+    SceneCamera? SelectedCamera { get; set; }
+    /// <summary>
+    /// Gets the type of the currently selected entity.
+    /// </summary>
+    EntityType? SelectedEntityType { get; }
+    /// <summary>
+    /// Gets or sets the currently selected directional light in the scene.
+    /// </summary>
+    DirectionalLight? SelectedLight { get; set; }
+    /// <summary>
+    /// Gets or sets the currently selected scene object.
+    /// </summary>
+    SceneObject? SelectedObject { get; set; }
 
-        SceneObject? SelectedObject { get; set; }
-        SceneCamera? SelectedCamera { get; set; }
-        DirectionalLight? SelectedLight { get; set; }
-        EntityType? SelectedEntityType { get; }
-
-        SceneObject AddObject(string name, GameObject? ship = null);
-        void RemoveObject(SceneObject obj);
-        void ClearSelection();
-    }
+    /// <summary>
+    /// Adds a new object to the scene with the specified name and optional game object.
+    /// </summary>
+    /// <param name="name">The name of the object to add.</param>
+    /// <param name="ship">The optional game object associated with the scene object.</param>
+    /// <returns>The newly created scene object.</returns>
+    SceneObject AddObject(string name, GameObject? ship = null);
+    /// <summary>
+    /// Clears all current selections in the scene.
+    /// </summary>
+    void ClearSelection();
+    /// <summary>
+    /// Removes the specified object from the scene.
+    /// </summary>
+    /// <param name="obj">The scene object to remove.</param>
+    void RemoveObject(SceneObject obj);
 }

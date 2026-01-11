@@ -82,7 +82,7 @@ public class SceneCamera
     public Vector3 SavedPosition { get; set; }
 
     public float SavedYaw { get; set; }
-    #endregion
+    #endregion 
 
     public SceneCamera(string name, ICamera camera)
     {

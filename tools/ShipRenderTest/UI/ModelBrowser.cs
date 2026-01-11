@@ -10,7 +10,6 @@ namespace WipeoutRewrite.Tools.UI;
 /// </summary>
 public class ModelBrowser : IModelBrowser
 {
-
     /// <summary>
     /// Get the last loaded file path.
     /// </summary>
@@ -31,16 +30,17 @@ public class ModelBrowser : IModelBrowser
     /// </summary>
     public int SelectedObjectIndex => _selectedObjectIndex;
 
+    #region fields
     private string? _lastLoadedFile;
     private readonly ILogger<ModelBrowser> _logger;
     private readonly IModelLoader _modelLoader;
-
     private List<PrmFileInfo> _prmFiles = new();
     private int _selectedFileIndex = -1;
     private int _selectedObjectIndex = -1;
+    #endregion 
 
     public ModelBrowser(
-        ILogger<ModelBrowser> logger, 
+        ILogger<ModelBrowser> logger,
         IModelLoader modelLoader)
     {
         _prmFiles = new List<PrmFileInfo>();
@@ -50,7 +50,7 @@ public class ModelBrowser : IModelBrowser
         _modelLoader = modelLoader ?? throw new ArgumentNullException(nameof(modelLoader));
     }
 
-    #region methods 
+    #region methods
 
     /// <summary>
     /// Add PRM files to the model browser.

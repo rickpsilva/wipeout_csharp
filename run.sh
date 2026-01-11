@@ -2,6 +2,10 @@
 set -euo pipefail
 
 echo "Running wipeout_csharp..."
+export MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
+export GALLIUM_DRIVER=d3d12
+export LIBGL_ALWAYS_INDIRECT=false
+export LIBGL_ALWAYS_SOFTWARE=false
 #export SHIP_INDEX=7   #Forçar índice do navio 
 #export PRM_LE_FIRST=1 #Ative heurística little-endian para diagnóstico
 #export SHIPPREVIEW_PERMISSIVE=1 #Permitir pré-visualização de navio não oficial

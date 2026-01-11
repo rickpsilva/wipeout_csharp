@@ -6,14 +6,14 @@ namespace WipeoutRewrite.Tools.UI;
 /// <summary>
 /// Panel showing viewport statistics and auto-rotate controls.
 /// </summary>
-public class ViewportInfoPanel : IViewportInfoPanel,IUIPanel
+public class ViewportInfoPanel : IViewportInfoPanel, IUIPanel
 {
     // Event for reset camera button
     public event Action? OnResetCameraRequested;
 
     public bool AutoRotate { get; set; }
     public int AutoRotateAxis { get; set; }
-    public bool IsVisible { get; set; } = true;
+    public bool IsVisible { get; set; } = false;
 
     private readonly ICamera _camera;
     private readonly IScene _scene;

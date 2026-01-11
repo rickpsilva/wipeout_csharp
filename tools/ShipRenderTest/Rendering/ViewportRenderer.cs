@@ -25,7 +25,7 @@ public class ViewportRenderer : IViewportRenderer
     private int _viewportTexture = 0;
     private int _viewportWidth = 800;
     private readonly WorldGrid _worldGrid;
-    #endregion
+    #endregion 
 
     public ViewportRenderer(
         ILogger logger,

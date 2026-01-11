@@ -100,9 +100,7 @@ namespace WipeoutRewrite
                 _logger.LogInformation("Loaded tracks: {Tracks}", string.Join(", ", tracks));
 
                 // Initialize IGameState with first track
-               
-                var track = new Track(tracks[0], null);
-                _gameState.Initialize(track, playerShipId: 0);
+                _gameState.Initialize(playerShipId: 0);
             }
 
             // Load example texture (assets/sprite.png)

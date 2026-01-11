@@ -55,17 +55,19 @@ namespace WipeoutRewrite.Core.Entities
         public int SectionNumber;
     }
 
-    // Pickup na pista
+    // Track pickup
     public struct TrackPickup
     {
         public TrackFace? Face;
         public float CooldownTimer;
     }
 
-    // Dados principais da pista
-    public class Track
+    /// <summary>
+    /// Represents a 3D race track with sections, faces, and pickups.
+    /// </summary>
+    public class Track : ITrack
     {
-        private readonly ILogger<Track>? _logger;
+        private readonly ILogger<Track> _logger;
         
         public string Name { get; set; } = "";
         public int VertexCount { get; set; }
@@ -80,10 +82,9 @@ namespace WipeoutRewrite.Core.Entities
         // Metadados
         public string BasePath { get; set; } = "";
 
-        public Track(string name, ILogger<Track>? logger = null)
+        public Track(ILogger<Track> logger)
         {
-            _logger = logger;
-            Name = name;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public void LoadFromBinary(byte[] data)
@@ -92,18 +93,18 @@ namespace WipeoutRewrite.Core.Entities
             {
                 // Simple binary format parser
                 // TODO: implementar parsing completo
-                Console.WriteLine($"Loading track data for {Name}... (stub)");
+                _logger.LogInformation($"Loading track data for {Name}... (stub)");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading track {Name}: {ex.Message}");
+                _logger.LogError($"Error loading track {Name}: {ex.Message}");
             }
         }
 
         public void Render(GLRenderer renderer)
         {
             // TODO: implement face rendering
-            Console.WriteLine($"Rendering track {Name}... (stub)");
+            _logger.LogInformation($"Rendering track {Name}... (stub)");
         }
     }
 }

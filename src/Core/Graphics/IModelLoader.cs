@@ -28,4 +28,11 @@ public interface IModelLoader
     /// Directly ported from objects_load() in object.c
     /// </summary>
     Mesh LoadFromPrmFile(string filepath, int objectIndex = 0);
+
+    /// <summary>
+    /// Load ALL objects from a PRM file and return them as a list.
+    /// This matches the behavior of objects_load() in object.c which returns a linked list of ALL objects.
+    /// Useful for scene.prm and sky.prm files that contain multiple models.
+    /// </summary>
+    List<Mesh> LoadAllObjectsFromPrmFile(string filepath);
 }

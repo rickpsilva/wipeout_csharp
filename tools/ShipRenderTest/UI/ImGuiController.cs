@@ -19,7 +19,7 @@ public class ImGuiController : IDisposable
     private int _vertexBuffer;
     private int _windowHeight;
     private int _windowWidth;
-    #endregion
+    #endregion 
 
     public ImGuiController(int width, int height)
     {
@@ -370,7 +370,7 @@ void main()
         io.DeltaTime = deltaSeconds;
     }
 
-    #endregion
+    #endregion 
 
     #region IDisposable
 
