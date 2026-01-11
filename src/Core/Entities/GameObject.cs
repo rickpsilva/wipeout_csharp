@@ -41,6 +41,7 @@ public class GameObject : IGameObject
 
     // --- Minimal runtime state (subset of ship_t) ---
     public Vec3 Position { get; set; } = new Vec3(0, 0, 0);
+    public Vec3 Scale { get; set; } = new Vec3(1, 1, 1);
 
     public int SectionNum { get; set; }
 
@@ -90,7 +91,7 @@ public class GameObject : IGameObject
     /// </summary>
     public Mat4 CalculateTransformMatrix()
     {
-        return Mat4.FromPositionAndAngles(Position, Angle);
+        return Mat4.FromPositionAnglesScale(Position, Angle, Scale);
     }
 
     /// <summary>

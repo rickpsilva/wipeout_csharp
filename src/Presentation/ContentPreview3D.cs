@@ -26,8 +26,8 @@ public class ContentPreview3D : IContentPreview3D
     // Camera offset relative to the ship
     private float _rotationSpeed = 0.01f;
     
-    // Custom Z position (optional override)
-    private float? _customZPosition = null;
+    // Custom scale (optional override)
+    private float? _customScale = null;
 
     // Positioning configurations (adjustable)
     private Vec3 _shipPosition = new Vec3(0, 0, -15);
@@ -69,26 +69,22 @@ public class ContentPreview3D : IContentPreview3D
         Render<T>(categoryIndex, null);
     }
 
-    public void Render<T>(int categoryIndex, float? customZPosition)
+    public void Render<T>(int categoryIndex, float? customScale)
     {
-        // Store custom Z position for use when updating object position
-        _customZPosition = customZPosition;
+        // Store custom scale for use when updating object scale
+        _customScale = customScale;
         
-        // Config the camera - ALWAYS reconfigure for testing
-        // if (!_cameraConfigured)  // Commented out to force reconfiguration
-        {
-            _camera.SetAspectRatio(1280f / 720f); // Default aspect ratio
-            _camera.SetIsometricMode(false);
+        _camera.SetAspectRatio(1280f / 720f); // Default aspect ratio
+        _camera.SetIsometricMode(false);
+        // Camera setup for new ViewMatrix system (upBase = -Y)
+        // Camera at Z=300 looking toward origin (same as before matrix changes)
+        _camera.Position = new OpenTK.Mathematics.Vector3(0, 0, 300);
+        _camera.Target = new OpenTK.Mathematics.Vector3(0, 0, 0);
 
-            // Absolute basics: Standard OpenGL camera setup
-            // Camera back at Z=300, looking at origin
-            _camera.Position = new OpenTK.Mathematics.Vector3(0, 0, 300);
-            _camera.Target = new OpenTK.Mathematics.Vector3(0, 0, 0);
-
-            _cameraConfigured = true;
-            _logger.LogInformation("Camera configured for ContentPreview3D: Position={Pos}, Target={Target}",
-                _camera.Position, _camera.Target);
-        }
+        _cameraConfigured = true;
+        _logger.LogInformation("Camera configured for ContentPreview3D: Position={Pos}, Target={Target}",
+            _camera.Position, _camera.Target);
+        
 
         // Get the category based on type T
         var markerType = typeof(T);
@@ -148,15 +144,16 @@ public class ContentPreview3D : IContentPreview3D
             // Show the new object
             targetObject.IsVisible = true;
 
-            // Position based on category or custom Z position
-            // Default: Ships at -700, MsDos at -400
-            // Custom Z positions from original code: controller at -6000, headphones at -300, stopwatch at -400
-            float defaultZ = category == GameObjectCategory.Ship ? -700 : -400;
-            float zPosition = _customZPosition ?? defaultZ;
-            targetObject.Position = new Vec3(0, 0, zPosition);
+            // All objects rendered at origin
+            // Position Z needs to be in front of camera for new ViewMatrix (upBase = -Y)
+            targetObject.Position = new Vec3(0, 0, 700);
 
-            // Both Ships and MsDos need 180° flip on Z axis (Ships for orientation, MsDos to flip text)
-            targetObject.Angle = new Vec3(0, 0, MathF.PI);
+            // Remove 180° Z rotation - new ViewMatrix orientation matches model orientation
+            targetObject.Angle = new Vec3(0, 0, 0);
+
+            // Auto-scale very large models so they fit the preview frame
+            float scaleToApply = _customScale.HasValue ? _customScale.Value : ComputeAutoScale(targetObject);
+            targetObject.Scale = new Vec3(scaleToApply, scaleToApply, scaleToApply);
 
             _logger.LogInformation("Showing object: {Name}, Position: {Pos}, HasModel: {HasModel}",
                 targetObject.Name, targetObject.Position, targetObject.Model != null);
@@ -175,8 +172,8 @@ public class ContentPreview3D : IContentPreview3D
         if (targetObject != null)
         {
             // Rotation in Y to rotate from right to left
-            // Both categories need 180° Z flip
-            targetObject.Angle = new Vec3(0, _rotationAngle, MathF.PI);
+            // No Z flip needed with new ViewMatrix
+            targetObject.Angle = new Vec3(0, _rotationAngle, 0);
             // Apply configured position (maintain the adjusted position)
             // Don't override position here, it was set in needsUpdate
         }
@@ -269,6 +266,40 @@ public class ContentPreview3D : IContentPreview3D
         {
             _logger.LogError(ex, "Error rendering 3D preview");
         }
+    }
+
+    /// <summary>
+    /// Compute a uniform scale to fit large models inside the preview frame.
+    /// Keeps scale at 1.0 for normal-sized assets; shrinks only when needed.
+    /// </summary>
+    private float ComputeAutoScale(GameObject targetObject)
+    {
+        if (targetObject?.Model?.Vertices == null || targetObject.Model.Vertices.Length == 0)
+            return 1.0f;
+
+        float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
+
+        foreach (var v in targetObject.Model.Vertices)
+        {
+            minX = MathF.Min(minX, v.X); maxX = MathF.Max(maxX, v.X);
+            minY = MathF.Min(minY, v.Y); maxY = MathF.Max(maxY, v.Y);
+            minZ = MathF.Min(minZ, v.Z); maxZ = MathF.Max(maxZ, v.Z);
+        }
+
+        float sizeX = maxX - minX;
+        float sizeY = maxY - minY;
+        float sizeZ = maxZ - minZ;
+        float longest = MathF.Max(sizeX, MathF.Max(sizeY, sizeZ));
+
+        const float targetMaxSize = 800f; // desired max dimension for preview
+        const float minScale = 0.05f;      // avoid disappearing objects
+
+        if (longest <= targetMaxSize || longest <= 0.0001f)
+            return 1.0f;
+
+        float scale = targetMaxSize / longest;
+        return MathF.Max(minScale, scale);
     }
 
     /// <summary>

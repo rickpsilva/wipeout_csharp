@@ -22,8 +22,8 @@ public static class MainMenuPages
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, 120),
-            ItemsAnchor = UIAnchor.MiddleCenter
+            ItemsPos = new Vec2i(0, -110),
+            ItemsAnchor = UIAnchor.BottomCenter
         };
         
         // START GAME button
@@ -64,10 +64,7 @@ public static class MainMenuPages
                 menu.PushPage(confirmPage);
             }
         });
-        
-        // DrawCallback removed - preview 3D will be controlled by Game.cs
-        // only when we are on the main menu page
-        
+               
         return page;
     }
     
@@ -119,7 +116,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CONTROLS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 0),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 1),
             OnClick = (menu, data) =>
             {
                 // TODO: Create controls page
@@ -129,7 +126,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VIDEO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 1),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 0),
             OnClick = (menu, data) =>
             {
                 var videoPage = CreateVideoOptionsMenu();
@@ -140,7 +137,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "AUDIO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 2),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),
             OnClick = (menu, data) =>
             {
                 var audioPage = CreateAudioOptionsMenu();
@@ -151,7 +148,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "BEST TIMES",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 3),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
             OnClick = (menu, data) =>
             {
                 // TODO: Create best times page
@@ -259,7 +256,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VENOM CLASS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 4),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();
@@ -271,7 +268,7 @@ public static class MainMenuPages
         {
             Label = "RAPIER CLASS",
             IsEnabled = false, // Locked until unlocked
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 5),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
             OnClick = (menu, data) =>
             {
                 var raceTypePage = CreateRaceTypeMenu();

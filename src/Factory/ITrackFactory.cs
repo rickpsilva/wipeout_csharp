@@ -1,6 +1,6 @@
 using WipeoutRewrite.Core.Entities;
 
-namespace WipeoutRewrite.Tools;
+namespace WipeoutRewrite.Factory;
 
 /// <summary>
 /// Factory for creating fresh Track instances.
