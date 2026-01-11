@@ -1229,16 +1229,19 @@ public class ShipRenderWindow : GameWindow
                 if (dist > OUTLIER_THRESHOLD)
                 {
                     // Detected outlier, smooth by averaging with neighbors
-                    _track.Sections[i].Center.X = (prev.X + next.X) / 2;
-                    _track.Sections[i].Center.Y = (prev.Y + next.Y) / 2;
-                    _track.Sections[i].Center.Z = (prev.Z + next.Z) / 2;
+                    Vec3 smoothedCenter = new Vec3(
+                        (prev.X + next.X) / 2,
+                        (prev.Y + next.Y) / 2,
+                        (prev.Z + next.Z) / 2
+                    );
+                    _track.Sections[i].Center = smoothedCenter;
                     smoothedCount++;
 
                     _logger.LogWarning("[TRACK] Smoothed outlier section {Index} (dist={Dist:F0}) to ({X}, {Y}, {Z})",
                         i, dist,
-                        _track.Sections[i].Center.X,
-                        _track.Sections[i].Center.Y,
-                        _track.Sections[i].Center.Z);
+                        smoothedCenter.X,
+                        smoothedCenter.Y,
+                        smoothedCenter.Z);
                 }
             }
 

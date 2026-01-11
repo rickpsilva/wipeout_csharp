@@ -443,8 +443,8 @@ namespace WipeoutRewrite
                             .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
                             ?.MakeGenericMethod(previewInfo.CategoryType);
                         
-                        // Pass both ModelIndex and CustomZPosition
-                        renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomZPosition });
+                        // Pass ModelIndex and CustomScale
+                        renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomScale });
                     }
                 }
                 

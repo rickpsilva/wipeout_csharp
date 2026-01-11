@@ -17,14 +17,14 @@ public class ContentPreview3DInfo
     public int ModelIndex { get; set; }
 
     /// <summary>
-    /// Optional custom Z position for the model. If null, uses default based on category.
+    /// Optional custom uniform scale for the model. If null, auto-scaling is applied.
     /// </summary>
-    public float? CustomZPosition { get; set; }
+    public float? CustomScale { get; set; }
 
-    public ContentPreview3DInfo(Type categoryType, int modelIndex, float? customZPosition = null)
+    public ContentPreview3DInfo(Type categoryType, int modelIndex, float? customScale = null)
     {
         CategoryType = categoryType ?? throw new ArgumentNullException(nameof(categoryType));
         ModelIndex = modelIndex;
-        CustomZPosition = customZPosition;
+        CustomScale = customScale;
     }
 }

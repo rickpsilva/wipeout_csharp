@@ -1,62 +1,36 @@
-using System;
+namespace WipeoutRewrite;
 
-namespace WipeoutRewrite
+/// <summary>
+/// 4x4 transformation matrix for 3D graphics.
+/// Column-major order (OpenGL style).
+/// </summary>
+public struct Mat4
 {
-    /// <summary>
-    /// 4x4 transformation matrix for 3D graphics.
-    /// Column-major order (OpenGL style).
-    /// </summary>
-    public struct Mat4
+    public float[] M { get; set; }
+
+    // 16 floats in column-major order
+
+    public Mat4(float[] m)
     {
-        public float[] M; // 16 floats in column-major order
-        
-        public Mat4(float[] m) 
-        { 
-            if (m.Length != 16)
-                throw new ArgumentException("Matrix must have 16 elements");
-            M = m; 
-        }
-        
-        /// <summary>
-        /// Create identity matrix.
-        /// </summary>
-        public static Mat4 Identity()
-        {
-            return new Mat4(new float[] {
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, 0, 1
-            });
-        }
-        
-        /// <summary>
-        /// Create translation matrix.
-        /// </summary>
-        public static Mat4 Translation(Vec3 v)
-        {
-            return new Mat4(new float[] {
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                v.X, v.Y, v.Z, 1
-            });
-        }
-        
-        /// <summary>
-        /// Create rotation matrix from Euler angles (pitch, yaw, roll).
-        /// </summary>
-        public static Mat4 FromEulerAngles(Vec3 angles)
-        {
-            float sx = MathF.Sin(angles.X);
-            float cx = MathF.Cos(angles.X);
-            float sy = MathF.Sin(angles.Y);
-            float cy = MathF.Cos(angles.Y);
-            float sz = MathF.Sin(angles.Z);
-            float cz = MathF.Cos(angles.Z);
-            
-            // Combined rotation matrix (Rx * Ry * Rz)
-            return new Mat4(new float[] {
+        if (m.Length != 16)
+            throw new ArgumentException("Matrix must have 16 elements");
+        M = m;
+    }
+
+    /// <summary>
+    /// Create rotation matrix from Euler angles (pitch, yaw, roll).
+    /// </summary>
+    public static Mat4 FromEulerAngles(Vec3 angles)
+    {
+        float sx = MathF.Sin(angles.X);
+        float cx = MathF.Cos(angles.X);
+        float sy = MathF.Sin(angles.Y);
+        float cy = MathF.Cos(angles.Y);
+        float sz = MathF.Sin(angles.Z);
+        float cz = MathF.Cos(angles.Z);
+
+        // Combined rotation matrix (Rx * Ry * Rz)
+        return new Mat4(new float[] {
                 cy * cz,                    // m00
                 cy * sz,                    // m01
                 -sy,                        // m02
@@ -74,56 +48,101 @@ namespace WipeoutRewrite
                 
                 0, 0, 0, 1                  // m30-m33
             });
-        }
-        
-        /// <summary>
-        /// Create transformation matrix from position and rotation.
-        /// </summary>
-        public static Mat4 FromPositionAndAngles(Vec3 position, Vec3 angles)
-        {
-            Mat4 rotation = FromEulerAngles(angles);
-            
-            // Set translation in the rotation matrix
-            rotation.M[12] = position.X;
-            rotation.M[13] = position.Y;
-            rotation.M[14] = position.Z;
-            
-            return rotation;
-        }
-        
-        /// <summary>
-        /// Multiply two matrices.
-        /// </summary>
-        public static Mat4 Multiply(Mat4 a, Mat4 b)
-        {
-            float[] result = new float[16];
-            
-            for (int row = 0; row < 4; row++)
-            {
-                for (int col = 0; col < 4; col++)
-                {
-                    result[col * 4 + row] = 
-                        a.M[0 * 4 + row] * b.M[col * 4 + 0] +
-                        a.M[1 * 4 + row] * b.M[col * 4 + 1] +
-                        a.M[2 * 4 + row] * b.M[col * 4 + 2] +
-                        a.M[3 * 4 + row] * b.M[col * 4 + 3];
-                }
-            }
-            
-            return new Mat4(result);
-        }
-        
-        public static Mat4 operator *(Mat4 a, Mat4 b) => Multiply(a, b);
-        
-        /// <summary>
-        /// Transform a 3D point by this matrix.
-        /// </summary>
-        public readonly Vec3 TransformPoint(Vec3 point)
-        {
-            float x = M[0] * point.X + M[4] * point.Y + M[8] * point.Z + M[12];
-            float y = M[1] * point.X + M[5] * point.Y + M[9] * point.Z + M[13];
-            float z = M[2] * point.X + M[6] * point.Y + M[10] * point.Z + M[14];
-            return new Vec3(x, y, z);
-        }
     }
+
+    /// <summary>
+    /// Create transformation matrix from position and rotation.
+    /// </summary>
+    public static Mat4 FromPositionAndAngles(Vec3 position, Vec3 angles)
+    {
+        Mat4 rotation = FromEulerAngles(angles);
+
+        // Set translation in the rotation matrix
+        rotation.M[12] = position.X;
+        rotation.M[13] = position.Y;
+        rotation.M[14] = position.Z;
+
+        return rotation;
+    }
+
+    /// <summary>
+    /// Create transformation matrix from position, rotation and scale.
+    /// Scales the rotation basis vectors before applying translation.
+    /// </summary>
+    public static Mat4 FromPositionAnglesScale(Vec3 position, Vec3 angles, Vec3 scale)
+    {
+        Mat4 rotation = FromEulerAngles(angles);
+
+        // Apply per-axis scale to the rotation basis (column-major layout)
+        rotation.M[0] *= scale.X; rotation.M[1] *= scale.X; rotation.M[2] *= scale.X;
+        rotation.M[4] *= scale.Y; rotation.M[5] *= scale.Y; rotation.M[6] *= scale.Y;
+        rotation.M[8] *= scale.Z; rotation.M[9] *= scale.Z; rotation.M[10] *= scale.Z;
+
+        rotation.M[12] = position.X;
+        rotation.M[13] = position.Y;
+        rotation.M[14] = position.Z;
+
+        return rotation;
+    }
+
+    /// <summary>
+    /// Create identity matrix.
+    /// </summary>
+    public static Mat4 Identity()
+    {
+        return new Mat4(new float[] {
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            });
+    }
+
+    /// <summary>
+    /// Multiply two matrices.
+    /// </summary>
+    public static Mat4 Multiply(Mat4 a, Mat4 b)
+    {
+        float[] result = new float[16];
+
+        for (int row = 0; row < 4; row++)
+        {
+            for (int col = 0; col < 4; col++)
+            {
+                result[col * 4 + row] =
+                    a.M[0 * 4 + row] * b.M[col * 4 + 0] +
+                    a.M[1 * 4 + row] * b.M[col * 4 + 1] +
+                    a.M[2 * 4 + row] * b.M[col * 4 + 2] +
+                    a.M[3 * 4 + row] * b.M[col * 4 + 3];
+            }
+        }
+
+        return new Mat4(result);
+    }
+
+    /// <summary>
+    /// Transform a 3D point by this matrix.
+    /// </summary>
+    public readonly Vec3 TransformPoint(Vec3 point)
+    {
+        float x = M[0] * point.X + M[4] * point.Y + M[8] * point.Z + M[12];
+        float y = M[1] * point.X + M[5] * point.Y + M[9] * point.Z + M[13];
+        float z = M[2] * point.X + M[6] * point.Y + M[10] * point.Z + M[14];
+        return new Vec3(x, y, z);
+    }
+
+    /// <summary>
+    /// Create translation matrix.
+    /// </summary>
+    public static Mat4 Translation(Vec3 v)
+    {
+        return new Mat4(new float[] {
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                v.X, v.Y, v.Z, 1
+            });
+    }
+
+    public static Mat4 operator *(Mat4 a, Mat4 b) => Multiply(a, b);
 }

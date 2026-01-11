@@ -88,6 +88,8 @@ namespace WipeoutRewrite
             services.AddSingleton<IAssetLoader, AssetLoader>();
             services.AddSingleton<IGameState, GameState>();
             services.AddSingleton<IMenuManager, MenuManager>();
+            services.AddTransient<ITrack, Track>();
+            services.AddSingleton<ITrackFactory, TrackFactory>();
 
             //UI
             services.AddSingleton<IFontSystem, FontSystem>();

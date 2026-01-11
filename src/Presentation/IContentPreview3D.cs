@@ -23,12 +23,12 @@ namespace WipeoutRewrite.Presentation
         void Render<T>(int categoryIndex);
         
         /// <summary>
-        /// Renders a 3D object from a specific category with custom Z position.
+        /// Renders a 3D object from a specific category with optional custom scale.
         /// </summary>
         /// <typeparam name="T">Marker type representing the category</typeparam>
         /// <param name="categoryIndex">Index of the object within the category (0-based)</param>
-        /// <param name="customZPosition">Custom Z position for the object (optional)</param>
-        void Render<T>(int categoryIndex, float? customZPosition);
+        /// <param name="customScale">Custom uniform scale for the object (optional)</param>
+        void Render<T>(int categoryIndex, float? customScale);
         
         /// <summary>
         /// Configura a posição da nave no preview 3D (X, Y, Z)
