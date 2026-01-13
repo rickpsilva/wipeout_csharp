@@ -5,83 +5,27 @@ using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 
 namespace WipeoutRewrite.Infrastructure.UI;
 
+/// <summary>
+/// Menu renderer - equivalent to menu.c menu_update() rendering logic.
+/// Uses UIHelper for all actual drawing operations.
+/// </summary>
 public class MenuRenderer : IMenuRenderer
 {
     private readonly IFontSystem _fontSystem;
     private readonly IRenderer _renderer;
-    private int _windowHeight;
-    private int _windowWidth;
 
-    public MenuRenderer(
-        IRenderer renderer,
-        IFontSystem fontSystem)
+    public MenuRenderer(IRenderer renderer, IFontSystem fontSystem)
     {
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _fontSystem = fontSystem ?? throw new ArgumentNullException(nameof(fontSystem));
     }
 
-    #region methods
-
-    public void DrawText(string text, Vec2i position, UIAnchor anchor, int size, UIColor color)
+    public void SetWindowSize(int width, int height)
     {
-        if (_fontSystem != null)
-        {
-            // Use proper font rendering
-            TextSize textSize = size switch
-            {
-                >= 16 => TextSize.Size16,
-                >= 12 => TextSize.Size12,
-                _ => TextSize.Size8
-            };
-
-            // Blending is already enabled in Setup2DRendering
-            var glColor = GetColor4(color);
-            Vector2 pos = new(position.X, position.Y);
-            _fontSystem.DrawText(_renderer, text, pos, textSize, glColor);
-        }
-        else
-        {
-            // Fallback: Draw rectangles (old method)
-            var glColor = GetGLColor(color);
-            float charWidth = size * 1.2f;
-            float charHeight = size * 1.5f;
-
-            float x = position.X;
-            float y = position.Y;
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] != ' ')
-                {
-                    _renderer.PushSprite(x, y, charWidth, charHeight, glColor);
-                }
-                x += charWidth + 4;
-            }
-        }
-    }
-
-    public void DrawTextCentered(string text, Vec2i position, int size, UIColor color)
-    {
-        int textWidth = GetTextWidth(text, size);
-        Vec2i centeredPos = new(position.X - textWidth / 2, position.Y);
-        DrawText(text, centeredPos, UIAnchor.TopLeft, size, color);
-    }
-
-    public int GetTextWidth(string text, int size)
-    {
-        if (_fontSystem != null)
-        {
-            TextSize textSize = size switch
-            {
-                >= 16 => TextSize.Size16,
-                >= 12 => TextSize.Size12,
-                _ => TextSize.Size8
-            };
-            return _fontSystem.GetTextWidth(text, textSize);
-        }
-
-        // Fallback: Approximate
-        return (int)(text.Length * size * 0.6f);
+        UIHelper.SetWindowSize(width, height);
+        
+        // Also initialize UIHelper with services if not done
+        UIHelper.Initialize(_fontSystem, _renderer, width, height);
     }
 
     public void RenderMenu(IMenuManager menu)
@@ -90,156 +34,156 @@ public class MenuRenderer : IMenuRenderer
         if (page == null)
             return;
 
-        // Draw title (support multi-line with \n)
-        var titleLines = page.Title.Split('\n');
-        Vec2i titleBasePos = GetScaledPosition(page.TitleAnchor, page.TitlePos);
-        int lineHeight = Spacing.MenuTitleLineHeight;
-        int titleOffsetY = -(titleLines.Length - 1) * lineHeight / 2; // Center vertically
+        bool isHorizontal = page.LayoutFlags.HasFlag(MenuLayoutFlags.Horizontal);
 
-        for (int i = 0; i < titleLines.Length; i++)
+        // Horizontal menus (confirmation dialogs) have special rendering logic
+        if (isHorizontal)
         {
-            Vec2i linePos = new(titleBasePos.X, titleBasePos.Y + titleOffsetY + i * lineHeight);
-            DrawTextCentered(titleLines[i], linePos, FontSizes.MenuTitle, UIColor.Default);
+            RenderHorizontalMenu(page);
+            page.DrawCallback?.Invoke(this);
+            return;
         }
 
-        // Draw items
-        bool isHorizontal = page.LayoutFlags.HasFlag(MenuLayoutFlags.Horizontal);
+        // Calculate positions for VERTICAL menus (matching C code exactly)
+        Vec2i titlePos, itemsPos;
+        bool isFixed = page.LayoutFlags.HasFlag(MenuLayoutFlags.Fixed);
+        
+        if (!isFixed)
+        {
+            // Dynamic positioning for non-FIXED menus (matching C: height = 20 + entries_len * 12)
+            int height = 20 + page.Items.Count * 12;
+            titlePos = new Vec2i(0, -height / 2);
+            itemsPos = new Vec2i(0, -height / 2 + 20);
+        }
+        else
+        {
+            // Use specified positions for FIXED menus
+            titlePos = page.TitlePos;
+            itemsPos = page.ItemsPos;
+        }
+
+        // Draw title if not empty (VERTICAL menus)
+        if (!string.IsNullOrEmpty(page.Title))
+        {
+            Vec2i titleScreen = UIHelper.ScaledPos(page.TitleAnchor, titlePos);
+            
+            // Use centered text if AlignCenter flag is set (matching C code)
+            if (page.LayoutFlags.HasFlag(MenuLayoutFlags.AlignCenter))
+                UIHelper.DrawTextCentered(page.Title, titleScreen, FontSizes.MenuTitle, UIColor.Accent);
+            else
+                UIHelper.DrawText(page.Title, titleScreen, FontSizes.MenuTitle, UIColor.Accent);
+        }
+
+        // Draw items (VERTICAL menus)
         bool isVertical = page.LayoutFlags.HasFlag(MenuLayoutFlags.Vertical);
 
-        // For horizontal menus, calculate total width to center items properly
-        int totalWidth = 0;
-        int itemSpacing = Spacing.MenuItemHorizontalSpacing;
-
-        if (isHorizontal && page.Items.Count > 0)
-        {
-            foreach (var item in page.Items)
-            {
-                string label = item is MenuToggle toggle ? $"{toggle.Label}: {toggle.CurrentValue}" : item.Label;
-                totalWidth += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
-            }
-            totalWidth -= itemSpacing; // Remove last spacing
-        }
-
-        int itemX = isHorizontal ? -totalWidth / 2 : page.ItemsPos.X;
-        int itemY = page.ItemsPos.Y;
+        int itemX = itemsPos.X;
+        int itemY = itemsPos.Y;
 
         for (int i = 0; i < page.Items.Count; i++)
         {
             var item = page.Items[i];
-            bool isSelected = i == page.SelectedIndex;
-            // Show selected item in yellow (Accent), default in white
-            // TODO: Add blinking back later with menu.ShouldBlink()
-            var color = isSelected ? UIColor.Accent : UIColor.Default;
+            if (string.IsNullOrEmpty(item.Label))
+                continue; // Skip invisible items
 
-            if (!item.IsEnabled)
-                color = UIColor.Disabled;
+            bool isSelected = i == page.SelectedIndex;
+            var color = isSelected ? UIColor.Accent : (item.IsEnabled ? UIColor.Default : UIColor.Disabled);
 
             Vec2i itemPos = new(itemX, itemY);
-            Vec2i screenPos = GetScaledPosition(page.ItemsAnchor, itemPos);
+            Vec2i screenPos = UIHelper.ScaledPos(page.ItemsAnchor, itemPos);
 
-            // Use centered text for middle-anchored items
-            bool shouldCenter = page.ItemsAnchor == UIAnchor.MiddleCenter ||
-                            page.ItemsAnchor == UIAnchor.TopCenter ||
-                            page.ItemsAnchor == UIAnchor.BottomCenter;
+            // Render item label (always just the label, not "LABEL: VALUE")
+            string label = item.Label;
 
-            string label = "";
-            if (item is MenuButton button)
+            // Use centered text if AlignCenter flag is set (matching C code)
+            bool shouldCenter = page.LayoutFlags.HasFlag(MenuLayoutFlags.AlignCenter);
+            
+            if (shouldCenter)
+                UIHelper.DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
+            else
+                UIHelper.DrawText(label, screenPos, FontSizes.MenuItem, color);
+
+            // For toggles, draw the value right-aligned (matching C code)
+            if (item is MenuToggle toggle)
             {
-                label = button.Label;
-                if (shouldCenter && !isHorizontal)
-                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
-                else
-                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
-            }
-            else if (item is MenuToggle toggle)
-            {
-                label = $"{toggle.Label}: {toggle.CurrentValue}";
-                if (shouldCenter && !isHorizontal)
-                    DrawTextCentered(label, screenPos, FontSizes.MenuItem, color);
-                else
-                    DrawText(label, screenPos, page.ItemsAnchor, FontSizes.MenuItem, color);
+                string value = toggle.CurrentValue;
+                int valueWidth = UIHelper.GetTextWidth(value, FontSizes.MenuItem);
+                
+                // Calculate right-aligned position: items_pos.x + block_width - text_width
+                Vec2i togglePos = new(itemX + page.BlockWidth - valueWidth, itemY);
+                Vec2i toggleScreenPos = UIHelper.ScaledPos(page.ItemsAnchor, togglePos);
+                UIHelper.DrawText(value, toggleScreenPos, FontSizes.MenuItem, color);
             }
 
             // Move to next position
-            if (isHorizontal)
-                itemX += GetTextWidth(label, FontSizes.MenuItem) + itemSpacing;
             if (isVertical)
                 itemY += Spacing.MenuItemVerticalSpacing;
         }
+
+        // Call custom draw callback if page has one
+        page.DrawCallback?.Invoke(this);
     }
 
-    public void SetWindowSize(int width, int height)
+    // Render HORIZONTAL menu (confirmation dialogs) - matching C code exactly
+    private void RenderHorizontalMenu(MenuPage page)
     {
-        _windowWidth = width;
-        _windowHeight = height;
-    }
-
-    private static Color4 GetColor4(UIColor color)
-    {
-        return color switch
+        // Title and subtitle rendering
+        Vec2i pos = new(0, -20);
+        
+        // Split title by newline for title + subtitle (matching C code)
+        string[] titleLines = page.Title?.Split('\n') ?? Array.Empty<string>();
+        if (titleLines.Length > 0)
         {
-            UIColor.Accent => Colors.MenuItemSelected,
-            UIColor.Disabled => Colors.MenuItemDisabled,
-            _ => Colors.MenuItemDefault
-        };
-    }
-
-    private static Vector4 GetGLColor(UIColor color)
-    {
-        return color switch
-        {
-            UIColor.Accent => new Vector4(1.0f, 0.8f, 0.0f, 1.0f),  // Yellow/gold
-            UIColor.Disabled => new Vector4(0.5f, 0.5f, 0.5f, 1.0f), // Gray
-            _ => new Vector4(1.0f, 1.0f, 1.0f, 1.0f)  // White
-        };
-    }
-
-    private Vec2i GetScaledPosition(UIAnchor anchor, Vec2i offset)
-    {
-        int baseX = 0, baseY = 0;
-
-        switch (anchor)
-        {
-            case UIAnchor.TopLeft:
-                baseX = 0;
-                baseY = 0;
-                break;
-            case UIAnchor.TopCenter:
-                baseX = _windowWidth / 2;
-                baseY = 0;
-                break;
-            case UIAnchor.TopRight:
-                baseX = _windowWidth;
-                baseY = 0;
-                break;
-            case UIAnchor.MiddleLeft:
-                baseX = 0;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.MiddleCenter:
-                baseX = _windowWidth / 2;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.MiddleRight:
-                baseX = _windowWidth;
-                baseY = _windowHeight / 2;
-                break;
-            case UIAnchor.BottomLeft:
-                baseX = 0;
-                baseY = _windowHeight;
-                break;
-            case UIAnchor.BottomCenter:
-                baseX = _windowWidth / 2;
-                baseY = _windowHeight;
-                break;
-            case UIAnchor.BottomRight:
-                baseX = _windowWidth;
-                baseY = _windowHeight;
-                break;
+            Vec2i titleScreen = UIHelper.ScaledPos(page.TitleAnchor, pos);
+            UIHelper.DrawTextCentered(titleLines[0], titleScreen, FontSizes.MenuItem, UIColor.Default);
+            
+            if (titleLines.Length > 1)
+            {
+                pos.Y += 12;
+                Vec2i subtitleScreen = UIHelper.ScaledPos(page.TitleAnchor, pos);
+                UIHelper.DrawTextCentered(titleLines[1], subtitleScreen, FontSizes.MenuItem, UIColor.Default);
+            }
         }
+        
+        pos.Y += 16;
 
-        return new Vec2i(baseX + offset.X, baseY + offset.Y);
+        // Items rendering - hardcoded positions like C: -50, 60
+        pos.X = -50;
+        for (int i = 0; i < page.Items.Count; i++)
+        {
+            var item = page.Items[i];
+            if (string.IsNullOrEmpty(item.Label))
+                continue;
+
+            bool isSelected = i == page.SelectedIndex;
+            var color = isSelected ? UIColor.Accent : UIColor.Default;
+
+            Vec2i itemScreen = UIHelper.ScaledPos(page.ItemsAnchor, pos);
+            UIHelper.DrawTextCentered(item.Label, itemScreen, FontSizes.MenuTitle, color);  // UI_SIZE_16 in C
+            
+            pos.X = 60;  // Second item position
+        }
     }
 
-    #endregion 
+    // Legacy interface methods - delegate to UIHelper
+    public void DrawText(string text, Vec2i position, UIAnchor anchor, int size, UIColor color)
+    {
+        Vec2i screenPos = UIHelper.ScaledPos(anchor, position);
+        UIHelper.DrawText(text, screenPos, size, color);
+    }
+
+    public void DrawTextCentered(string text, Vec2i position, int size, UIColor color)
+    {
+        UIHelper.DrawTextCentered(text, position, size, color);
+    }
+
+    public int GetTextWidth(string text, int size)
+    {
+        return UIHelper.GetTextWidth(text, size);
+    }
+
+    public Vec2i ScalePosition(UIAnchor anchor, Vec2i offset)
+    {
+        return UIHelper.ScaledPos(anchor, offset);
+    }
 }

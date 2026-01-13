@@ -185,10 +185,20 @@ namespace WipeoutRewrite.Infrastructure.UI
         {
             if (c >= '0' && c <= '9')
                 return (c - '0') + 26;
+            
+            // Map special characters for timer display
+            if (c == ':')
+                return 36; // Special glyph for ":"
+            if (c == '.')
+                return 37; // Special glyph for "."
+            
+            // Convert lowercase letters to uppercase for normal text
+            if (c >= 'a' && c <= 'z')
+                c = char.ToUpper(c);
+            
             if (c >= 'A' && c <= 'Z')
                 return c - 'A';
-            if (c >= 'a' && c <= 'z')
-                return c - 'a'; // Convert to uppercase
+            
             return 0; // Default to 'A'
         }
 
@@ -218,13 +228,16 @@ namespace WipeoutRewrite.Infrastructure.UI
 
         CharSet cs = _charSets[(int)size];
         float x = pos.X;
+        
+        // Get UI scale from UIHelper (matching C's ui_scale)
+        int uiScale = UIHelper.GetUIScale();
 
         // Get texture dimensions based on actually loaded texture
         // From logs: Size16=212x64, Size12=208x36, Size8=216x16
         int texWidth = size == TextSize.Size16 ? 212 : (size == TextSize.Size12 ? 208 : 216);
         int texHeight = size == TextSize.Size16 ? 64 : (size == TextSize.Size12 ? 36 : 16);
 
-        foreach (char c in text.ToUpper()) // Convert to uppercase
+        foreach (char c in text)
         {
             if (c != ' ')
             {
@@ -236,24 +249,33 @@ namespace WipeoutRewrite.Infrastructure.UI
                 float u1 = (glyph.Offset.X + glyph.Width) / (float)texWidth;
                 float v1 = (glyph.Offset.Y + cs.Height) / (float)texHeight;
                 
+                // CRITICAL: Scale glyph size by ui_scale (matching C code: ui_scaled(size))
+                float scaledWidth = glyph.Width * uiScale;
+                float scaledHeight = cs.Height * uiScale;
+                
                 // Draw glyph using custom texture with UV coordinates
                 if (renderer is GLRenderer glRenderer)
                 {
-                    glRenderer.PushSpriteWithTexture(x, pos.Y, glyph.Width, cs.Height, color, cs.Texture,
+                    glRenderer.PushSpriteWithTexture(x, pos.Y, scaledWidth, scaledHeight, color, cs.Texture,
                         u0, v0, u1, v1);
                 }
-                x += glyph.Width;
+                x += glyph.Width * uiScale;
             }
             else
             {
-                x += 8; // Space width
+                x += 8 * uiScale; // Space width scaled
             }
         }
-    }        public void DrawTextCentered(IRenderer renderer, string text, Vector2 pos, TextSize size, Color4 color)
-        {
-            int width = GetTextWidth(text, size);
-            pos.X -= width / 2.0f;
-            DrawText(renderer, text, pos, size, color);
-        }
     }
+    
+    public void DrawTextCentered(IRenderer renderer, string text, Vector2 pos, TextSize size, Color4 color)
+    {
+        // CRITICAL: Need to scale width by ui_scale before centering (matching C code)
+        // Formula from C: pos.x -= (ui_text_width(text, size) * ui_scale) >> 1;
+        int width = GetTextWidth(text, size);
+        int uiScale = UIHelper.GetUIScale();
+        pos.X -= (width * uiScale) / 2.0f;
+        DrawText(renderer, text, pos, size, color);
+    }
+}
 }

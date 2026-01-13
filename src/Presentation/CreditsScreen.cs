@@ -52,25 +52,42 @@ namespace WipeoutRewrite.Presentation
             if (_fontSystem != null)
             {
                 float startY = screenHeight - _scrollY;
-                int lineHeight = Spacing.CreditsLineHeight;
+                int uiScale = 2;  // matching ui_get_scale() in C
                 
+                float y = startY;
                 for (int i = 0; i < _creditsLines.Length; i++)
                 {
-                    float y = startY + (i * lineHeight);
+                    string line = _creditsLines[i];
                     
-                    // Only draw if visible
-                    if (y > -lineHeight && y < screenHeight + lineHeight)
+                    if (!string.IsNullOrEmpty(line))
                     {
-                        string line = _creditsLines[i];
-                        if (!string.IsNullOrEmpty(line))
+                        // Lines starting with '#' are titles (UI_SIZE_16, yellow)
+                        // Other lines are normal text (UI_SIZE_8, white)
+                        if (line.StartsWith("#"))
                         {
-                            // Titles in white, rest in grey
-                            bool isTitle = Array.Exists(Strings.CreditsTitles, t => t == line);
+                            y += 48 * uiScale;  // Spacing before title
                             
-                            var color = isTitle ? Colors.CreditsTitle : Colors.CreditsText;
+                            // Only draw if visible
+                            if (y > -50 && y < screenHeight + 50)
+                            {
+                                // Remove '#' prefix and render as title
+                                string titleText = line.Substring(1);
+                                Vector2 pos = new(screenWidth / 2, y);
+                                _fontSystem.DrawTextCentered(_renderer, titleText, pos, TextSize.Size16, Colors.CreditsTitle);
+                            }
                             
-                            Vector2 pos = new(screenWidth / 2, y);
-                            _fontSystem.DrawTextCentered(_renderer, line, pos, TextSize.Size16, color);
+                            y += 32 * uiScale;  // Spacing after title
+                        }
+                        else
+                        {
+                            // Only draw if visible
+                            if (y > -50 && y < screenHeight + 50)
+                            {
+                                Vector2 pos = new(screenWidth / 2, y);
+                                _fontSystem.DrawTextCentered(_renderer, line, pos, TextSize.Size8, Colors.CreditsText);
+                            }
+                            
+                            y += 12 * uiScale;  // Spacing after normal line
                         }
                     }
                 }

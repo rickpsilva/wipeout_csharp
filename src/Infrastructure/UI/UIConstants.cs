@@ -9,13 +9,14 @@ namespace WipeoutRewrite.Infrastructure.UI;
 public static class UIConstants
 {
     // ===== FONT SIZES =====
+    // Matching C code: UI_SIZE_8=8, UI_SIZE_12=12, UI_SIZE_16=16
     public static class FontSizes
     {
-        public const int MenuTitle = 16;
-        public const int MenuItem = 16;
-        public const int SplashText = 16;
-        public const int Credits = 16;
-        public const int CreditsTitle = 16;
+        public const int MenuTitle = 12;  // UI_SIZE_12 in C (for FIXED menus)
+        public const int MenuItem = 8;    // UI_SIZE_8 in C (for FIXED menus)
+        public const int SplashText = 8;  // UI_SIZE_8 in C ("PRESS ENTER")
+        public const int CreditsText = 8;     // UI_SIZE_8 in C (normal text)
+        public const int CreditsTitle = 16;   // UI_SIZE_16 in C (lines starting with #)
     }
     
     // ===== COLORS =====
@@ -37,10 +38,11 @@ public static class UIConstants
     }
     
     // ===== SPACING =====
+    // Matching C code spacing values
     public static class Spacing
     {
         public const int MenuTitleLineHeight = 24;
-        public const int MenuItemVerticalSpacing = 24;
+        public const int MenuItemVerticalSpacing = 12;  // C uses items_pos.y += 12
         public const int MenuItemHorizontalSpacing = 80;
         public const int CreditsLineHeight = 30;
     }
@@ -112,35 +114,35 @@ public static class UIConstants
         public const string CircuitSilverstream = "SILVERSTREAM";
         public const string CircuitFirestar = "FIRESTAR";
         
-        // Credits
+        // Credits (matching C code format: lines starting with '#' are titles)
         public static readonly string[] CreditsLines = 
         {
             "",
             "",
-            "WIPEOUT",
+            "#WIPEOUT",
             "",
-            "ORIGINAL GAME",
+            "#ORIGINAL GAME",
             "PSYGNOSIS 1995",
             "",
             "",
-            "C# REWRITE",
+            "#C# REWRITE",
             "",
-            "PROGRAMMING",
+            "#PROGRAMMING",
             "COMMUNITY PROJECT",
             "",
             "",
-            "GRAPHICS",
+            "#GRAPHICS",
             "THE DESIGNERS REPUBLIC",
             "",
             "",
-            "MUSIC",
+            "#MUSIC",
             "COLD STORAGE",
             "ORBITAL",
             "LEFTFIELD",
             "CHEMICAL BROTHERS",
             "",
             "",
-            "SPECIAL THANKS",
+            "#SPECIAL THANKS",
             "DOMINIC SZABLEWSKI",
             "PHOBOSLAB",
             "",
@@ -150,6 +152,7 @@ public static class UIConstants
             ""
         };
         
+        // CreditsTitles array not needed anymore (we detect by '#' prefix)
         public static readonly string[] CreditsTitles = 
         {
             "WIPEOUT",

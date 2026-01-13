@@ -1,10 +1,12 @@
 using System;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTK.Windowing.Desktop;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Infrastructure.Audio;
 using WipeoutRewrite.Infrastructure.Assets;
+using WipeoutRewrite.Infrastructure.Database;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.UI;
 using WipeoutRewrite.Core.Services;
@@ -29,6 +31,18 @@ namespace WipeoutRewrite
             logger.LogInformation("Starting Wipeout (C#)");
             logger.LogInformation("========================================");
 
+            // Initialize database
+            try
+            {
+                var dbInitializer = serviceProvider.GetRequiredService<DatabaseInitializer>();
+                dbInitializer.Initialize();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to initialize database");
+                throw;
+            }
+
             // Resolve and run the game
             using (var game = serviceProvider.GetRequiredService<IGame>())
             {
@@ -51,13 +65,15 @@ namespace WipeoutRewrite
                 builder.SetMinimumLevel(LogLevel.Debug);
 
                 builder.AddFilter("Wipeout", LogLevel.Debug);
-                builder.AddFilter("Microsoft", LogLevel.Warning);
                 // Also write logs to a diagnostics file so CI and local debugging can
                 // capture historical logs. File placed under build/diagnostics/wipeout_log.txt
                 try
                 {
                     // Use provider that exists in Infrastructure/Logging
-                    builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(System.IO.Path.Combine("build","diagnostics","wipeout_log.txt"), LogLevel.Debug));
+                    var logPath = System.IO.Path.Combine("build","diagnostics","wipeout_log.txt");
+                    // Clear the log file at startup instead of appending
+                    System.IO.File.WriteAllText(logPath, "");
+                    builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(logPath, LogLevel.Debug));
                 }
                 catch (Exception ex)
                 {
@@ -66,6 +82,15 @@ namespace WipeoutRewrite
                     Console.WriteLine($"Warning: failed to create file logger: {ex.Message}");
                 }
             });
+
+            // Database Configuration
+            var dbPath = Path.Combine(AppContext.BaseDirectory, "data", "wipeout_settings.db");
+            services.AddDbContext<GameSettingsDbContext>(options =>
+                options.UseSqlite($"Data Source={dbPath}")
+            );
+            services.AddScoped<ISettingsRepository, SettingsRepository>();
+            services.AddScoped<DatabaseInitializer>();
+            services.AddSingleton<SettingsPersistenceService>();
 
             // Window Settings
             var gws = GameWindowSettings.Default;
@@ -87,6 +112,33 @@ namespace WipeoutRewrite
             services.AddSingleton<IMusicPlayer, MusicPlayer>();
             services.AddSingleton<IAssetLoader, AssetLoader>();
             services.AddSingleton<IGameState, GameState>();
+            services.AddSingleton<IOptionsFactory>(sp => 
+            {
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                var repository = sp.GetRequiredService<ISettingsRepository>();
+                return new OptionsFactory(loggerFactory, repository);
+            });
+            services.AddSingleton<IControlsSettings>(sp =>
+            {
+                var factory = sp.GetRequiredService<IOptionsFactory>();
+                return factory.CreateControlsSettings();
+            });
+            services.AddSingleton<IVideoSettings>(sp =>
+            {
+                var factory = sp.GetRequiredService<IOptionsFactory>();
+                return factory.CreateVideoSettings();
+            });
+            services.AddSingleton<IAudioSettings>(sp =>
+            {
+                var factory = sp.GetRequiredService<IOptionsFactory>();
+                return factory.CreateAudioSettings();
+            });
+            services.AddSingleton<IBestTimesManager>(sp =>
+            {
+                var factory = sp.GetRequiredService<IOptionsFactory>();
+                return factory.CreateBestTimesManager();
+            });
+
             services.AddSingleton<IMenuManager, MenuManager>();
             services.AddTransient<ITrack, Track>();
             services.AddSingleton<ITrackFactory, TrackFactory>();
