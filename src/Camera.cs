@@ -4,6 +4,33 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace WipeoutRewrite;
 
+/// <summary>
+/// Abstraction for keyboard and mouse input state.
+/// Allows testing Camera without depending on OpenTK's KeyboardState and MouseState.
+/// </summary>
+public interface IInputState
+{
+    /// <summary>
+    /// Check if a key is currently pressed.
+    /// </summary>
+    bool IsKeyDown(Keys key);
+
+    /// <summary>
+    /// Check if a mouse button is currently pressed.
+    /// </summary>
+    bool IsMouseButtonDown(MouseButton button);
+
+    /// <summary>
+    /// Get the current mouse position in screen coordinates.
+    /// </summary>
+    Vector2 MousePosition { get; }
+
+    /// <summary>
+    /// Get the mouse scroll wheel delta (positive = scroll up, negative = scroll down).
+    /// </summary>
+    Vector2 ScrollDelta { get; }
+}
+
 public class Camera : ICamera
 {
     #region properties
@@ -301,13 +328,21 @@ public class Camera : ICamera
         _logger.LogInformation("[CAMERA] Isometric mode: {Mode}, scale: {Scale}", useIsometric, scale);
     }
 
-    public void Update(KeyboardState keyboardState, MouseState mouseState)
+    public void Update(IInputState input)
     {
         // Controles de movimento
-        HandleKeyboardInput(keyboardState);
+        HandleKeyboardInput(input);
 
         // Controles de mouse (rotação e zoom)
-        HandleMouseInput(mouseState);
+        HandleMouseInput(input);
+    }
+
+    /// <summary>
+    /// Overload for backward compatibility with OpenTK KeyboardState and MouseState.
+    /// </summary>
+    public void Update(KeyboardState keyboardState, MouseState mouseState)
+    {
+        Update(new InputStateAdapter(keyboardState, mouseState));
     }
 
     public void Zoom(float delta)
@@ -326,37 +361,37 @@ public class Camera : ICamera
         }
     }
 
-    private void HandleKeyboardInput(KeyboardState keyboard)
+    private void HandleKeyboardInput(IInputState input)
     {
         Vector3 moveDirection = Vector3.Zero;
 
         // W/A/S/D - Movimento da câmera ao redor do alvo
-        if (keyboard.IsKeyDown(Keys.W))
+        if (input.IsKeyDown(Keys.W))
         {
             _logger.LogInformation("[CAMERA +Y] W key DOWN");
             moveDirection += Vector3.UnitY;  // Frente
         }
-        if (keyboard.IsKeyDown(Keys.S))
+        if (input.IsKeyDown(Keys.S))
         {
             _logger.LogInformation("[CAMERA Y] S key DOWN");
             moveDirection -= Vector3.UnitY;  // Trás
         }
-        if (keyboard.IsKeyDown(Keys.A))
+        if (input.IsKeyDown(Keys.A))
         {
             _logger.LogInformation("[CAMERA -X] A key DOWN");
             moveDirection -= Vector3.UnitX;  // Esquerda
         }
-        if (keyboard.IsKeyDown(Keys.D))
+        if (input.IsKeyDown(Keys.D))
         {
             _logger.LogInformation("[CAMERA] D key DOWN");
             moveDirection += Vector3.UnitX;  // Direita
         }
-        if (keyboard.IsKeyDown(Keys.Q))
+        if (input.IsKeyDown(Keys.Q))
         {
             _logger.LogInformation("[CAMERA -Z] Q key DOWN");
             moveDirection -= Vector3.UnitZ;  // Baixo
         }
-        if (keyboard.IsKeyDown(Keys.E))
+        if (input.IsKeyDown(Keys.E))
         {
             _logger.LogInformation("[CAMERA +Z] E key DOWN");
             moveDirection += Vector3.UnitZ;  // Cima
@@ -373,28 +408,28 @@ public class Camera : ICamera
         }
 
         // R - Reset à vista inicial
-        if (keyboard.IsKeyDown(Keys.R))
+        if (input.IsKeyDown(Keys.R))
         {
             _logger.LogInformation("[CAMERA] R key DOWN - resetting view");
             ResetView();
         }
     }
 
-    private void HandleMouseInput(MouseState mouse)
+    private void HandleMouseInput(IInputState input)
     {
         // DEBUG: Log mouse state first time
         _logger.LogInformation("[CAMERA] MouseState: X={X}, Y={Y}, ScrollDelta={Scroll}",
-            mouse.X, mouse.Y, mouse.ScrollDelta.Y);
+            input.MousePosition.X, input.MousePosition.Y, input.ScrollDelta.Y);
 
         // Botão direito do mouse para rodar a câmera
-        if (mouse.IsButtonDown(MouseButton.Right))
+        if (input.IsMouseButtonDown(MouseButton.Right))
         {
-            _logger.LogInformation("[CAMERA] Right mouse button DOWN at ({X}, {Y})", mouse.X, mouse.Y);
+            _logger.LogInformation("[CAMERA] Right mouse button DOWN at ({X}, {Y})", input.MousePosition.X, input.MousePosition.Y);
 
             if (isRotating)
             {
-                float deltaX = mouse.X - lastMousePos.X;
-                float deltaY = mouse.Y - lastMousePos.Y;
+                float deltaX = input.MousePosition.X - lastMousePos.X;
+                float deltaY = input.MousePosition.Y - lastMousePos.Y;
 
                 if (deltaX != 0 || deltaY != 0)
                 {
@@ -408,7 +443,7 @@ public class Camera : ICamera
                 isRotating = true;
             }
 
-            lastMousePos = new Vector2(mouse.X, mouse.Y);
+            lastMousePos = new Vector2(input.MousePosition.X, input.MousePosition.Y);
         }
         else
         {
@@ -420,7 +455,7 @@ public class Camera : ICamera
         }
 
         // Scroll do mouse para zoom
-        float scrollDelta = mouse.ScrollDelta.Y;
+        float scrollDelta = input.ScrollDelta.Y;
         if (scrollDelta != 0)
         {
             _logger.LogInformation("[CAMERA] Scroll delta: {ScrollDelta}", scrollDelta);
@@ -448,4 +483,28 @@ public class Camera : ICamera
     }
 
     #endregion 
+}
+
+/// <summary>
+/// Adapter that converts OpenTK KeyboardState and MouseState to IInputState.
+/// Allows backward compatibility while using the abstraction internally.
+/// </summary>
+internal class InputStateAdapter : IInputState
+{
+    private readonly KeyboardState _keyboardState;
+    private readonly MouseState _mouseState;
+
+    public InputStateAdapter(KeyboardState keyboardState, MouseState mouseState)
+    {
+        _keyboardState = keyboardState;
+        _mouseState = mouseState;
+    }
+
+    public bool IsKeyDown(Keys key) => _keyboardState.IsKeyDown(key);
+
+    public bool IsMouseButtonDown(MouseButton button) => _mouseState.IsButtonDown(button);
+
+    public Vector2 MousePosition => new(_mouseState.X, _mouseState.Y);
+
+    public Vector2 ScrollDelta => _mouseState.ScrollDelta;
 }

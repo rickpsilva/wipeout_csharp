@@ -828,4 +828,224 @@ public class CameraTests
 
 
     #endregion
+
+    #region Input Handling Tests
+
+    [Fact]
+    public void Update_WithWKeyPressed_MovesTargetUp()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.W)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        // Call Update multiple times to accumulate movement
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.Y, _camera.Target.Y);
+    }
+
+    [Fact]
+    public void Update_WithSKeyPressed_MovesTargetDown()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.S)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.Y, _camera.Target.Y);
+    }
+
+    [Fact]
+    public void Update_WithAKeyPressed_MovesTargetLeft()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.A)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.X, _camera.Target.X);
+    }
+
+    [Fact]
+    public void Update_WithDKeyPressed_MovesTargetRight()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.D)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.X, _camera.Target.X);
+    }
+
+    [Fact]
+    public void Update_WithQKeyPressed_MovesTargetDown()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.Q)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.Z, _camera.Target.Z);
+    }
+
+    [Fact]
+    public void Update_WithEKeyPressed_MovesTargetUp()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.E)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        Assert.NotEqual(originalTarget.Z, _camera.Target.Z);
+    }
+
+    [Fact]
+    public void Update_WithRKeyPressed_ResetsView()
+    {
+        // First, modify camera state
+        _camera.Move(new Vector3(100, 100, 100));
+        _camera.Fov = 45f;
+        
+        var originalTarget = _camera.Target;
+        var originalFov = _camera.Fov;
+
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.R)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        _camera.Update(mockInput.Object);
+
+        // After R key, should reset
+        Assert.Equal(Vector3.Zero, _camera.Target);
+    }
+
+    [Fact]
+    public void Update_WithRightMouseButton_InitiatesRotation()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(It.IsAny<Keys>())).Returns(false);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(true);
+        mockInput.Setup(x => x.MousePosition).Returns(new Vector2(100, 100));
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalYaw = _camera.Yaw;
+        
+        // First call: starts tracking
+        _camera.Update(mockInput.Object);
+        
+        // Second call: should calculate delta
+        mockInput.Setup(x => x.MousePosition).Returns(new Vector2(150, 120));
+        _camera.Update(mockInput.Object);
+
+        // Yaw should have changed
+        Assert.NotEqual(originalYaw, _camera.Yaw);
+    }
+
+    [Fact]
+    public void Update_WithScrollDelta_AffectsZoom()
+    {
+        _camera.SetIsometricMode(false);
+        var originalDistance = _camera.Distance;
+
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(It.IsAny<Keys>())).Returns(false);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(new Vector2(0, 5f)); // Scroll up
+
+        _camera.Update(mockInput.Object);
+
+        Assert.NotEqual(originalDistance, _camera.Distance);
+    }
+
+    [Fact]
+    public void Update_WithNoInput_DoesNotChangeCamera()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(It.IsAny<Keys>())).Returns(false);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        var originalYaw = _camera.Yaw;
+
+        _camera.Update(mockInput.Object);
+
+        Assert.Equal(originalTarget, _camera.Target);
+        Assert.Equal(originalYaw, _camera.Yaw);
+    }
+
+    [Fact]
+    public void Update_WithMultipleKeysPressed_MovesInCombinedDirection()
+    {
+        var mockInput = new Mock<IInputState>();
+        mockInput.Setup(x => x.IsKeyDown(Keys.W)).Returns(true);
+        mockInput.Setup(x => x.IsKeyDown(Keys.D)).Returns(true);
+        mockInput.Setup(x => x.IsMouseButtonDown(MouseButton.Right)).Returns(false);
+        mockInput.Setup(x => x.MousePosition).Returns(Vector2.Zero);
+        mockInput.Setup(x => x.ScrollDelta).Returns(Vector2.Zero);
+
+        var originalTarget = _camera.Target;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            _camera.Update(mockInput.Object);
+        }
+
+        // Both X and Y should change
+        Assert.NotEqual(originalTarget.X, _camera.Target.X);
+        Assert.NotEqual(originalTarget.Y, _camera.Target.Y);
+    }
+
+    #endregion
 }
