@@ -29,9 +29,9 @@ public class UIConstantsTests
     }
 
     [Fact]
-    public void FontSizes_Credits_ShouldBe16()
+    public void FontSizes_CreditsText_ShouldBe8()
     {
-        Assert.Equal(16, UIConstants.FontSizes.Credits);
+        Assert.Equal(8, UIConstants.FontSizes.CreditsText);
     }
 
     [Fact]

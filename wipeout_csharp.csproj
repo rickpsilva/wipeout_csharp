@@ -13,6 +13,8 @@
     <!-- OpenTK provides windowing, input and GL bindings. Good for a base port. -->
     <!-- Removido GtkSharp 3.x. Usar gtk-sharp 2.x via referência manual. -->
     <PackageReference Include="FFMpegCore" Version="5.1.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />

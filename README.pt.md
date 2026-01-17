@@ -89,7 +89,8 @@ dotnet test --verbosity normal
 ✅ **Carregamento de texturas** CMP (LZSS) e TIM (PlayStation 1)
 ✅ **Sistema de fontes** com 3 tamanhos (drfonts.cmp)
 ✅ **Arquitetura SOLID** com injeção de dependências e interfaces
-✅ **Testes unitários** (xUnit + Moq) - 10 testes passando
+✅ **Testes unitários** (xUnit + Moq) - 280 testes passando
+✅ **Sistema de Options** completo (Controls/Video/Audio/Best Times) - 48 testes, 100% cobertura
 ✅ Estruturas de dados (Track, Ship, GameState)
 
 ## Correções Recentes (Rendering Pipeline)
@@ -130,7 +131,7 @@ dotnet test --verbosity normal
    - Qualquer tecla volta ao splash screen
 4. **Main Menu** - Navegação completa:
    - START GAME → Race Class → Race Type → Team → Pilot → Circuit → Race
-   - OPTIONS → Controls / Video / Audio / Best Times
+  - OPTIONS → Controls / Video / Audio / Best Times (UI alinhada com opções do wipeout-rewrite: Screen Res, Post Effect, Fullscreen, Show FPS, UI Scale; Music/SFX Volume)
    - QUIT (com confirmação)
 
 ### Controles de Menu
@@ -154,6 +155,9 @@ dotnet test --verbosity normal
 - [x] Sistema de música (conversão QOA→WAV, reprodução aleatória)
 - [x] Splash screen com textura wiptitle.tim
 - [x] Attract mode com créditos em scroll
+- [x] Sistema de Options (arquitetura completa com DI, factory pattern, validação, testes)
+- [ ] UI de Options (páginas de menu para Controls/Video/Audio/Best Times)
+- [ ] Persistência de Settings (JSON serialization/deserialization)
 - [ ] Parser binário de dados de pista (TrackFace, geometria 3D)
 - [ ] Renderização de pista em 3D
 - [ ] Sistema de física e colisão
@@ -194,9 +198,29 @@ dotnet test --verbosity normal
 - **MainMenuPages**: Hierarquia completa de páginas (8 níveis de navegação)
 
 ### Testes
+- **280 testes unitários** passando (100% sucesso)
 - **ShipTests**: 7 testes (criação, dano, destruição, física)
 - **GameStateTests**: 3 testes (estados, inicialização, tempo)
+- **Options System**: 48 testes com 100% cobertura
+  - ControlsSettings: 7 testes (steering, vibration, validation)
+  - VideoSettings: 12 testes (resolution, FPS, anti-aliasing, brightness)
+  - AudioSettings: 10 testes (volumes, mute, music modes)
+  - BestTimesManager: 11 testes (record management, comparison logic)
+  - OptionsFactory: 8 testes (factory pattern, DI integration)
 - Cobertura focada em lógica pura sem dependências gráficas
+
+### Sistema de Options
+- **Arquitetura completa** seguindo SOLID principles
+- **Dependency Injection** com factory pattern
+- **5 interfaces** + **5 implementações**
+- **Validação** em todos os settings (ranges, enumerations)
+- **Reset Pattern** para restaurar defaults
+- **Documentação completa**: 
+  - [OPTIONS_ARCHITECTURE.md](src/Core/Services/OPTIONS_ARCHITECTURE.md) - Design e contratos
+  - [OPTIONS_TESTS_README.md](wipeout_csharp.Tests/Core/Services/OPTIONS_TESTS_README.md) - Documentação de testes
+  - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - Guia de integração
+  - [OPTIONS_SUMMARY.md](OPTIONS_SUMMARY.md) - Resumo executivo
+- **Próximas fases**: UI integration, JSON persistence, aplicação aos sistemas do jogo
 
 ## Debugging
 

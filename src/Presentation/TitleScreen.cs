@@ -139,10 +139,11 @@ namespace WipeoutRewrite.Presentation
                 bool isWhitePhase = ((int)(_blinkTimer / BlinkInterval)) % 2 == 0;
                 var color = isWhitePhase ? new Color4(1.0f, 1.0f, 1.0f, 1.0f) : Colors.SplashTextYellow;
                 
-                // Position text near bottom
-                Vector2 pos = new(screenWidth / 2, screenHeight - 60);
+                // Position text near bottom (matching C code: vec2i(0, -40) with UI_POS_BOTTOM | UI_POS_CENTER)
+                Vector2 pos = new(screenWidth / 2, screenHeight - 40 * 2);  // -40 * ui_scale
                 
-                _fontSystem.DrawTextCentered(_renderer, text, pos, TextSize.Size16, color);
+                // Use UI_SIZE_8 (matching C code exactly)
+                _fontSystem.DrawTextCentered(_renderer, text, pos, TextSize.Size8, color);
             }
             
             _renderer.EndFrame2D();

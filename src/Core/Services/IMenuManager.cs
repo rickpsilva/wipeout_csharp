@@ -1,3 +1,5 @@
+using WipeoutRewrite.Infrastructure.UI;
+
 namespace WipeoutRewrite.Core.Services;
 
 public interface IMenuManager
@@ -40,7 +42,7 @@ public class MenuPage
 {
     #region properties
     public int BlockWidth { get; set; } = 200;
-    public Action<float>? DrawCallback { get; set; }
+    public Action<IMenuRenderer>? DrawCallback { get; set; }
     public List<MenuItem> Items { get; } = new();
     public UIAnchor ItemsAnchor { get; set; }
     public Vec2i ItemsPos { get; set; }

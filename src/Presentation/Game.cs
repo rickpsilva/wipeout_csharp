@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using WipeoutRewrite.Infrastructure.Graphics;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.Video;
@@ -35,6 +36,9 @@ namespace WipeoutRewrite
         private readonly ICreditsScreen _creditsScreen;
         private readonly IContentPreview3D _contentPreview3D;
         private readonly IMusicPlayer _musicPlayer;
+        private readonly IOptionsFactory _optionsFactory;
+        private readonly SettingsPersistenceService _settingsPersistenceService;
+        private readonly IBestTimesManager _bestTimesManager;
         
         // Menu background
         private int _menuBackgroundTexture;
@@ -60,7 +64,10 @@ namespace WipeoutRewrite
             IAttractMode attractMode,
             IContentPreview3D contentPreview3D,
             ITitleScreen titleScreen,
-            ICreditsScreen creditsScreen
+            ICreditsScreen creditsScreen,
+            IOptionsFactory optionsFactory,
+            SettingsPersistenceService settingsPersistenceService,
+            IBestTimesManager bestTimesManager
             )
             : base(gws, nws)
         {
@@ -78,6 +85,9 @@ namespace WipeoutRewrite
             _contentPreview3D = contentPreview3D ?? throw new ArgumentNullException(nameof(contentPreview3D));
             _titleScreen = titleScreen ?? throw new ArgumentNullException(nameof(titleScreen));
             _creditsScreen = creditsScreen ?? throw new ArgumentNullException(nameof(creditsScreen));
+            _optionsFactory = optionsFactory ?? throw new ArgumentNullException(nameof(optionsFactory));
+            _settingsPersistenceService = settingsPersistenceService ?? throw new ArgumentNullException(nameof(settingsPersistenceService));
+            _bestTimesManager = bestTimesManager ?? throw new ArgumentNullException(nameof(bestTimesManager));
         }
 
         protected override void OnLoad()
@@ -129,11 +139,17 @@ namespace WipeoutRewrite
             // Initialize menu and title screen
             _menuRenderer.SetWindowSize(Size.X, Size.Y);
             
+            // UI scale is now calculated dynamically every frame based on window height
+            // No need to set it here - see OnUpdateFrame()
+            
             // Initialize TitleScreen (loads textures - OpenGL is now ready)
             _titleScreen.Initialize();
             
-            // Set menu references for callbacks
+            // Set menu references for callbacks and services
             MainMenuPages.GameStateRef = _gameState as GameState;
+            MainMenuPages.OptionsFactoryRef = _optionsFactory;
+            MainMenuPages.SettingsPersistenceServiceRef = _settingsPersistenceService;
+            MainMenuPages.BestTimesManagerRef = _bestTimesManager;
             
             // Load menu background texture (wipeout1.tim)
             LoadMenuBackground();
@@ -160,6 +176,19 @@ namespace WipeoutRewrite
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             base.OnUpdateFrame(args);
+
+            // Update MainMenuPages with current keyboard state for input handling
+            MainMenuPages.CurrentKeyboardState = KeyboardState;
+
+            // Calculate UI scale dynamically based on window height (matching C code)
+            // Formula from game.c: scale = max(1, sh >= 720 ? sh / 360 : sh / 240)
+            int screenHeight = Size.Y;
+            int autoScale = Math.Max(1, screenHeight >= 720 ? screenHeight / 360 : screenHeight / 240);
+            
+            // If user has set manual scale (not 0), cap the auto scale
+            var videoSettings = _optionsFactory.CreateVideoSettings();
+            int finalScale = videoSettings.UIScale == 0 ? autoScale : Math.Min((int)videoSettings.UIScale, autoScale);
+            UIHelper.SetUIScale(finalScale);
 
             // NOTE: InputManager.Update() is called at the END of this method
             // so _previousState stores the state from the PREVIOUS frame
@@ -218,6 +247,9 @@ namespace WipeoutRewrite
                     // Pass dependencies to MainMenuPages
                     MainMenuPages.GameStateRef = _gameState as GameState;
                     MainMenuPages.ContentPreview3DRef = _contentPreview3D;
+                    MainMenuPages.OptionsFactoryRef = _optionsFactory;
+                    MainMenuPages.SettingsPersistenceServiceRef = _settingsPersistenceService;
+                    MainMenuPages.QuitGameAction = () => Close();  // Allow menus to quit the game
                     
                     _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
                     
@@ -254,27 +286,117 @@ namespace WipeoutRewrite
             {
                 _menuManager.Update((float)args.Time);
                 
-                if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
+                var page = _menuManager.CurrentPage;
+                
+                // Special handling for "AWAITING INPUT" (control remapping)
+                bool isAwaitingInput = page?.Title == "AWAITING INPUT";
+                
+                if (isAwaitingInput)
                 {
-                    _menuManager.HandleInput(MenuAction.Up);
-                    _logger.LogDebug("Menu: UP pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+                    // Update countdown timer (always runs)
+                    bool stillWaiting = MainMenuPages.UpdateAwaitingInput((float)args.Time);
+                    
+                    if (!stillWaiting)
+                    {
+                        // Timeout (3 seconds) - go back to controls menu
+                        _menuManager.PopPage();
+                        _logger.LogInformation("Control remap timeout - returning to controls menu");
+                    }
+                    else
+                    {
+                        // Check if we're waiting for key release
+                        bool waitingForRelease = MainMenuPages.UpdateKeyReleaseState(KeyboardState.IsAnyKeyDown);
+                        
+                        if (!waitingForRelease)
+                        {
+                            // All keys released, now we can capture new input
+                            
+                            // ESC cancels the remap
+                            if (KeyboardState.IsKeyDown(Keys.Escape))
+                            {
+                                _menuManager.PopPage();
+                                _logger.LogInformation("Control remap cancelled");
+                            }
+                            else if (KeyboardState.IsAnyKeyDown)
+                            {
+                                // A key was pressed! Capture it
+                                foreach (Keys key in Enum.GetValues(typeof(Keys)))
+                                {
+                                    if (key == Keys.Unknown || key == Keys.Escape)
+                                        continue;
+                                        
+                                    if (KeyboardState.IsKeyDown(key))
+                                    {
+                                        uint buttonCode = InputManager.MapKeyToButtonCode(key);
+                                        if (buttonCode != 0)
+                                        {
+                                            MainMenuPages.CaptureButtonForControl(buttonCode, true);
+                                            _menuManager.PopPage();
+                                            _logger.LogInformation("Control remapped to key: {Key} (code: {Code})", key, buttonCode);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            // TODO: Add joystick/gamepad capture here when gamepad support is added
+                        }
+                    }
+                    
+                    // Don't process normal menu input while awaiting
+                    InputManager.Update(KeyboardState);
+                    return;
                 }
-                if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
+                
+                // Special handling for Best Times Viewer (uses UP/DOWN for class, LEFT/RIGHT for circuit)
+                bool isBestTimesViewer = page?.Title?.Contains("BEST TIME TRIAL TIMES") == true || 
+                                        page?.Title?.Contains("BEST RACE TIMES") == true;
+                
+                if (isBestTimesViewer)
                 {
-                    _menuManager.HandleInput(MenuAction.Down);
-                    _logger.LogDebug("Menu: DOWN pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+                    // UP/DOWN changes class (Venom/Rapier)
+                    if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
+                    {
+                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousClass);
+                    }
+                    if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
+                    {
+                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextClass);
+                    }
+                    // LEFT/RIGHT changes circuit
+                    if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
+                    {
+                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousCircuit);
+                    }
+                    if (InputManager.IsActionPressed(GameAction.MenuRight, KeyboardState))
+                    {
+                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextCircuit);
+                    }
                 }
-                if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
+                else
                 {
-                    _menuManager.HandleInput(MenuAction.Left);
-                }
-                if (InputManager.IsActionPressed(GameAction.MenuRight, KeyboardState))
-                {
-                    _menuManager.HandleInput(MenuAction.Right);
+                    // Normal menu navigation
+                    if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
+                    {
+                        _menuManager.HandleInput(MenuAction.Up);
+                        _logger.LogDebug("Menu: UP pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+                    }
+                    if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
+                    {
+                        _menuManager.HandleInput(MenuAction.Down);
+                        _logger.LogDebug("Menu: DOWN pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+                    }
+                    if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
+                    {
+                        _menuManager.HandleInput(MenuAction.Left);
+                    }
+                    if (InputManager.IsActionPressed(GameAction.MenuRight, KeyboardState))
+                    {
+                        _menuManager.HandleInput(MenuAction.Right);
+                    }
                 }
                 if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
                 {
-                    var page = _menuManager.CurrentPage;
+                    // Reuse page variable from above
                     var item = page?.SelectedItem;
                     _logger.LogInformation("Menu: ENTER pressed on '{Title}', item {Index}: {Label}", 
                         page?.Title, page?.SelectedIndex, item?.Label);
@@ -480,9 +602,12 @@ namespace WipeoutRewrite
             {
                 _renderer.UpdateScreenSize(e.Width, e.Height);
                 
+                // Update UIHelper window size (critical for text centering!)
+                UIHelper.SetWindowSize(e.Width, e.Height);
+                
                 // Recreate menu renderer with new dimensions for proper positioning
                 _menuRenderer.SetWindowSize(e.Width, e.Height);
-                _logger.LogDebug("MenuRenderer updated for new window size: {Width}x{Height}", e.Width, e.Height);
+                _logger.LogDebug("MenuRenderer and UIHelper updated for new window size: {Width}x{Height}", e.Width, e.Height);
             }
         }
 

@@ -24,13 +24,13 @@ namespace WipeoutRewrite.Core.Services
 
         private readonly IGameObjectCollection _gameObjects;
 
-        private readonly ITrack _track;
+        private readonly ITrack? _track;
 
         private readonly IGameObject _model;
 
         public GameMode CurrentMode { get; set; }
 
-        public ITrack CurrentTrack { get; private set; }
+        public ITrack? CurrentTrack { get; private set; }
 
         // Dados de corrida
         public int LapNumber { get; set; }
@@ -47,13 +47,13 @@ namespace WipeoutRewrite.Core.Services
             ILogger<GameState> logger,
             IGameObjectCollection gameObjects,
             IGameObject model,
-            ITrack track
+            ITrack? track = null
         )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
             _model = model ?? throw new ArgumentNullException(nameof(model));
-            _track = track ?? throw new ArgumentNullException(nameof(track));
+            _track = track; // Track is optional, will be loaded when needed
             
             CurrentMode = GameMode.Menu;
             LapNumber = 1;
@@ -74,10 +74,12 @@ namespace WipeoutRewrite.Core.Services
             RaceTime = 0;
             _gameObjects.Init(null);
            
-            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", GetCurrentTrack().Name, _gameObjects.GetAll.Count);
+            _logger.LogInformation("Game initialized with track: {TrackName}, {ShipCount} ships", 
+                CurrentTrack?.Name ?? "None", 
+                _gameObjects.GetAll.Count);
         }
 
-        private ITrack GetCurrentTrack() => _track;
+        private ITrack? GetCurrentTrack() => _track;
 
         public void Update(float deltaTime)
         {
