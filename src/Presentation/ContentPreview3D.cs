@@ -9,7 +9,6 @@ public class ContentPreview3D : IContentPreview3D
 {
     #region fields
     private readonly ICamera _camera;
-    private bool _cameraConfigured = false;
 
     // Further away in negative Z
     private Vec3 _cameraOffset = new Vec3(0, 3, 8);
@@ -81,10 +80,6 @@ public class ContentPreview3D : IContentPreview3D
         _camera.Position = new OpenTK.Mathematics.Vector3(0, 0, 300);
         _camera.Target = new OpenTK.Mathematics.Vector3(0, 0, 0);
 
-        _cameraConfigured = true;
-        _logger.LogInformation("Camera configured for ContentPreview3D: Position={Pos}, Target={Target}",
-            _camera.Position, _camera.Target);
-        
 
         // Get the category based on type T
         var markerType = typeof(T);

@@ -13,6 +13,9 @@ public class GameStateTests
     private readonly Mock<IGameObjectCollection> _mockGameObjects;
     private readonly Mock<IGameObject> _mockModel;
     private readonly Mock<ITrack> _mockTrack;
+    private readonly Mock<IVideoSettings> _mockVideoSettings;
+    private readonly Mock<IAudioSettings> _mockAudioSettings;
+    private readonly Mock<IControlsSettings> _mockControlsSettings;
     private readonly ILogger<GameState> _logger;
     private readonly GameState _gameState;
 
@@ -21,14 +24,23 @@ public class GameStateTests
         _mockGameObjects = new Mock<IGameObjectCollection>();
         _mockModel = new Mock<IGameObject>();
         _mockTrack = new Mock<ITrack>();
+        _mockVideoSettings = new Mock<IVideoSettings>();
+        _mockAudioSettings = new Mock<IAudioSettings>();
+        _mockControlsSettings = new Mock<IControlsSettings>();
         _logger = new NullLogger<GameState>();
 
         _mockGameObjects.Setup(g => g.GetAll).Returns(new List<GameObject>());
+        _mockVideoSettings.Setup(v => v.Fullscreen).Returns(false);
+        _mockAudioSettings.Setup(a => a.MusicVolume).Returns(0.8f);
+        _mockAudioSettings.Setup(a => a.SoundEffectsVolume).Returns(0.7f);
 
         _gameState = new GameState(
             _logger,
             _mockGameObjects.Object,
             _mockModel.Object,
+            _mockVideoSettings.Object,
+            _mockAudioSettings.Object,
+            _mockControlsSettings.Object,
             _mockTrack.Object
         );
     }
@@ -41,9 +53,18 @@ public class GameStateTests
         Assert.Equal(0, _gameState.RaceTime);
         Assert.Equal(1, _gameState.Position);
         Assert.Equal(8, _gameState.TotalPlayers);
+        Assert.Equal(3, _gameState.Lives);
         Assert.Equal(1, _gameState.Difficulty);
         Assert.Equal(1, _gameState.GameSpeed);
         Assert.True(_gameState.EnableAI);
+        
+        // Verify menu selections defaults
+        Assert.Equal(RaceClass.Venom, _gameState.SelectedRaceClass);
+        Assert.Equal(RaceType.Single, _gameState.SelectedRaceType);
+        Assert.Equal(Team.Feisar, _gameState.SelectedTeam);
+        Assert.Equal(0, _gameState.SelectedPilot);
+        Assert.Equal(Circuit.AltimaVII, _gameState.SelectedCircuit);
+        Assert.False(_gameState.IsAttractMode);
     }
 
     [Fact]
@@ -52,7 +73,10 @@ public class GameStateTests
         Assert.Throws<ArgumentNullException>(() => new GameState(
             null!,
             _mockGameObjects.Object,
-            _mockModel.Object
+            _mockModel.Object,
+            _mockVideoSettings.Object,
+            _mockAudioSettings.Object,
+            _mockControlsSettings.Object
         ));
     }
 
@@ -62,7 +86,10 @@ public class GameStateTests
         Assert.Throws<ArgumentNullException>(() => new GameState(
             _logger,
             null!,
-            _mockModel.Object
+            _mockModel.Object,
+            _mockVideoSettings.Object,
+            _mockAudioSettings.Object,
+            _mockControlsSettings.Object
         ));
     }
 
@@ -72,7 +99,10 @@ public class GameStateTests
         Assert.Throws<ArgumentNullException>(() => new GameState(
             _logger,
             _mockGameObjects.Object,
-            null!
+            null!,
+            _mockVideoSettings.Object,
+            _mockAudioSettings.Object,
+            _mockControlsSettings.Object
         ));
     }
 

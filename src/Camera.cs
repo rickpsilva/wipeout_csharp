@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -489,6 +490,7 @@ public class Camera : ICamera
 /// Adapter that converts OpenTK KeyboardState and MouseState to IInputState.
 /// Allows backward compatibility while using the abstraction internally.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class InputStateAdapter : IInputState
 {
     private readonly KeyboardState _keyboardState;

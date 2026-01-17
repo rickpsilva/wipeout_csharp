@@ -49,7 +49,7 @@ namespace WipeoutRewrite.Presentation
         {
             try
             {
-                string timPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "textures", "wiptitle.tim");
+                string timPath = AssetPaths.GetTexturePath(AssetPaths.GetWipeoutAssetsPath(), "wiptitle.tim");
                 if (File.Exists(timPath))
                 {
                     // Respect TIM transparency (MSB) so title background keeps alpha

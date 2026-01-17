@@ -1459,12 +1459,9 @@ public static class MainMenuPages
     
     // ===== TEXT SCROLL MENU (for credits) =====
     // Structure: Auto-scrolling text with '#' prefix for headers
-    private static float _textScrollStartTime = 0;
     
     public static MenuPage CreateTextScrollMenu(string[] lines, string title = "")
     {
-        _textScrollStartTime = 0; // Will be set when menu is pushed
-        
         var page = new MenuPage
         {
             Title = title,

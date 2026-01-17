@@ -7,6 +7,7 @@ using Xunit;
 
 namespace WipeoutRewrite.Tests.Infrastructure.UI;
 
+[Collection("UIHelperState")]
 public class UIHelperTests
 {
     private readonly Mock<IFontSystem> _mockFontSystem;

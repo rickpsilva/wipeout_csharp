@@ -23,6 +23,16 @@ public static class AssetPaths
     };
 
     /// <summary>
+    /// Gets the root assets folder path.
+    /// </summary>
+    public static string GetAssetsRootPath() => Path.Combine(Directory.GetCurrentDirectory(), "assets");
+
+    /// <summary>
+    /// Gets the Wipeout assets folder path (game assets).
+    /// </summary>
+    public static string GetWipeoutAssetsPath() => Path.Combine(GetAssetsRootPath(), "wipeout");
+
+    /// <summary>
     /// Gets the common folder path for standard game assets.
     /// </summary>
     public static string GetCommonPath(string assetRoot) => 
@@ -45,4 +55,16 @@ public static class AssetPaths
     /// </summary>
     public static string GetMusicPath(string assetRoot) => 
         Path.Combine(assetRoot, "music");
+
+    /// <summary>
+    /// Gets the intro video file path.
+    /// </summary>
+    public static string GetIntroVideoPath() => 
+        Path.Combine(GetWipeoutAssetsPath(), "intro.mpeg");
+
+    /// <summary>
+    /// Gets a specific texture file path from the textures folder.
+    /// </summary>
+    public static string GetTexturePath(string assetRoot, string textureName) =>
+        Path.Combine(GetTexturesPath(assetRoot), textureName);
 }

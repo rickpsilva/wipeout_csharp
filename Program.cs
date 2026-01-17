@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,10 @@ using WipeoutRewrite.Presentation;
 
 namespace WipeoutRewrite;
 
+/// <summary>
+/// Application entry point. Configures dependency injection and initializes the game.
+/// </summary>
+[ExcludeFromCodeCoverage]
 class Program
 {
     static void Main(string[] args)
@@ -31,7 +36,7 @@ class Program
         try
         {
             serviceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
-            using var game = serviceProvider.GetRequiredService<IGame>();
+            using var game = serviceProvider.GetRequiredService<IGameWindow>();
             game.Run();
         }
         catch (Exception ex)
@@ -148,6 +153,6 @@ class Program
         services.AddSingleton<ITrackFactory, TrackFactory>();
 
         // Game
-        services.AddSingleton<IGame, Game>();
+        services.AddSingleton<IGameWindow, Game>();
     }
 }
