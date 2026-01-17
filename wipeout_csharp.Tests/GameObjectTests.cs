@@ -165,6 +165,12 @@ public class GameObjectTests
             .Setup(x => x.ResolveShadowTexturePath(prmPath, It.IsAny<int>()))
             .Returns((string?)null);
 
+        // Mock the LoadFromPrmFile to return a valid Mesh
+        var mockModel = new Mesh("TestModel") { Vertices = Array.Empty<Vec3>(), Primitives = new List<Primitive>() };
+        _mockModelLoader
+            .Setup(x => x.LoadFromPrmFile(prmPath, 0))
+            .Returns(mockModel);
+
         _gameObject.Load(0);
 
         // Verify resolver methods were called
@@ -202,6 +208,12 @@ public class GameObjectTests
         _mockAssetPathResolver
             .Setup(x => x.ResolveShadowTexturePath(prmPath, It.IsAny<int>()))
             .Returns((string?)null);
+
+        // Mock the LoadFromPrmFile to return a valid Mesh
+        var mockModel = new Mesh("ShipModel") { Vertices = Array.Empty<Vec3>(), Primitives = new List<Primitive>() };
+        _mockModelLoader
+            .Setup(x => x.LoadFromPrmFile(prmPath, It.IsAny<int>()))
+            .Returns(mockModel);
 
         _gameObject.LoadModelFromPath(prmPath, 0);
 

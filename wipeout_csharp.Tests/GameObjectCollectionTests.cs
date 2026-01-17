@@ -3,6 +3,9 @@ using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Factory;
+using WipeoutRewrite.Infrastructure.Graphics;
+using WipeoutRewrite.Core.Graphics;
+using WipeoutRewrite.Infrastructure.Assets;
 
 namespace WipeoutRewrite.Tests;
 
@@ -35,9 +38,10 @@ public class GameObjectCollectionTests
     [Fact]
     public void Clear_RemovesAllObjects()
     {
-        // Add dummy objects
-        _collection.GetAll.Add(new Mock<GameObject>().Object);
-        _collection.GetAll.Add(new Mock<GameObject>().Object);
+        var mockGo1 = CreateMockGameObject("Object1");
+        var mockGo2 = CreateMockGameObject("Object2");
+        _collection.GetAll.Add(mockGo1.Object);
+        _collection.GetAll.Add(mockGo2.Object);
 
         _collection.Clear();
 
@@ -75,8 +79,7 @@ public class GameObjectCollectionTests
     [Fact]
     public void GetByName_WithCaseInsensitiveMatch_ReturnsObject()
     {
-        var mockGo = new Mock<GameObject>();
-        mockGo.Object.Name = "TestObject";
+        var mockGo = CreateMockGameObject("TestObject");
         _collection.GetAll.Add(mockGo.Object);
 
         var result = _collection.GetByName("testobject");
@@ -88,8 +91,7 @@ public class GameObjectCollectionTests
     [Fact]
     public void GetByName_WithExactMatch_ReturnsObject()
     {
-        var mockGo = new Mock<GameObject>();
-        mockGo.Object.Name = "MyShip";
+        var mockGo = CreateMockGameObject("MyShip");
         _collection.GetAll.Add(mockGo.Object);
 
         var result = _collection.GetByName("MyShip");
@@ -101,8 +103,7 @@ public class GameObjectCollectionTests
     [Fact]
     public void GetByName_WithNonexistentName_ReturnsNull()
     {
-        var mockGo = new Mock<GameObject>();
-        mockGo.Object.Name = "MyShip";
+        var mockGo = CreateMockGameObject("MyShip");
         _collection.GetAll.Add(mockGo.Object);
 
         var result = _collection.GetByName("NonexistentShip");
@@ -117,46 +118,59 @@ public class GameObjectCollectionTests
     [Fact]
     public void Update_CallsUpdateOnAllObjects()
     {
-        var mock1 = new Mock<GameObject>();
-        var mock2 = new Mock<GameObject>();
+        var mock1 = CreateMockGameObject("Object1");
+        var mock2 = CreateMockGameObject("Object2");
         
         _collection.GetAll.Add(mock1.Object);
         _collection.GetAll.Add(mock2.Object);
 
+        // Act: should not throw
         _collection.Update();
 
-        // Both Update methods should be called
-        // Note: This test depends on the mock setup; adjust as needed
+        Assert.Equal(2, _collection.GetAll.Count);
     }
 
     [Fact]
     public void Renderer_CallsDrawOnAllObjects()
     {
-        var mock1 = new Mock<GameObject>();
-        var mock2 = new Mock<GameObject>();
+        var mock1 = CreateMockGameObject("Object1");
+        var mock2 = CreateMockGameObject("Object2");
         
         _collection.GetAll.Add(mock1.Object);
         _collection.GetAll.Add(mock2.Object);
 
+        // Act: should not throw
         _collection.Renderer();
 
-        // Both Draw methods should be called
-        // Note: This test depends on the mock setup; adjust as needed
+        Assert.Equal(2, _collection.GetAll.Count);
     }
 
     [Fact]
     public void ResetExhaustPlumes_CallsResetOnAllObjects()
     {
-        var mock1 = new Mock<GameObject>();
-        var mock2 = new Mock<GameObject>();
+        var mock1 = CreateMockGameObject("Object1");
+        var mock2 = CreateMockGameObject("Object2");
         
         _collection.GetAll.Add(mock1.Object);
         _collection.GetAll.Add(mock2.Object);
 
+        // Act: should not throw
         _collection.ResetExhaustPlumes();
 
-        // Both ResetExhaustPlume methods should be called
-        // Note: This test depends on the mock setup; adjust as needed
+        Assert.Equal(2, _collection.GetAll.Count);
+    }
+
+    private Mock<GameObject> CreateMockGameObject(string name)
+    {
+        var mock = new Mock<GameObject>(
+            new Mock<IRenderer>().Object,
+            NullLogger<GameObject>.Instance,
+            new Mock<ITextureManager>().Object,
+            new Mock<IModelLoader>().Object,
+            new Mock<IAssetPathResolver>().Object);
+        
+        mock.Object.Name = name;
+        return mock;
     }
 
     #endregion

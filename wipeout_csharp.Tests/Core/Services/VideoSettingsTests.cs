@@ -12,7 +12,7 @@ public class VideoSettingsTests
 
         Assert.False(settings.Fullscreen);
         Assert.Equal(0.0f, settings.InternalRoll);
-        Assert.Equal(1u, settings.UIScale);
+        Assert.Equal(0u, settings.UIScale);  // 0 = AUTO mode (default)
         Assert.False(settings.ShowFPS);
         Assert.Equal(0, settings.ScreenResolution);
         Assert.Equal(0, settings.PostEffect);
@@ -75,7 +75,7 @@ public class VideoSettingsTests
 
         Assert.False(settings.Fullscreen);
         Assert.Equal(0.0f, settings.InternalRoll);
-        Assert.Equal(1u, settings.UIScale);
+        Assert.Equal(0u, settings.UIScale);  // 0 = AUTO mode (default)
         Assert.False(settings.ShowFPS);
         Assert.Equal(0, settings.ScreenResolution);
         Assert.Equal(0, settings.PostEffect);

@@ -175,7 +175,8 @@ public class UIConstantsTests
     [Fact]
     public void Strings_CreditsLines_ShouldContainWipeout()
     {
-        Assert.Contains("WIPEOUT", UIConstants.Strings.CreditsLines);
+        // CreditsLines contains "#WIPEOUT" (with # prefix for title formatting)
+        Assert.Contains("#WIPEOUT", UIConstants.Strings.CreditsLines);
     }
 
     [Fact]

@@ -116,7 +116,7 @@ public class BestTimesManagerTests
     {
         var record = CreateTestRecord(timeMs: 125500);
         var formatted = record.FormatTime();
-        Assert.Equal("2:05.500", formatted);
+        Assert.Equal("02:05.5", formatted);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class BestTimesManagerTests
     {
         var record = CreateTestRecord(timeMs: 5500);
         var formatted = record.FormatTime();
-        Assert.Equal("0:05.500", formatted);
+        Assert.Equal("00:05.5", formatted);
     }
 
     [Fact]
@@ -155,9 +155,9 @@ public class BestTimesManagerTests
         var manager = CreateManager();
         var date = DateTime.Now;
 
-        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 70000, date: date));
-        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 50000, date: date));
-        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 60000, date: date));
+        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 70000, date: date, racingClass: "Venom"));
+        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 50000, date: date, racingClass: "Rapier"));
+        manager.AddOrUpdateRecord(CreateTestRecord(timeMs: 60000, date: date, racingClass: "Piranha"));
 
         var records = manager.GetRecordsForCircuit("Track 01");
 

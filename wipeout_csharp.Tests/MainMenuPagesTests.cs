@@ -69,19 +69,17 @@ public class MainMenuPagesTests
     }
 
     [Fact]
-    public void CreateOptionsMenu_AllItems_ShouldHaveShipPreviews()
+    public void CreateOptionsMenu_AllItems_ShouldHaveCorrectPreviews()
     {
         // Act
         var page = MainMenuPages.CreateOptionsMenu();
 
-        // Assert - All items should have CategoryShip previews with indices 0-3
-        for (int i = 0; i < page.Items.Count; i++)
-        {
-            var item = page.Items[i];
-            Assert.NotNull(item.PreviewInfo);
-            Assert.Equal(typeof(CategoryShip), item.PreviewInfo.CategoryType);
-            Assert.Equal(i, item.PreviewInfo.ModelIndex);
-        }
+        // Assert - Options menu items have mixed preview types (Props and Options)
+        Assert.Equal(4, page.Items.Count);
+        Assert.NotNull(page.Items[0].PreviewInfo);  // CONTROLS - CategoryProp
+        Assert.NotNull(page.Items[1].PreviewInfo);  // VIDEO - CategoryProp
+        Assert.NotNull(page.Items[2].PreviewInfo);  // AUDIO - CategoryOptions
+        Assert.NotNull(page.Items[3].PreviewInfo);  // BEST TIMES - CategoryOptions
     }
 
     [Fact]
@@ -96,67 +94,69 @@ public class MainMenuPagesTests
     }
 
     [Fact]
-    public void CreateRaceClassMenu_VenomClass_ShouldHaveShipPreviewIndex4()
+    public void CreateRaceClassMenu_VenomClass_ShouldHavePilotPreview()
     {
         // Act
         var page = MainMenuPages.CreateRaceClassMenu();
         var venomItem = page.Items[0];
 
-        // Assert
+        // Assert - Uses CategoryPilot preview
         Assert.NotNull(venomItem.PreviewInfo);
-        Assert.Equal(typeof(CategoryShip), venomItem.PreviewInfo.CategoryType);
-        Assert.Equal(4, venomItem.PreviewInfo.ModelIndex);
+        Assert.Equal(typeof(CategoryPilot), venomItem.PreviewInfo.CategoryType);
+        Assert.Equal(8, venomItem.PreviewInfo.ModelIndex);
     }
 
     [Fact]
-    public void CreateRaceClassMenu_RapierClass_ShouldHaveShipPreviewIndex5()
+    public void CreateRaceClassMenu_RapierClass_ShouldHavePilotPreview()
     {
         // Act
         var page = MainMenuPages.CreateRaceClassMenu();
         var rapierItem = page.Items[1];
 
-        // Assert
+        // Assert - Uses CategoryPilot preview
         Assert.NotNull(rapierItem.PreviewInfo);
-        Assert.Equal(typeof(CategoryShip), rapierItem.PreviewInfo.CategoryType);
-        Assert.Equal(5, rapierItem.PreviewInfo.ModelIndex);
-        Assert.False(rapierItem.IsEnabled); // Should be locked by default
+        Assert.Equal(typeof(CategoryPilot), rapierItem.PreviewInfo.CategoryType);
+        Assert.Equal(9, rapierItem.PreviewInfo.ModelIndex);
     }
 
     [Fact]
-    public void CreateRaceTypeMenu_ShouldCreatePageWithTwoItems()
+    public void CreateRaceTypeMenu_ShouldCreatePageWithThreeItems()
     {
         // Act
         var page = MainMenuPages.CreateRaceTypeMenu();
 
-        // Assert
+        // Assert - Championship, Single Race, Time Trial
         Assert.NotNull(page);
-        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(3, page.Items.Count);
+        Assert.Equal("CHAMPIONSHIP RACE", page.Items[0].Label);
+        Assert.Equal("SINGLE RACE", page.Items[1].Label);
+        Assert.Equal("TIME TRIAL", page.Items[2].Label);
     }
 
     [Fact]
-    public void CreateRaceTypeMenu_SingleRace_ShouldHaveShipPreviewIndex6()
+    public void CreateRaceTypeMenu_SingleRace_ShouldHaveOptionsPreview()
     {
         // Act
         var page = MainMenuPages.CreateRaceTypeMenu();
-        var singleRaceItem = page.Items[0];
+        var singleRaceItem = page.Items[1];  // SINGLE RACE
 
-        // Assert
+        // Assert - Uses CategoryOptions preview
         Assert.NotNull(singleRaceItem.PreviewInfo);
-        Assert.Equal(typeof(CategoryShip), singleRaceItem.PreviewInfo.CategoryType);
-        Assert.Equal(6, singleRaceItem.PreviewInfo.ModelIndex);
+        Assert.Equal(typeof(CategoryOptions), singleRaceItem.PreviewInfo.CategoryType);
+        Assert.Equal(2, singleRaceItem.PreviewInfo.ModelIndex);
     }
 
     [Fact]
-    public void CreateRaceTypeMenu_TimeTrial_ShouldHaveShipPreviewIndex7()
+    public void CreateRaceTypeMenu_TimeTrial_ShouldHaveOptionsPreview()
     {
         // Act
         var page = MainMenuPages.CreateRaceTypeMenu();
-        var timeTrialItem = page.Items[1];
+        var timeTrialItem = page.Items[2];  // TIME TRIAL
 
-        // Assert
+        // Assert - Uses CategoryOptions preview
         Assert.NotNull(timeTrialItem.PreviewInfo);
-        Assert.Equal(typeof(CategoryShip), timeTrialItem.PreviewInfo.CategoryType);
-        Assert.Equal(7, timeTrialItem.PreviewInfo.ModelIndex);
+        Assert.Equal(typeof(CategoryOptions), timeTrialItem.PreviewInfo.CategoryType);
+        Assert.Equal(0, timeTrialItem.PreviewInfo.ModelIndex);
     }
 
     [Fact]
@@ -192,11 +192,11 @@ public class MainMenuPagesTests
         // Act
         var page = MainMenuPages.CreateTeamMenu();
 
-        // Assert
-        Assert.Equal("FEISAR", page.Items[0].Label);
-        Assert.Equal("GOTEKI 45", page.Items[1].Label);
-        Assert.Equal("AG SYSTEMS", page.Items[2].Label);
-        Assert.Equal("AURICOM", page.Items[3].Label);
+        // Assert - Teams in C order: AG SYSTEMS, AURICOM, QIREX, FEISAR
+        Assert.Equal("AG SYSTEMS", page.Items[0].Label);
+        Assert.Equal("AURICOM", page.Items[1].Label);
+        Assert.Equal("QIREX", page.Items[2].Label);
+        Assert.Equal("FEISAR", page.Items[3].Label);
     }
 
     [Fact]

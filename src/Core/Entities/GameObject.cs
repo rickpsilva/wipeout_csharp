@@ -8,71 +8,32 @@ namespace WipeoutRewrite.Core.Entities;
 
 public class GameObject : IGameObject
 {
-    #region properties
+    // Position and rotation (initial Z rotation corrects PRM model orientation)
+    public Vec3 Angle { get; set; } = new(0, 0, MathF.PI);
+    public Vec3 Position { get; set; } = new(0, 0, 0);
+    public Vec3 Scale { get; set; } = new(1, 1, 1);
+    public Vec3 Velocity { get; set; } = new(0, 0, 0);
 
-    // Rotation Initial rotation: PI on Z to correct 3D model orientation
-    // (PRM model comes inverted, needs 180° rotation to be correct)
-    public Vec3 Angle { get; set; } = new Vec3(0, 0, MathF.PI);
+    // Direction vectors
+    public Vec3 DirForward { get; private set; } = new(0, 0, 1);
+    public Vec3 DirRight { get; private set; } = new(1, 0, 0);
+    public Vec3 DirUp { get; private set; } = new(0, 1, 0);
 
-    public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
-    public Vec3 DirForward { get; private set; } = new Vec3(0, 0, 1);
-    public Vec3 DirRight { get; private set; } = new Vec3(1, 0, 0);
-    public Vec3 DirUp { get; private set; } = new Vec3(0, 1, 0);
-    public int GameObjectId { get; private set; } = 0;
-    public bool IsFlying => Position.Y > 0;
-    public bool IsVisible { get; set; }
-
-    /// <summary>
-    /// Internal method to set GameObjectId (used by GameObjectCollection during initialization).
-    /// </summary>
-    internal void SetGameObjectId(int id)
-    {
-        GameObjectId = id;
-    }
-
-    /// <summary>
-    /// Load PRM Model
-    /// </summary>
-    public Mesh? Model { get; private set; }
-
-    /// <summary>
-    /// Set the model directly (used when mesh is already loaded)
-    /// </summary>
-    public void SetModel(Mesh mesh)
-    {
-        Model = mesh;
-        if (mesh != null)
-        {
-            _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
-                mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
-        }
-        else
-        {
-            _logger.LogWarning("[GameObject] Model set to null");
-        }
-    }
-
+    // Object identification and state
+    public int GameObjectId { get; private set; }
     public string Name { get; set; } = "Unnamed_GameObject";
+    public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
+    public bool IsVisible { get; set; }
+    public bool IsFlying => Position.Y > 0;
 
-    // --- Minimal runtime state (subset of ship_t) ---
-    public Vec3 Position { get; set; } = new Vec3(0, 0, 0);
-    public Vec3 Scale { get; set; } = new Vec3(1, 1, 1);
-
+    // Track and section info
     public int SectionNum { get; set; }
-
-    /// <summary>
-    /// Shadow texture handle (shad1.tim - shad4.tim)
-    /// </summary>
-    public int ShadowTexture { get; private set; } = -1;
-
-    /// <summary>
-    /// Textures IDs loaded from CMP (if any)
-    /// </summary>
-    public int[] Texture { get; set; }
-
     public int TotalSectionNum { get; set; }
-    public Vec3 Velocity { get; set; } = new Vec3(0, 0, 0);
-    #endregion 
+
+    // Graphics
+    public Mesh? Model { get; private set; }
+    public int ShadowTexture { get; private set; } = -1;
+    public int[] Texture { get; set; } = new int[0];
 
     private readonly ILogger<GameObject> _logger;
     private readonly IRenderer _renderer;
@@ -91,59 +52,46 @@ public class GameObject : IGameObject
         _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
         _modelLoader = modelLoader ?? throw new ArgumentNullException(nameof(modelLoader));
         _assetPathResolver = assetPathResolver ?? throw new ArgumentNullException(nameof(assetPathResolver));
-
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-        _logger.LogDebug("GameObject created: {Name}", Name);
-        Texture = Array.Empty<int>();
-        Model = null;
     }
 
-    #region methods
+    internal void SetGameObjectId(int id) => GameObjectId = id;
 
-    /// <summary>
-    /// Calculate transformation matrix from position and rotation.
-    /// Used for rendering the ship model at the correct position/orientation.
-    /// </summary>
-    public Mat4 CalculateTransformMatrix()
+    public void SetModel(Mesh mesh)
     {
-        return Mat4.FromPositionAnglesScale(Position, Angle, Scale);
+        Model = mesh;
+        if (mesh != null)
+            _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
+                mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+        else
+            _logger.LogWarning("[GameObject] Model set to null");
     }
 
-    /// <summary>
-    /// Calculate the bounding box of the model's vertices.
-    /// Returns (minY, maxY) where minY is the lowest point and maxY is the highest.
-    /// </summary>
+    public Mat4 CalculateTransformMatrix() => Mat4.FromPositionAnglesScale(Position, Angle, Scale);
+
     public (float minY, float maxY) GetModelBounds()
     {
         if (Model?.Vertices == null || Model.Vertices.Length == 0)
-        {
             return (0, 0);
-        }
 
-        float minY = float.MaxValue;
-        float maxY = float.MinValue;
-
+        float minY = float.MaxValue, maxY = float.MinValue;
         foreach (var v in Model.Vertices)
         {
             minY = MathF.Min(minY, v.Y);
             maxY = MathF.Max(maxY, v.Y);
         }
-
         return (minY, maxY);
     }
 
     public void CollideWithShip(GameObject other)
     {
-        var avg = this.Velocity.Add(other.Velocity).Multiply(0.5f);
-        this.Velocity = avg;
+        var avg = Velocity.Add(other.Velocity).Multiply(0.5f);
+        Velocity = avg;
         other.Velocity = avg;
     }
 
-    public void CollideWithTrack(TrackFace face)
-    {
-        // Simplified collision handling
+    public void CollideWithTrack(TrackFace face) => 
         Velocity = new Vec3(Velocity.X, 0, Velocity.Z);
-    }
 
     /*
         Render the ship model using the provided renderer.
@@ -1146,6 +1094,4 @@ public class GameObject : IGameObject
         // Return 3D world coordinates - GPU will apply view and projection matrices
         return new OpenTK.Mathematics.Vector3(transformed.X, transformed.Y, transformed.Z);
     }
-
-    #endregion 
 }
