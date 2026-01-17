@@ -23,6 +23,14 @@ public class GameObject : IGameObject
     public bool IsVisible { get; set; }
 
     /// <summary>
+    /// Internal method to set GameObjectId (used by GameObjectCollection during initialization).
+    /// </summary>
+    internal void SetGameObjectId(int id)
+    {
+        GameObjectId = id;
+    }
+
+    /// <summary>
     /// Load PRM Model
     /// </summary>
     public Mesh? Model { get; private set; }
@@ -33,8 +41,15 @@ public class GameObject : IGameObject
     public void SetModel(Mesh mesh)
     {
         Model = mesh;
-        _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
-            mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+        if (mesh != null)
+        {
+            _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
+                mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+        }
+        else
+        {
+            _logger.LogWarning("[GameObject] Model set to null");
+        }
     }
 
     public string Name { get; set; } = "Unnamed_GameObject";
@@ -59,26 +74,26 @@ public class GameObject : IGameObject
     public Vec3 Velocity { get; set; } = new Vec3(0, 0, 0);
     #endregion 
 
-    // Debug timestamp for shadow rendering
-    private DateTime _lastShadowDebugTime = DateTime.MinValue;
-
     private readonly ILogger<GameObject> _logger;
     private readonly IRenderer _renderer;
     private readonly ITextureManager _textureManager;
     private readonly IModelLoader _modelLoader;
+    private readonly IAssetPathResolver _assetPathResolver;
 
     public GameObject(
         IRenderer renderer,
         ILogger<GameObject> logger,
         ITextureManager textureManager,
-        IModelLoader modelLoader)
+        IModelLoader modelLoader,
+        IAssetPathResolver assetPathResolver)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
         _modelLoader = modelLoader ?? throw new ArgumentNullException(nameof(modelLoader));
+        _assetPathResolver = assetPathResolver ?? throw new ArgumentNullException(nameof(assetPathResolver));
 
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-        _logger.LogInformation("GameObject created: {Name}", Name);
+        _logger.LogDebug("GameObject created: {Name}", Name);
         Texture = Array.Empty<int>();
         Model = null;
     }
@@ -164,13 +179,6 @@ public class GameObject : IGameObject
                 minY = MathF.Min(minY, v.Y); maxY = MathF.Max(maxY, v.Y);
                 minZ = MathF.Min(minZ, v.Z); maxZ = MathF.Max(maxZ, v.Z);
             }
-
-            float sizeX = maxX - minX;
-            float sizeY = maxY - minY;
-            float sizeZ = maxZ - minZ;
-
-            _logger.LogDebug($"[DRAW DEBUG] {Name}: BoundingBox=({minX:F1},{minY:F1},{minZ:F1})->({maxX:F1},{maxY:F1},{maxZ:F1}) Size=({sizeX:F1}x{sizeY:F1}x{sizeZ:F1})");
-            _logger.LogDebug($"[DRAW DEBUG] {Name}: Position={Position}, Angle={Angle}");
         }
 
         // Count primitives by type and flags for debugging
@@ -184,7 +192,7 @@ public class GameObject : IGameObject
         // This prevents black G3/G4 from covering colored GT3 engine exhausts
 
         // PASS 1: Non-textured primitives (G3, G4) - background layer
-        foreach (var primitive in Model.Primitives)
+        foreach (var primitive in Model!.Primitives)
         {
             bool isPrimitiveEngine = (primitive.Flags & PrimitiveFlags.SHIP_ENGINE) != 0;
             _renderer.SetFaceCulling(false);
@@ -194,13 +202,13 @@ public class GameObject : IGameObject
                 case G3 g3:
                     // Skip G3 if it has ENGINE flag (C code dies if this happens)
                     if (!isPrimitiveEngine)
-                        RenderG3(_renderer, g3, Model.Vertices, transformMatrix);
+                        RenderG3(_renderer, g3, Model!.Vertices, transformMatrix);
                     break;
 
                 case G4 g4:
                     // Skip G4 if it has ENGINE flag (C code dies if this happens)
                     if (!isPrimitiveEngine)
-                        RenderG4(_renderer, g4, Model.Vertices, transformMatrix);
+                        RenderG4(_renderer, g4, Model!.Vertices, transformMatrix);
                     break;
 
                 default:
@@ -210,7 +218,7 @@ public class GameObject : IGameObject
         }
 
         // PASS 2: Textured primitives - foreground layer
-        foreach (var primitive in Model.Primitives)
+        foreach (var primitive in Model!.Primitives)
         {
             string typeStr = primitive.GetType().Name;
             if (!typeCount.ContainsKey(typeStr))
@@ -239,15 +247,15 @@ public class GameObject : IGameObject
             switch (primitive)
             {
                 case GT3 gt3:
-                    RenderGT3(_renderer, gt3, Model.Vertices, transformMatrix, isEngine);
+                    RenderGT3(_renderer, gt3, Model!.Vertices, transformMatrix, isEngine);
                     break;
 
                 case FT3 ft3:
-                    RenderFT3(_renderer, ft3, Model.Vertices, transformMatrix);
+                    RenderFT3(_renderer, ft3, Model!.Vertices, transformMatrix);
                     break;
 
                 case FT4 ft4:
-                    RenderFT4(_renderer, ft4, Model.Vertices, transformMatrix);
+                    RenderFT4(_renderer, ft4, Model!.Vertices, transformMatrix);
                     break;
 
                 case G3 g3:
@@ -259,19 +267,19 @@ public class GameObject : IGameObject
                     break;
 
                 case F3 f3:
-                    RenderF3(_renderer, f3, Model.Vertices, transformMatrix);
+                    RenderF3(_renderer, f3, Model!.Vertices, transformMatrix);
                     break;
 
                 case F4 f4:
-                    RenderF4(_renderer, f4, Model.Vertices, transformMatrix);
+                    RenderF4(_renderer, f4, Model!.Vertices, transformMatrix);
                     break;
             }
         }
 
         // Log primitive statistics
-        int enginePrimitives = Model.Primitives.Count(p => (p.Flags & PrimitiveFlags.SHIP_ENGINE) != 0);
+        int enginePrimitives = Model!.Primitives.Count(p => (p.Flags & PrimitiveFlags.SHIP_ENGINE) != 0);
         _logger.LogDebug("Model '{Name}' primitives: {Total} total, {SingleSided} single-sided, {DoubleSided} double-sided, {Engine} engine",
-            Name, Model.Primitives.Count, singleSidedCount, doubleSidedCount, enginePrimitives);
+            Name, Model!.Primitives.Count, singleSidedCount, doubleSidedCount, enginePrimitives);
     }
 
     public Vec3 GetCockpitPosition()
@@ -312,82 +320,50 @@ public class GameObject : IGameObject
         Angle = new Vec3(0, 0, 0);
     }
 
+    /// <summary>
+    /// Initialize exhaust plume for this object. To be implemented.
+    /// </summary>
     public void InitExhaustPlume()
     {
-        // Stub
+        // Stub: not yet implemented
     }
 
     public void Load(int modelIndex = 0)
     {
         GameObjectId = modelIndex;
         Name = "GameObject_" + GameObjectId;
-        // Allow overriding the PRM path via environment variable (used by test script)
-        string? envPrm = Environment.GetEnvironmentVariable("SHIPRENDER_PRM");
-        string? prmPath = null;
-        if (!string.IsNullOrEmpty(envPrm) && System.IO.File.Exists(envPrm))
-        {
-            prmPath = envPrm;
-        }
-        else
-        {
-            string[] candidates = new string[] {
-                    System.IO.Path.Combine("assets", "wipeout", "common", "allsh.prm"),
-                    System.IO.Path.Combine("..", "..", "assets", "wipeout", "common", "allsh.prm"),
-                    System.IO.Path.Combine("..", "..", "..", "assets", "wipeout", "common", "allsh.prm"),
-                };
 
-            foreach (var c in candidates)
-            {
-                if (System.IO.File.Exists(c))
-                {
-                    prmPath = c;
-                    _logger.LogInformation("Found PRM at: {Path}", System.IO.Path.GetFullPath(c));
-                    break;
-                }
-            }
+        // Allow selecting which ship from allsh.prm (0-7, default 0)
+        string? shipIndexEnv = Environment.GetEnvironmentVariable("SHIP_INDEX");
+        if (!string.IsNullOrEmpty(shipIndexEnv) && int.TryParse(shipIndexEnv, out int parsedIndex))
+        {
+            modelIndex = parsedIndex;
         }
 
+        // Resolve PRM path using IAssetPathResolver
+        string? prmPath = _assetPathResolver.ResolvePrmPath("allsh.prm");
         if (prmPath != null)
         {
-            // Allow selecting which ship from allsh.prm (0-7, default 0)
-            string? shipIndexEnv = Environment.GetEnvironmentVariable("SHIP_INDEX");
-            if (!string.IsNullOrEmpty(shipIndexEnv) && int.TryParse(shipIndexEnv, out int parsedIndex))
-            {
-                modelIndex = parsedIndex;
-            }
-
-
             _logger.LogInformation("Loading PRM model from {Prm}, model index={Index}", prmPath, modelIndex);
             LoadPrm(prmPath, modelIndex);
 
-            // Try load CMP with same base name
-            string cmpCandidate = System.IO.Path.ChangeExtension(prmPath, ".cmp");
-            if (System.IO.File.Exists(cmpCandidate))
+            // Load CMP textures
+            string? cmpPath = _assetPathResolver.ResolveCmpPath(prmPath);
+            if (cmpPath != null)
             {
-                _logger.LogInformation("Loading CMP textures from {Cmp}", cmpCandidate);
-                LoadCmpTextures(cmpCandidate);
-
-            }
-            else
-            {
-                _logger.LogInformation("No CMP file found alongside PRM ({Cmp})", cmpCandidate);
+                _logger.LogDebug("Loading CMP textures from {Cmp}", cmpPath);
+                LoadCmpTextures(cmpPath);
             }
 
             // Load shadow texture (shad1.tim - shad4.tim)
             // C original uses: ships[i].shadow_texture = shadow_textures_start + (i >> 1)
             // So ships 0-1 use shad1, 2-3 use shad2, 4-5 use shad3, 6-7 use shad4
             int shadowIndex = (modelIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
-            string shadowPath = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(prmPath) ?? "",
-                "..",
-                "textures",
-                $"shad{shadowIndex}.tim"
-            );
-            string fullPath = System.IO.Path.GetFullPath(shadowPath);
-            Console.WriteLine($"[SHADOW DEBUG] Object index={modelIndex}, shadow index={shadowIndex}");
-            Console.WriteLine($"[SHADOW DEBUG] Shadow path: {fullPath}");
-            Console.WriteLine($"[SHADOW DEBUG] File exists: {System.IO.File.Exists(fullPath)}");
-            LoadShadowTexture(shadowPath);
+            string? shadowPath = _assetPathResolver.ResolveShadowTexturePath(prmPath, shadowIndex);
+            if (shadowPath != null)
+            {
+                LoadShadowTexture(shadowPath);
+            }
         }
         else
         {
@@ -412,45 +388,32 @@ public class GameObject : IGameObject
             LoadPrm(prmPath, objectIndex);
             _logger.LogInformation("[GameObject] Model loaded from: {Path}", prmPath);
 
-            // Also load CMP textures with same base name
-            string cmpCandidate = System.IO.Path.ChangeExtension(prmPath, ".cmp");
-            if (System.IO.File.Exists(cmpCandidate))
+            // Load CMP textures
+            string? cmpPath = _assetPathResolver.ResolveCmpPath(prmPath);
+            if (cmpPath != null)
             {
-                _logger.LogInformation("[GameObject] Loading CMP textures from {Cmp}", cmpCandidate);
-                LoadCmpTextures(cmpCandidate);
-            }
-            else
-            {
-                _logger.LogInformation("[GameObject] No CMP file found alongside PRM ({Cmp})", cmpCandidate);
+                _logger.LogDebug("[GameObject] Loading CMP textures from {Cmp}", cmpPath);
+                LoadCmpTextures(cmpPath);
             }
 
             // Load shadow texture ONLY for ship objects (0-7) from allsh.prm
-            // Other objects (text, props, etc.) should not have shadows
             bool isShipModel = prmPath.Contains("allsh.prm", StringComparison.OrdinalIgnoreCase)
                                && objectIndex >= 0 && objectIndex <= 7;
 
             if (isShipModel)
             {
                 // Load shadow texture (shad1.tim - shad4.tim)
-                // C original uses: ships[i].shadow_texture = shadow_textures_start + (i >> 1)
-                // So ships 0-1 use shad1, 2-3 use shad2, 4-5 use shad3, 6-7 use shad4
-                int shadowIndex = (objectIndex >> 1) + 1; // 0-1→1, 2-3→2, 4-5→3, 6-7→4
-                string shadowPath = System.IO.Path.Combine(
-                    System.IO.Path.GetDirectoryName(prmPath) ?? "",
-                    "..",
-                    "textures",
-                    $"shad{shadowIndex}.tim"
-                );
-                string fullPath = System.IO.Path.GetFullPath(shadowPath);
-                _logger.LogDebug($"[SHADOW DEBUG] Ship object detected - Object index={objectIndex}, shadow index={shadowIndex}");
-                _logger.LogDebug($"[SHADOW DEBUG] Shadow path: {fullPath}");
-                _logger.LogDebug($"[SHADOW DEBUG] File exists: {System.IO.File.Exists(fullPath)}");
-                LoadShadowTexture(shadowPath);
+                int shadowIndex = (objectIndex >> 1) + 1;
+                string? shadowPath = _assetPathResolver.ResolveShadowTexturePath(prmPath, shadowIndex);
+                if (shadowPath != null)
+                {
+                    LoadShadowTexture(shadowPath);
+                }
             }
             else
             {
-                _logger.LogDebug($"[SHADOW DEBUG] Non-ship object (path={prmPath}, index={objectIndex}) - No shadow texture");
-                ShadowTexture = -1; // Explicitly set to -1 for non-ships
+                _logger.LogDebug("[GameObject] Non-ship object (path={Path}, index={Index}) - No shadow texture", prmPath, objectIndex);
+                ShadowTexture = -1;
             }
         }
         catch (Exception ex)
@@ -531,16 +494,8 @@ public class GameObject : IGameObject
         var uvWingLeft = new OpenTK.Mathematics.Vector2(0.0f, 1.0f);
         var uvWingRight = new OpenTK.Mathematics.Vector2(1.0f, 1.0f);
         var uvNose = new OpenTK.Mathematics.Vector2(0.5f, 0.0f);
-
         // Use shadow texture if loaded, otherwise white texture with gray tint
         int texHandle = (ShadowTexture >= 0) ? ShadowTexture : _renderer.WhiteTexture;
-
-        // Debug: Print what texture we're using (only once per second to avoid spam)
-        if ((DateTime.Now - _lastShadowDebugTime).TotalSeconds > 1.0)
-        {
-            _logger.LogDebug($"[SHADOW RENDER] Using texture handle: {texHandle} (ShadowTexture={ShadowTexture}, WhiteTexture={_renderer.WhiteTexture})");
-            _lastShadowDebugTime = DateTime.Now;
-        }
 
         // If using white texture (no shadow texture loaded), make it darker gray
         if (ShadowTexture < 0)
@@ -565,9 +520,12 @@ public class GameObject : IGameObject
         );
     }
 
+    /// <summary>
+    /// Reset exhaust plume state. To be implemented.
+    /// </summary>
     public void ResetExhaustPlume()
     {
-        // Stub
+        // Stub: not yet implemented
     }
 
     public void Update()

@@ -34,20 +34,23 @@ public class Track : ITrack
     {
         try
         {
-            // Simple binary format parser
-            // TODO: implementar parsing completo
-            _logger.LogInformation($"Loading track data for {Name}... (stub)");
+            _logger.LogInformation("Loading track data for {Name}... (not yet implemented)", Name);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error loading track {Name}: {ex.Message}");
+            _logger.LogError(ex, "Error loading track {Name}", Name);
         }
     }
 
     public void Render(GLRenderer renderer)
     {
-        // TODO: implement face rendering
-        _logger.LogInformation($"Rendering track {Name}... (stub)");
+        if (Faces.Count == 0)
+        {
+            _logger.LogDebug("Track {Name} has no faces to render", Name);
+            return;
+        }
+
+        _logger.LogDebug("Rendering track {Name} with {FaceCount} faces", Name, Faces.Count);
     }
 }
 

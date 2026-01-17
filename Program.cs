@@ -69,8 +69,15 @@ namespace WipeoutRewrite
                 // capture historical logs. File placed under build/diagnostics/wipeout_log.txt
                 try
                 {
-                    // Use provider that exists in Infrastructure/Logging
-                    var logPath = System.IO.Path.Combine("build","diagnostics","wipeout_log.txt");
+                    var logPath = System.IO.Path.Combine("build", "diagnostics", "wipeout_log.txt");
+                    var logDir = System.IO.Path.GetDirectoryName(logPath);
+                    
+                    // Ensure directory exists
+                    if (!string.IsNullOrEmpty(logDir) && !System.IO.Directory.Exists(logDir))
+                    {
+                        System.IO.Directory.CreateDirectory(logDir);
+                    }
+                    
                     // Clear the log file at startup instead of appending
                     System.IO.File.WriteAllText(logPath, "");
                     builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(logPath, LogLevel.Debug));
@@ -78,7 +85,6 @@ namespace WipeoutRewrite
                 catch (Exception ex)
                 {
                     // If adding file logger fails we still continue with console only
-                    var lp = System.Diagnostics.Process.GetCurrentProcess();
                     Console.WriteLine($"Warning: failed to create file logger: {ex.Message}");
                 }
             });
@@ -165,6 +171,7 @@ namespace WipeoutRewrite
             // Assets
             services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
             services.AddSingleton<ITimImageLoader, TimImageLoader>();
+            services.AddSingleton<IAssetPathResolver, AssetPathResolver>();
             
             // Model Loaders
             services.AddSingleton<IModelLoader, ModelLoader>();

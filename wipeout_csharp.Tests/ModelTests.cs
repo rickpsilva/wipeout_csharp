@@ -14,7 +14,14 @@ namespace WipeoutRewrite.Tests;
 public class ModelTests
 {
     private readonly IModelLoader _loader;
-    private const string PRM_PATH = "/home/rick/workspace/wipeout-rewrite/wipeout/common/shp1s.prm";
+    private static readonly string PRM_PATH = Path.Combine(
+        "..",
+        "..",
+        "wipeout-rewrite",
+        "wipeout",
+        "common",
+        "shp1s.prm"
+    );
 
     public ModelTests()
     {

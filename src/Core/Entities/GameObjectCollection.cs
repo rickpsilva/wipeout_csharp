@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using WipeoutRewrite.Factory;
+using WipeoutRewrite.Infrastructure.Assets;
 
 namespace WipeoutRewrite.Core.Entities;
 
@@ -55,20 +56,13 @@ public class GameObjectCollection : IGameObjectCollection
     public void Init(TrackSection? startSection)
     {
         // Find assets root directory
-        string[] assetsPaths = new[]
-        {
-                System.IO.Path.Combine("assets", "wipeout"),
-                System.IO.Path.Combine("..", "..", "assets", "wipeout"),
-                System.IO.Path.Combine("..", "..", "..", "assets", "wipeout")
-            };
-
         string? assetsRoot = null;
-        foreach (var path in assetsPaths)
+        foreach (var path in AssetPaths.AssetSearchPaths)
         {
-            if (System.IO.Directory.Exists(path))
+            if (Directory.Exists(path))
             {
                 assetsRoot = path;
-                _logger.LogInformation("[GameObjectCollection] Found assets at: {Path}", System.IO.Path.GetFullPath(path));
+                _logger.LogInformation("[GameObjectCollection] Found assets at: {Path}", Path.GetFullPath(path));
                 break;
             }
         }
@@ -173,14 +167,8 @@ public class GameObjectCollection : IGameObjectCollection
             {
                 model.Name = objectCount > 1 ? $"{baseName}_{i}" : baseName;
                 model.Category = category;
+                model.SetGameObjectId(i); // Use internal setter instead of reflection
                 model.LoadModelFromPath(prmPath, i);
-
-                // Use reflection to set GameObjectId as the index within the category (0-based)
-                var idProperty = typeof(GameObject).GetProperty("GameObjectId");
-                if (idProperty != null)
-                {
-                    idProperty.SetValue(model, i); // Use category index instead of global ID
-                }
 
                 GetAll.Add(model);
                 _logger.LogInformation("[GameObjectCollection] [{Category}] Loaded object {CategoryIndex}: {Name}",
