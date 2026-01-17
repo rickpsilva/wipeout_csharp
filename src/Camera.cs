@@ -78,7 +78,7 @@ public class Camera : ICamera
         }
     }
 
-    // Mais perto para ver melhor
+    // Closer for better view
     public Vector3 Position
     {
         get => position;
@@ -135,26 +135,26 @@ public class Camera : ICamera
     private float distance;
     private bool _isFlythroughMode = false;  // Flag to disable UpdatePosition() calls
 
-    // NEAR_PLANE do C
+    // NEAR_PLANE from C implementation
     private float farClip = 2048576f;
 
-    // Configuração de câmera (baseado em wipeout-rewrite/src/render_gl.c)
-    // Vertical FOV de 73.75° (horizontal 90° em 4:3)
+    // Camera configuration (based on wipeout-rewrite/src/render_gl.c)
+    // Vertical FOV of 73.75° (horizontal 90° at 4:3 aspect ratio)
     private float fov = 73.75f;
 
-    // FOV vertical do Wipeout original
+    // Original Wipeout vertical FOV
     private float initialFov;
 
     private Vector3 initialPosition;
 
-    // Olhando para o centro
+    // Looking at center
     private Vector3 initialTarget;
 
     private float isometricScale = 1.0f;
 
-    // Escala do volume de visualização
+    // Viewing volume scale
 
-    // Estado do mouse
+    // Mouse state
     private bool isRotating = false;
 
     private Vector2 lastMousePos;
@@ -163,25 +163,25 @@ public class Camera : ICamera
     private float minDistance = 1f;  // Allow very close camera with 0.001f scale
     private float minFov = 5f;
 
-    // FAR_PLANE do C (RENDER_FADEOUT_FAR)
+    // FAR_PLANE from C (RENDER_FADEOUT_FAR)
 
-    // Controles
+    // Controls
     private float moveSpeed = 200f;
 
     private float nearClip = 0.01f;
     private float pitch = 0f;
     private float roll = 0f;
 
-    // Posição e orientação
+    // Position and orientation
     private Vector3 position = new(0, 15, 30);
 
-    // Aumentei de 50 para ser mais visível
+    // Increased from 50 for better visibility
     private float rotationSpeed = 2f;
 
     private Vector3 target = new(0, 0, 0);
     private Vector3 up = Vector3.UnitY;
 
-    // Modo isométrico
+    // Isometric mode
     private bool useIsometricProjection = false;
 
     private float yaw = 0f;
@@ -205,8 +205,8 @@ public class Camera : ICamera
     {
         if (useIsometricProjection)
         {
-            // Projeção ortográfica isométrica
-            float width = 1280 * isometricScale;  // Assumindo 1280x720
+            // Isometric orthographic projection
+            float width = 1280 * isometricScale;  // Assuming 1280x720
             float height = 720 * isometricScale;
             float left = -width / 2;
             float right = width / 2;
@@ -221,7 +221,7 @@ public class Camera : ICamera
         }
         else
         {
-            // Perspectiva padrão (3D)
+            // Standard perspective (3D)
             return Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(fov),
                 aspectRatio,
@@ -349,13 +349,13 @@ public class Camera : ICamera
     {
         if (useIsometricProjection)
         {
-            // Em modo isométrico: zoom controla a escala (field of view ortográfico)
+            // In isometric mode: zoom controls the scale (orthographic field of view)
             isometricScale = MathHelper.Clamp(isometricScale + delta * 0.1f, 0.5f, 3.0f);
             _logger.LogInformation("[CAMERA] Isometric zoom: scale={Scale}", isometricScale);
         }
         else
         {
-            // Em modo perspectiva: zoom controla a distância
+            // In perspective mode: zoom controls the distance
             distance = MathHelper.Clamp(distance - delta, minDistance, maxDistance);
             UpdatePosition();
         }
@@ -365,36 +365,36 @@ public class Camera : ICamera
     {
         Vector3 moveDirection = Vector3.Zero;
 
-        // W/A/S/D - Movimento da câmera ao redor do alvo
+        // W/A/S/D - Camera movement around the target
         if (input.IsKeyDown(Keys.W))
         {
             _logger.LogInformation("[CAMERA +Y] W key DOWN");
-            moveDirection += Vector3.UnitY;  // Frente
+            moveDirection += Vector3.UnitY;  // Forward
         }
         if (input.IsKeyDown(Keys.S))
         {
             _logger.LogInformation("[CAMERA Y] S key DOWN");
-            moveDirection -= Vector3.UnitY;  // Trás
+            moveDirection -= Vector3.UnitY;  // Backward
         }
         if (input.IsKeyDown(Keys.A))
         {
             _logger.LogInformation("[CAMERA -X] A key DOWN");
-            moveDirection -= Vector3.UnitX;  // Esquerda
+            moveDirection -= Vector3.UnitX;  // Left
         }
         if (input.IsKeyDown(Keys.D))
         {
             _logger.LogInformation("[CAMERA] D key DOWN");
-            moveDirection += Vector3.UnitX;  // Direita
+            moveDirection += Vector3.UnitX;  // Right
         }
         if (input.IsKeyDown(Keys.Q))
         {
             _logger.LogInformation("[CAMERA -Z] Q key DOWN");
-            moveDirection -= Vector3.UnitZ;  // Baixo
+            moveDirection -= Vector3.UnitZ;  // Down
         }
         if (input.IsKeyDown(Keys.E))
         {
             _logger.LogInformation("[CAMERA +Z] E key DOWN");
-            moveDirection += Vector3.UnitZ;  // Cima
+            moveDirection += Vector3.UnitZ;  // Up
         }
 
         if (moveDirection != Vector3.Zero)
@@ -407,7 +407,7 @@ public class Camera : ICamera
             Move(finalMovement);
         }
 
-        // R - Reset à vista inicial
+        // R - Reset to initial view
         if (input.IsKeyDown(Keys.R))
         {
             _logger.LogInformation("[CAMERA] R key DOWN - resetting view");
@@ -421,7 +421,7 @@ public class Camera : ICamera
         _logger.LogInformation("[CAMERA] MouseState: X={X}, Y={Y}, ScrollDelta={Scroll}",
             input.MousePosition.X, input.MousePosition.Y, input.ScrollDelta.Y);
 
-        // Botão direito do mouse para rodar a câmera
+        // Right mouse button to rotate camera
         if (input.IsMouseButtonDown(MouseButton.Right))
         {
             _logger.LogInformation("[CAMERA] Right mouse button DOWN at ({X}, {Y})", input.MousePosition.X, input.MousePosition.Y);
@@ -454,7 +454,7 @@ public class Camera : ICamera
             isRotating = false;
         }
 
-        // Scroll do mouse para zoom
+        // Mouse scroll for zoom
         float scrollDelta = input.ScrollDelta.Y;
         if (scrollDelta != 0)
         {
