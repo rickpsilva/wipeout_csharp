@@ -446,11 +446,12 @@ public class ShipRenderWindow : GameWindow
             // Create a GameObject for each mesh
             float spacing = 50.0f;
             int addedCount = 0;
+            var assetResolver = new AssetPathResolver(new NullLogger<AssetPathResolver>());
 
             foreach (var mesh in allMeshes)
             {
                 var shipLogger = new NullLogger<GameObject>();
-                var newObject = new GameObject(_renderer, shipLogger, _textureManager, modelLoader)
+                var newObject = new GameObject(_renderer, shipLogger, _textureManager, modelLoader, assetResolver)
                 {
                     // Track/scene/sky meshes come already oriented
                     Angle = new Vec3(0, 0, 0)
@@ -529,7 +530,8 @@ public class ShipRenderWindow : GameWindow
             var shipLogger = new NullLogger<GameObject>();
             var modelLoaderLogger = new NullLogger<ModelLoader>();
             var modelLoader = new ModelLoader(modelLoaderLogger);
-            var newShip = new GameObject(_renderer, shipLogger, _textureManager, modelLoader);
+            var assetResolver = new AssetPathResolver(new NullLogger<AssetPathResolver>());
+            var newShip = new GameObject(_renderer, shipLogger, _textureManager, modelLoader, assetResolver);
             newShip.LoadModelFromPath(modelPath, objectIndex);
             newShip.IsVisible = true;
 
@@ -977,7 +979,13 @@ public class ShipRenderWindow : GameWindow
                         builder.AddConsole();
                     }).CreateLogger<ModelLoader>();
 
-                    var trackObject = new GameObject(_renderer, trackLogger, _textureManager, new ModelLoader(modelLoaderLogger))
+                    var assetResolverLogger = LoggerFactory.Create(builder =>
+                    {
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                        builder.AddConsole();
+                    }).CreateLogger<AssetPathResolver>();
+
+                    var trackObject = new GameObject(_renderer, trackLogger, _textureManager, new ModelLoader(modelLoaderLogger), new AssetPathResolver(assetResolverLogger))
                     {
                         Angle = new Vec3(0, 0, 0)
                     };

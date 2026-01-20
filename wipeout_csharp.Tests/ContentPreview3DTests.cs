@@ -6,6 +6,7 @@ using WipeoutRewrite.Presentation;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.Graphics;
+using WipeoutRewrite.Infrastructure.Assets;
 
 namespace WipeoutRewrite.Tests;
 
@@ -98,8 +99,8 @@ public class ContentPreview3DTests
         // Act
         _preview.Render<CategoryMsDos>(0);
 
-        // Assert - Verify position was set (Z = -400 for MsDos, closer than ships)
-        Assert.Equal(-400, mockMsDos.Position.Z);
+        // Assert - Verify position was set (Z = 700 for MsDos, same as ships)
+        Assert.Equal(700, mockMsDos.Position.Z);
         Assert.Equal(0, mockMsDos.Position.X);
         Assert.Equal(0, mockMsDos.Position.Y);
     }
@@ -133,8 +134,8 @@ public class ContentPreview3DTests
         // Act
         _preview.Render<CategoryShip>(0);
 
-        // Assert - Verify position was set (Z = -700 for ships)
-        Assert.Equal(-700, mockShip.Position.Z);
+        // Assert - Verify position was set (Z = 700 for ships)
+        Assert.Equal(700, mockShip.Position.Z);
         Assert.Equal(0, mockShip.Position.X);
         Assert.Equal(0, mockShip.Position.Y);
     }
@@ -150,8 +151,8 @@ public class ContentPreview3DTests
         // Act
         _preview.Render<CategoryShip>(0);
 
-        // Assert - Both ships and MsDos should have Z rotation = PI (180°)
-        Assert.Equal(MathF.PI, mockShip.Angle.Z, 0.001f);
+        // Assert - No Z rotation with new ViewMatrix orientation
+        Assert.Equal(0f, mockShip.Angle.Z, 0.001f);
     }
 
     [Fact]
@@ -257,7 +258,7 @@ public class ContentPreview3DTests
 
         // Assert - Verify correct ship is visible and positioned
         Assert.True(ships[index].IsVisible);
-        Assert.Equal(-700, ships[index].Position.Z);
+        Assert.Equal(700, ships[index].Position.Z);
     }
 
     [Fact]
@@ -277,10 +278,11 @@ public class ContentPreview3DTests
         var mockLogger = new Mock<ILogger<GameObject>>();
         var mockTextureManager = new Mock<ITextureManager>();
         var mockModelLoader = new Mock<IModelLoader>();
+        var mockAssetResolver = new Mock<IAssetPathResolver>();
 
         mockRenderer.Setup(r => r.WhiteTexture).Returns(1);
 
-        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object)
+        var obj = new GameObject(mockRenderer.Object, mockLogger.Object, mockTextureManager.Object, mockModelLoader.Object, mockAssetResolver.Object)
         {
             Name = name,
             Category = category,

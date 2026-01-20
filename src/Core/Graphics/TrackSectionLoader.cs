@@ -14,7 +14,7 @@ namespace WipeoutRewrite.Core.Graphics;
 /// </summary>
 public class TrackSectionLoader
 {
-    private readonly ILogger<TrackSectionLoader>? _logger;
+    private readonly ILogger<TrackSectionLoader> _logger;
     private List<TrackSectionData> _sections = new();
 
     /// <summary>
@@ -33,9 +33,9 @@ public class TrackSectionLoader
         public ushort Flags;          // Section flags (JUMP, JUNCTION, etc)
     }
 
-    public TrackSectionLoader(ILogger<TrackSectionLoader>? logger = null)
+    public TrackSectionLoader(ILogger<TrackSectionLoader> logger)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -47,14 +47,14 @@ public class TrackSectionLoader
 
         if (!File.Exists(filePath))
         {
-            _logger?.LogWarning("[TRACK] TRACK.TRS file not found: {Path}", filePath);
+            _logger.LogWarning("[TRACK] TRACK.TRS file not found: {Path}", filePath);
             return;
         }
 
         try
         {
             byte[] data = File.ReadAllBytes(filePath);
-            _logger?.LogInformation("[TRACK] Loaded TRACK.TRS: {Bytes} bytes", data.Length);
+            _logger.LogInformation("[TRACK] Loaded TRACK.TRS: {Bytes} bytes", data.Length);
 
             // Each TrackSection is 152 bytes (not 140!)
             // Structure: 6 int32 (24) + 116 padding + uint32 (4) + uint16 (2) + 4 padding + uint16 (2) = 152
@@ -70,7 +70,7 @@ public class TrackSectionLoader
                 }
             }
 
-            _logger?.LogInformation("[TRACK] Loaded {Count} track sections from {Path}", _sections.Count, filePath);
+            _logger.LogInformation("[TRACK] Loaded {Count} track sections from {Path}", _sections.Count, filePath);
 
             // Calculate and log bounds
             if (_sections.Count > 0)
@@ -82,28 +82,28 @@ public class TrackSectionLoader
                 int minZ = _sections.Min(s => s.Z);
                 int maxZ = _sections.Max(s => s.Z);
 
-                _logger?.LogInformation(
+                _logger.LogInformation(
                     "[TRACK] Sections bounds (PSX coords): X[{MinX}, {MaxX}], Y[{MinY}, {MaxY}], Z[{MinZ}, {MaxZ}]",
                     minX, maxX, minY, maxY, minZ, maxZ);
                 
-                _logger?.LogInformation(
+                _logger.LogInformation(
                     "[TRACK] Sections bounds (world coords, scale 0.001): X[{MinX:F2}, {MaxX:F2}], Y[{MinY:F2}, {MaxY:F2}], Z[{MinZ:F2}, {MaxZ:F2}]",
                     minX * 0.001f, maxX * 0.001f, minY * 0.001f, maxY * 0.001f, minZ * 0.001f, maxZ * 0.001f);
 
                 // Log first few sections for debugging
-                _logger?.LogDebug("[TRACK] First section: X={X}, Y={Y}, Z={Z}, Next={Next}", 
+                _logger.LogDebug("[TRACK] First section: X={X}, Y={Y}, Z={Z}, Next={Next}", 
                     _sections[0].X, _sections[0].Y, _sections[0].Z, _sections[0].Next);
                 
                 if (_sections.Count > 1)
                 {
-                    _logger?.LogDebug("[TRACK] Second section: X={X}, Y={Y}, Z={Z}, Next={Next}", 
+                    _logger.LogDebug("[TRACK] Second section: X={X}, Y={Y}, Z={Z}, Next={Next}", 
                         _sections[1].X, _sections[1].Y, _sections[1].Z, _sections[1].Next);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger?.LogError("[TRACK] Error loading TRACK.TRS: {Error}", ex.Message);
+            _logger.LogError("[TRACK] Error loading TRACK.TRS: {Error}", ex.Message);
         }
     }
 
@@ -182,7 +182,7 @@ public class TrackSectionLoader
             // Log first few sections for debugging
             if (sectionIndex < 3)
             {
-                _logger?.LogInformation(
+                _logger.LogInformation(
                     "[TRACK] Section {Index}: PSX=({X}, {Y}, {Z}) -> World=({ScaledX:F2}, {ScaledY:F2}, {ScaledZ:F2}), Next={Next}",
                     sectionIndex, rawSection.X, rawSection.Y, rawSection.Z, 
                     scaledX, scaledY, scaledZ, rawSection.Next);
@@ -206,7 +206,7 @@ public class TrackSectionLoader
             }
         }
 
-        _logger?.LogInformation("[TRACK] Populated Track with {Count} sections from TRS file", track.Sections.Count);
+        _logger.LogInformation("[TRACK] Populated Track with {Count} sections from TRS file", track.Sections.Count);
     }
 
     /// <summary>

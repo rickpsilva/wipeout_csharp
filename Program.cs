@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,162 +16,143 @@ using WipeoutRewrite.Factory;
 using WipeoutRewrite.Infrastructure.Video;
 using WipeoutRewrite.Presentation;
 
-namespace WipeoutRewrite
+namespace WipeoutRewrite;
+
+/// <summary>
+/// Application entry point. Configures dependency injection and initializes the game.
+/// </summary>
+[ExcludeFromCodeCoverage]
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        var serviceProvider = services.BuildServiceProvider();
+
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Starting Wipeout (C#)");
+
+        try
         {
-            // Setup Dependency Injection Container
-            var services = new ServiceCollection();
-            ConfigureServices(services);
-            var serviceProvider = services.BuildServiceProvider();
+            serviceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
+            using var game = serviceProvider.GetRequiredService<IGameWindow>();
+            game.Run();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Fatal error");
+            throw;
+        }
+        finally
+        {
+            logger.LogInformation("Wipeout closed");
+            serviceProvider.Dispose();
+        }
+    }
 
-            var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("========================================");
-            logger.LogInformation("Starting Wipeout (C#)");
-            logger.LogInformation("========================================");
+    private static void ConfigureServices(IServiceCollection services)
+    {
+        ConfigureLogging(services);
+        ConfigureDatabase(services);
+        ConfigureWindow(services);
+        RegisterCoreServices(services);
+    }
 
-            // Initialize database
+    private static void ConfigureLogging(IServiceCollection services)
+    {
+        services.AddLogging(builder =>
+        {
+            builder.ClearProviders().AddConsole().SetMinimumLevel(LogLevel.Debug);
+            
             try
             {
-                var dbInitializer = serviceProvider.GetRequiredService<DatabaseInitializer>();
-                dbInitializer.Initialize();
+                var logPath = Path.Combine("build", "diagnostics", "wipeout_log.txt");
+                var logDir = Path.GetDirectoryName(logPath);
+                if (!string.IsNullOrEmpty(logDir))
+                    Directory.CreateDirectory(logDir);
+                
+                File.WriteAllText(logPath, "");
+                builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(logPath, LogLevel.Debug));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to initialize database");
-                throw;
+                Console.WriteLine($"Warning: file logger failed - {ex.Message}");
             }
+        });
+    }
 
-            // Resolve and run the game
-            using (var game = serviceProvider.GetRequiredService<IGame>())
-            {
-                game.Run();
-            }
+    private static void ConfigureDatabase(IServiceCollection services)
+    {
+        var dbPath = Path.Combine(AppContext.BaseDirectory, "data", "wipeout_settings.db");
+        services.AddDbContext<GameSettingsDbContext>(opts => opts.UseSqlite($"Data Source={dbPath}"));
+        services.AddScoped<ISettingsRepository, SettingsRepository>();
+        services.AddScoped<DatabaseInitializer>();
+        services.AddSingleton<SettingsPersistenceService>();
+    }
 
-            logger.LogInformation("Wipeout closed");
+    private static void ConfigureWindow(IServiceCollection services)
+    {
+        var gws = GameWindowSettings.Default;
+        gws.UpdateFrequency = 60.0;
+        services.AddSingleton(gws);
 
-            // Cleanup
-            serviceProvider.Dispose();
-        }
-
-        private static void ConfigureServices(IServiceCollection services)
+        services.AddSingleton(new NativeWindowSettings
         {
-            // Logging Configuration
-            services.AddLogging(builder =>
-            {
-                builder.ClearProviders();
-                builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Debug);
+            ClientSize = new OpenTK.Mathematics.Vector2i(1280, 720),
+            Title = "WipeoutRewrite - C#"
+        });
+    }
 
-                builder.AddFilter("Wipeout", LogLevel.Debug);
-                // Also write logs to a diagnostics file so CI and local debugging can
-                // capture historical logs. File placed under build/diagnostics/wipeout_log.txt
-                try
-                {
-                    // Use provider that exists in Infrastructure/Logging
-                    var logPath = System.IO.Path.Combine("build","diagnostics","wipeout_log.txt");
-                    // Clear the log file at startup instead of appending
-                    System.IO.File.WriteAllText(logPath, "");
-                    builder.AddProvider(new WipeoutRewrite.Infrastructure.Logging.FileLoggerProvider(logPath, LogLevel.Debug));
-                }
-                catch (Exception ex)
-                {
-                    // If adding file logger fails we still continue with console only
-                    var lp = System.Diagnostics.Process.GetCurrentProcess();
-                    Console.WriteLine($"Warning: failed to create file logger: {ex.Message}");
-                }
-            });
+    private static void RegisterCoreServices(IServiceCollection services)
+    {
+        // Core graphics and rendering
+        services.AddSingleton<IRenderer, GLRenderer>();
+        services.AddSingleton<ICamera, Camera>();
+        services.AddSingleton<ICameraFactory, CameraFactory>();
+        services.AddSingleton<ITextureManager, TextureManager>();
+        
+        // Media
+        services.AddSingleton<IVideoPlayer, IntroVideoPlayer>();
+        services.AddSingleton<IMusicPlayer, MusicPlayer>();
+        
+        // Assets and loaders
+        services.AddSingleton<IAssetLoader, AssetLoader>();
+        services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
+        services.AddSingleton<ITimImageLoader, TimImageLoader>();
+        services.AddSingleton<IAssetPathResolver, AssetPathResolver>();
+        services.AddSingleton<IModelLoader, ModelLoader>();
 
-            // Database Configuration
-            var dbPath = Path.Combine(AppContext.BaseDirectory, "data", "wipeout_settings.db");
-            services.AddDbContext<GameSettingsDbContext>(options =>
-                options.UseSqlite($"Data Source={dbPath}")
-            );
-            services.AddScoped<ISettingsRepository, SettingsRepository>();
-            services.AddScoped<DatabaseInitializer>();
-            services.AddSingleton<SettingsPersistenceService>();
+        // Game state and options
+        services.AddSingleton<IGameState, GameState>();
+        services.AddSingleton<IOptionsFactory>(sp => 
+            new OptionsFactory(sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<ISettingsRepository>()));
+        services.AddSingleton<IControlsSettings>(sp => sp.GetRequiredService<IOptionsFactory>().CreateControlsSettings());
+        services.AddSingleton<IVideoSettings>(sp => sp.GetRequiredService<IOptionsFactory>().CreateVideoSettings());
+        services.AddSingleton<IAudioSettings>(sp => sp.GetRequiredService<IOptionsFactory>().CreateAudioSettings());
+        services.AddSingleton<IBestTimesManager>(sp => sp.GetRequiredService<IOptionsFactory>().CreateBestTimesManager());
 
-            // Window Settings
-            var gws = GameWindowSettings.Default;
-            gws.UpdateFrequency = 60.0;
-            services.AddSingleton(gws);
+        // Game objects
+        services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
+        services.AddTransient<IGameObject, GameObject>();
+        services.AddTransient<IGameObjectFactory, GameObjectFactory>();
 
-            var nws = new NativeWindowSettings()
-            {
-                ClientSize = new OpenTK.Mathematics.Vector2i(1280, 720),
-                Title = "WipeoutRewrite - C#",
-            };
-            services.AddSingleton(nws);
+        // UI and menus
+        services.AddSingleton<IMenuManager, MenuManager>();
+        services.AddSingleton<IFontSystem, FontSystem>();
+        services.AddSingleton<IMenuRenderer, MenuRenderer>();
 
-            // Core
-            services.AddSingleton<IRenderer, GLRenderer>();
-            services.AddSingleton<ICamera, Camera>();
-            services.AddSingleton<ICameraFactory, CameraFactory>();
-            services.AddSingleton<IVideoPlayer, IntroVideoPlayer>();
-            services.AddSingleton<IMusicPlayer, MusicPlayer>();
-            services.AddSingleton<IAssetLoader, AssetLoader>();
-            services.AddSingleton<IGameState, GameState>();
-            services.AddSingleton<IOptionsFactory>(sp => 
-            {
-                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                var repository = sp.GetRequiredService<ISettingsRepository>();
-                return new OptionsFactory(loggerFactory, repository);
-            });
-            services.AddSingleton<IControlsSettings>(sp =>
-            {
-                var factory = sp.GetRequiredService<IOptionsFactory>();
-                return factory.CreateControlsSettings();
-            });
-            services.AddSingleton<IVideoSettings>(sp =>
-            {
-                var factory = sp.GetRequiredService<IOptionsFactory>();
-                return factory.CreateVideoSettings();
-            });
-            services.AddSingleton<IAudioSettings>(sp =>
-            {
-                var factory = sp.GetRequiredService<IOptionsFactory>();
-                return factory.CreateAudioSettings();
-            });
-            services.AddSingleton<IBestTimesManager>(sp =>
-            {
-                var factory = sp.GetRequiredService<IOptionsFactory>();
-                return factory.CreateBestTimesManager();
-            });
+        // Presentation
+        services.AddSingleton<ITitleScreen, TitleScreen>();
+        services.AddSingleton<IAttractMode, AttractMode>();
+        services.AddSingleton<IContentPreview3D, ContentPreview3D>();
+        services.AddSingleton<ICreditsScreen, CreditsScreen>();
 
-            services.AddSingleton<IMenuManager, MenuManager>();
-            services.AddTransient<ITrack, Track>();
-            services.AddSingleton<ITrackFactory, TrackFactory>();
+        // Tracks
+        services.AddTransient<ITrack, Track>();
+        services.AddSingleton<ITrackFactory, TrackFactory>();
 
-            //UI
-            services.AddSingleton<IFontSystem, FontSystem>();
-            services.AddSingleton<IMenuRenderer, MenuRenderer>();
-
-            //Presentation
-            services.AddSingleton<IAttractMode, AttractMode>();
-            services.AddSingleton<IContentPreview3D, ContentPreview3D>();
-            services.AddSingleton<ITitleScreen, TitleScreen>();
-            services.AddSingleton<ICreditsScreen, CreditsScreen>();
-
-
-            // Ship Services
-            services.AddSingleton<IGameObjectCollection, GameObjectCollection>();
-            services.AddTransient<IGameObject, GameObject>();
-            services.AddTransient<IGameObjectFactory, GameObjectFactory>();
-
-            // Graphics
-            services.AddSingleton<ITextureManager, TextureManager>();
-
-            // Assets
-            services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
-            services.AddSingleton<ITimImageLoader, TimImageLoader>();
-            
-            // Model Loaders
-            services.AddSingleton<IModelLoader, ModelLoader>();
-             
-            // Game - The main application class
-            services.AddSingleton<IGame, Game>();
-        }
+        // Game
+        services.AddSingleton<IGameWindow, Game>();
     }
 }

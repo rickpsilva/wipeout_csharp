@@ -3,6 +3,7 @@ using FFMpegCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using WipeoutRewrite.Infrastructure.Audio;
+using WipeoutRewrite.Infrastructure.Assets;
 
 namespace WipeoutRewrite.Infrastructure.Video
 {
@@ -32,13 +33,8 @@ namespace WipeoutRewrite.Infrastructure.Video
         {
              _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-            // Get the base directory of the application
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            
-            // Navigate up to project root (adjust the number of ".." based on your build output structure)
-            // Typically: bin/Debug/net8.0/ -> 3 levels up
-            string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", ".."));
-            string videoPath = Path.Combine(projectRoot, "assets", "wipeout", "intro.mpeg");
+            // Use centralized asset path resolver
+            string videoPath = AssetPaths.GetIntroVideoPath();
             
             _logger.LogInformation("Looking for video at: {VideoPath}", videoPath);
                        

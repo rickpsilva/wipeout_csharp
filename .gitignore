@@ -127,3 +127,9 @@ recent_files.json
 
 #imgui
 imgui.ini
+
+#docs
+docs/
+
+#.github
+.github/

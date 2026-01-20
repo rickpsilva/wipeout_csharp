@@ -1,8 +1,36 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace WipeoutRewrite;
+
+/// <summary>
+/// Abstraction for keyboard and mouse input state.
+/// Allows testing Camera without depending on OpenTK's KeyboardState and MouseState.
+/// </summary>
+public interface IInputState
+{
+    /// <summary>
+    /// Check if a key is currently pressed.
+    /// </summary>
+    bool IsKeyDown(Keys key);
+
+    /// <summary>
+    /// Check if a mouse button is currently pressed.
+    /// </summary>
+    bool IsMouseButtonDown(MouseButton button);
+
+    /// <summary>
+    /// Get the current mouse position in screen coordinates.
+    /// </summary>
+    Vector2 MousePosition { get; }
+
+    /// <summary>
+    /// Get the mouse scroll wheel delta (positive = scroll up, negative = scroll down).
+    /// </summary>
+    Vector2 ScrollDelta { get; }
+}
 
 public class Camera : ICamera
 {
@@ -51,7 +79,7 @@ public class Camera : ICamera
         }
     }
 
-    // Mais perto para ver melhor
+    // Closer for better view
     public Vector3 Position
     {
         get => position;
@@ -108,26 +136,26 @@ public class Camera : ICamera
     private float distance;
     private bool _isFlythroughMode = false;  // Flag to disable UpdatePosition() calls
 
-    // NEAR_PLANE do C
+    // NEAR_PLANE from C implementation
     private float farClip = 2048576f;
 
-    // Configuração de câmera (baseado em wipeout-rewrite/src/render_gl.c)
-    // Vertical FOV de 73.75° (horizontal 90° em 4:3)
+    // Camera configuration (based on wipeout-rewrite/src/render_gl.c)
+    // Vertical FOV of 73.75° (horizontal 90° at 4:3 aspect ratio)
     private float fov = 73.75f;
 
-    // FOV vertical do Wipeout original
+    // Original Wipeout vertical FOV
     private float initialFov;
 
     private Vector3 initialPosition;
 
-    // Olhando para o centro
+    // Looking at center
     private Vector3 initialTarget;
 
     private float isometricScale = 1.0f;
 
-    // Escala do volume de visualização
+    // Viewing volume scale
 
-    // Estado do mouse
+    // Mouse state
     private bool isRotating = false;
 
     private Vector2 lastMousePos;
@@ -136,25 +164,25 @@ public class Camera : ICamera
     private float minDistance = 1f;  // Allow very close camera with 0.001f scale
     private float minFov = 5f;
 
-    // FAR_PLANE do C (RENDER_FADEOUT_FAR)
+    // FAR_PLANE from C (RENDER_FADEOUT_FAR)
 
-    // Controles
+    // Controls
     private float moveSpeed = 200f;
 
     private float nearClip = 0.01f;
     private float pitch = 0f;
     private float roll = 0f;
 
-    // Posição e orientação
+    // Position and orientation
     private Vector3 position = new(0, 15, 30);
 
-    // Aumentei de 50 para ser mais visível
+    // Increased from 50 for better visibility
     private float rotationSpeed = 2f;
 
     private Vector3 target = new(0, 0, 0);
     private Vector3 up = Vector3.UnitY;
 
-    // Modo isométrico
+    // Isometric mode
     private bool useIsometricProjection = false;
 
     private float yaw = 0f;
@@ -178,8 +206,8 @@ public class Camera : ICamera
     {
         if (useIsometricProjection)
         {
-            // Projeção ortográfica isométrica
-            float width = 1280 * isometricScale;  // Assumindo 1280x720
+            // Isometric orthographic projection
+            float width = 1280 * isometricScale;  // Assuming 1280x720
             float height = 720 * isometricScale;
             float left = -width / 2;
             float right = width / 2;
@@ -194,7 +222,7 @@ public class Camera : ICamera
         }
         else
         {
-            // Perspectiva padrão (3D)
+            // Standard perspective (3D)
             return Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(fov),
                 aspectRatio,
@@ -301,65 +329,73 @@ public class Camera : ICamera
         _logger.LogInformation("[CAMERA] Isometric mode: {Mode}, scale: {Scale}", useIsometric, scale);
     }
 
-    public void Update(KeyboardState keyboardState, MouseState mouseState)
+    public void Update(IInputState input)
     {
         // Controles de movimento
-        HandleKeyboardInput(keyboardState);
+        HandleKeyboardInput(input);
 
         // Controles de mouse (rotação e zoom)
-        HandleMouseInput(mouseState);
+        HandleMouseInput(input);
+    }
+
+    /// <summary>
+    /// Overload for backward compatibility with OpenTK KeyboardState and MouseState.
+    /// </summary>
+    public void Update(KeyboardState keyboardState, MouseState mouseState)
+    {
+        Update(new InputStateAdapter(keyboardState, mouseState));
     }
 
     public void Zoom(float delta)
     {
         if (useIsometricProjection)
         {
-            // Em modo isométrico: zoom controla a escala (field of view ortográfico)
+            // In isometric mode: zoom controls the scale (orthographic field of view)
             isometricScale = MathHelper.Clamp(isometricScale + delta * 0.1f, 0.5f, 3.0f);
             _logger.LogInformation("[CAMERA] Isometric zoom: scale={Scale}", isometricScale);
         }
         else
         {
-            // Em modo perspectiva: zoom controla a distância
+            // In perspective mode: zoom controls the distance
             distance = MathHelper.Clamp(distance - delta, minDistance, maxDistance);
             UpdatePosition();
         }
     }
 
-    private void HandleKeyboardInput(KeyboardState keyboard)
+    private void HandleKeyboardInput(IInputState input)
     {
         Vector3 moveDirection = Vector3.Zero;
 
-        // W/A/S/D - Movimento da câmera ao redor do alvo
-        if (keyboard.IsKeyDown(Keys.W))
+        // W/A/S/D - Camera movement around the target
+        if (input.IsKeyDown(Keys.W))
         {
             _logger.LogInformation("[CAMERA +Y] W key DOWN");
-            moveDirection += Vector3.UnitY;  // Frente
+            moveDirection += Vector3.UnitY;  // Forward
         }
-        if (keyboard.IsKeyDown(Keys.S))
+        if (input.IsKeyDown(Keys.S))
         {
             _logger.LogInformation("[CAMERA Y] S key DOWN");
-            moveDirection -= Vector3.UnitY;  // Trás
+            moveDirection -= Vector3.UnitY;  // Backward
         }
-        if (keyboard.IsKeyDown(Keys.A))
+        if (input.IsKeyDown(Keys.A))
         {
             _logger.LogInformation("[CAMERA -X] A key DOWN");
-            moveDirection -= Vector3.UnitX;  // Esquerda
+            moveDirection -= Vector3.UnitX;  // Left
         }
-        if (keyboard.IsKeyDown(Keys.D))
+        if (input.IsKeyDown(Keys.D))
         {
             _logger.LogInformation("[CAMERA] D key DOWN");
-            moveDirection += Vector3.UnitX;  // Direita
+            moveDirection += Vector3.UnitX;  // Right
         }
-        if (keyboard.IsKeyDown(Keys.Q))
+        if (input.IsKeyDown(Keys.Q))
         {
             _logger.LogInformation("[CAMERA -Z] Q key DOWN");
-            moveDirection -= Vector3.UnitZ;  // Baixo
+            moveDirection -= Vector3.UnitZ;  // Down
         }
-        if (keyboard.IsKeyDown(Keys.E))
+        if (input.IsKeyDown(Keys.E))
         {
             _logger.LogInformation("[CAMERA +Z] E key DOWN");
-            moveDirection += Vector3.UnitZ;  // Cima
+            moveDirection += Vector3.UnitZ;  // Up
         }
 
         if (moveDirection != Vector3.Zero)
@@ -372,29 +408,29 @@ public class Camera : ICamera
             Move(finalMovement);
         }
 
-        // R - Reset à vista inicial
-        if (keyboard.IsKeyDown(Keys.R))
+        // R - Reset to initial view
+        if (input.IsKeyDown(Keys.R))
         {
             _logger.LogInformation("[CAMERA] R key DOWN - resetting view");
             ResetView();
         }
     }
 
-    private void HandleMouseInput(MouseState mouse)
+    private void HandleMouseInput(IInputState input)
     {
         // DEBUG: Log mouse state first time
         _logger.LogInformation("[CAMERA] MouseState: X={X}, Y={Y}, ScrollDelta={Scroll}",
-            mouse.X, mouse.Y, mouse.ScrollDelta.Y);
+            input.MousePosition.X, input.MousePosition.Y, input.ScrollDelta.Y);
 
-        // Botão direito do mouse para rodar a câmera
-        if (mouse.IsButtonDown(MouseButton.Right))
+        // Right mouse button to rotate camera
+        if (input.IsMouseButtonDown(MouseButton.Right))
         {
-            _logger.LogInformation("[CAMERA] Right mouse button DOWN at ({X}, {Y})", mouse.X, mouse.Y);
+            _logger.LogInformation("[CAMERA] Right mouse button DOWN at ({X}, {Y})", input.MousePosition.X, input.MousePosition.Y);
 
             if (isRotating)
             {
-                float deltaX = mouse.X - lastMousePos.X;
-                float deltaY = mouse.Y - lastMousePos.Y;
+                float deltaX = input.MousePosition.X - lastMousePos.X;
+                float deltaY = input.MousePosition.Y - lastMousePos.Y;
 
                 if (deltaX != 0 || deltaY != 0)
                 {
@@ -408,7 +444,7 @@ public class Camera : ICamera
                 isRotating = true;
             }
 
-            lastMousePos = new Vector2(mouse.X, mouse.Y);
+            lastMousePos = new Vector2(input.MousePosition.X, input.MousePosition.Y);
         }
         else
         {
@@ -419,8 +455,8 @@ public class Camera : ICamera
             isRotating = false;
         }
 
-        // Scroll do mouse para zoom
-        float scrollDelta = mouse.ScrollDelta.Y;
+        // Mouse scroll for zoom
+        float scrollDelta = input.ScrollDelta.Y;
         if (scrollDelta != 0)
         {
             _logger.LogInformation("[CAMERA] Scroll delta: {ScrollDelta}", scrollDelta);
@@ -448,4 +484,29 @@ public class Camera : ICamera
     }
 
     #endregion 
+}
+
+/// <summary>
+/// Adapter that converts OpenTK KeyboardState and MouseState to IInputState.
+/// Allows backward compatibility while using the abstraction internally.
+/// </summary>
+[ExcludeFromCodeCoverage]
+internal class InputStateAdapter : IInputState
+{
+    private readonly KeyboardState _keyboardState;
+    private readonly MouseState _mouseState;
+
+    public InputStateAdapter(KeyboardState keyboardState, MouseState mouseState)
+    {
+        _keyboardState = keyboardState;
+        _mouseState = mouseState;
+    }
+
+    public bool IsKeyDown(Keys key) => _keyboardState.IsKeyDown(key);
+
+    public bool IsMouseButtonDown(MouseButton button) => _mouseState.IsButtonDown(button);
+
+    public Vector2 MousePosition => new(_mouseState.X, _mouseState.Y);
+
+    public Vector2 ScrollDelta => _mouseState.ScrollDelta;
 }

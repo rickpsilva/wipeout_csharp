@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Microsoft.Extensions.Logging;
 using OpenTK.Windowing.Common;
@@ -19,14 +20,16 @@ using WipeoutRewrite.Presentation.Menus;
 
 namespace WipeoutRewrite
 {
-    public class Game : GameWindow, IGame
+    /// <summary>
+    /// Main game window class that orchestrates all game systems.
+    /// </summary>
+    public class Game : GameWindow, IGameWindow
     {
         private readonly ILogger<Game> _logger;
         private readonly IVideoPlayer _introVideoPlayer;
         private readonly IRenderer _renderer;
         private readonly IMenuRenderer _menuRenderer;
         private readonly IFontSystem _fontSystem;
-        private float _spriteX, _spriteY = 0;
         private readonly IAssetLoader _assetLoader;
         private readonly IMenuManager _menuManager;
         private readonly IGameState _gameState;
@@ -90,6 +93,7 @@ namespace WipeoutRewrite
             _bestTimesManager = bestTimesManager ?? throw new ArgumentNullException(nameof(bestTimesManager));
         }
 
+        [ExcludeFromCodeCoverage]
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -98,7 +102,7 @@ namespace WipeoutRewrite
             _renderer.Init(Size.X, Size.Y);
 
             // AssetLoader initialization with local assets path
-            string assetsPath = Path.Combine(Directory.GetCurrentDirectory(), "assets");
+            string assetsPath = AssetPaths.GetAssetsRootPath();
             _assetLoader.Initialize(assetsPath);
 
             // Load fonts
@@ -116,7 +120,7 @@ namespace WipeoutRewrite
             // Load example texture (assets/sprite.png)
             string workDir = Directory.GetCurrentDirectory();
             _logger.LogDebug("Working directory: {WorkDir}", workDir);
-            string spritePath = Path.Combine(workDir, "assets", "sprite.png");
+            string spritePath = Path.Combine(AssetPaths.GetAssetsRootPath(), "sprite.png");
             _logger.LogDebug("Looking for sprite at: {SpritePath}", spritePath);
             if (File.Exists(spritePath))
             {
@@ -155,7 +159,7 @@ namespace WipeoutRewrite
             LoadMenuBackground();
 
             // Initialize music
-            string musicPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "music");
+            string musicPath = AssetPaths.GetMusicPath(AssetPaths.GetWipeoutAssetsPath());
             _musicPlayer.LoadTracks(musicPath);
 
             // Load and start intro video AFTER everything is ready (OpenGL is now initialized)
@@ -173,6 +177,7 @@ namespace WipeoutRewrite
             }
         }
 
+        [ExcludeFromCodeCoverage]
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             base.OnUpdateFrame(args);
@@ -219,216 +224,18 @@ namespace WipeoutRewrite
             }
 
             // Saltar intro com Enter
-            if (_gameState?.CurrentMode == GameMode.Intro && _introVideoPlayer != null)
-            {
-                if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
-                {
-                    _introVideoPlayer.Skip();
-                    _gameState.CurrentMode = GameMode.SplashScreen;
-                    _musicPlayer?.SetMode(MusicMode.Random); // Start music when skipping intro
-                    _logger.LogInformation("Saltando para splash screen...");
-                }
-            }
+            UpdateIntroMode(KeyboardState);
 
             // Splash screen logic
-            else if (_gameState?.CurrentMode == GameMode.SplashScreen)
-            {
-                _titleScreen.Update((float)args.Time, out bool shouldStartAttract, out bool shouldStartMenu);
-                
-                if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
-                {
-                    _gameState.CurrentMode = GameMode.Menu;
-                    
-                    // Initialize preview for menu - position objects at origin
-                    // Camera looks at (0,0,0) from (0,0,50), so place objects at origin
-                    _contentPreview3D.SetShipPosition(0, 0, 0);
-                    _contentPreview3D.SetRotationSpeed(0.015f);
-                    
-                    // Pass dependencies to MainMenuPages
-                    MainMenuPages.GameStateRef = _gameState as GameState;
-                    MainMenuPages.ContentPreview3DRef = _contentPreview3D;
-                    MainMenuPages.OptionsFactoryRef = _optionsFactory;
-                    MainMenuPages.SettingsPersistenceServiceRef = _settingsPersistenceService;
-                    MainMenuPages.QuitGameAction = () => Close();  // Allow menus to quit the game
-                    
-                    _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
-                    
-                    _logger.LogInformation("Entering main menu: {Title}, {Count} items", 
-                        _menuManager?.CurrentPage?.Title ?? "<no page>", _menuManager?.CurrentPage?.Items?.Count ?? 0);
-                    // Force input update so next frame doesn't immediately trigger Select
-                    InputManager.Update(KeyboardState);
-                }
-                else if (shouldStartAttract)
-                {
-                    _gameState.CurrentMode = GameMode.AttractMode;
-                    _creditsScreen.Reset();
-                    _logger.LogInformation("Starting attract mode (credits)...");
-                    // TODO: When racing engine is implemented, start race with AI + credits
-                }
-            }
+            UpdateSplashScreenMode(KeyboardState, (float)args.Time);
 
-            // Attract mode (credits) - qualquer tecla volta ao splash
-            if (_gameState?.CurrentMode == GameMode.AttractMode)
-            {
-                _creditsScreen.Update((float)args.Time);
-                
-                // Qualquer tecla volta ao splash screen
-                if (KeyboardState.IsAnyKeyDown)
-                {
-                    _gameState.CurrentMode = GameMode.SplashScreen;
-                    _titleScreen.Reset();
-                    _logger.LogInformation("Returning to splash screen...");
-                }
-            }
+            // Attract mode (credits)
+            UpdateAttractMode(KeyboardState, (float)args.Time);
 
             // Menu navigation
-            if (_gameState.CurrentMode == GameMode.Menu)
-            {
-                _menuManager.Update((float)args.Time);
-                
-                var page = _menuManager.CurrentPage;
-                
-                // Special handling for "AWAITING INPUT" (control remapping)
-                bool isAwaitingInput = page?.Title == "AWAITING INPUT";
-                
-                if (isAwaitingInput)
-                {
-                    // Update countdown timer (always runs)
-                    bool stillWaiting = MainMenuPages.UpdateAwaitingInput((float)args.Time);
-                    
-                    if (!stillWaiting)
-                    {
-                        // Timeout (3 seconds) - go back to controls menu
-                        _menuManager.PopPage();
-                        _logger.LogInformation("Control remap timeout - returning to controls menu");
-                    }
-                    else
-                    {
-                        // Check if we're waiting for key release
-                        bool waitingForRelease = MainMenuPages.UpdateKeyReleaseState(KeyboardState.IsAnyKeyDown);
-                        
-                        if (!waitingForRelease)
-                        {
-                            // All keys released, now we can capture new input
-                            
-                            // ESC cancels the remap
-                            if (KeyboardState.IsKeyDown(Keys.Escape))
-                            {
-                                _menuManager.PopPage();
-                                _logger.LogInformation("Control remap cancelled");
-                            }
-                            else if (KeyboardState.IsAnyKeyDown)
-                            {
-                                // A key was pressed! Capture it
-                                foreach (Keys key in Enum.GetValues(typeof(Keys)))
-                                {
-                                    if (key == Keys.Unknown || key == Keys.Escape)
-                                        continue;
-                                        
-                                    if (KeyboardState.IsKeyDown(key))
-                                    {
-                                        uint buttonCode = InputManager.MapKeyToButtonCode(key);
-                                        if (buttonCode != 0)
-                                        {
-                                            MainMenuPages.CaptureButtonForControl(buttonCode, true);
-                                            _menuManager.PopPage();
-                                            _logger.LogInformation("Control remapped to key: {Key} (code: {Code})", key, buttonCode);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            // TODO: Add joystick/gamepad capture here when gamepad support is added
-                        }
-                    }
-                    
-                    // Don't process normal menu input while awaiting
-                    InputManager.Update(KeyboardState);
-                    return;
-                }
-                
-                // Special handling for Best Times Viewer (uses UP/DOWN for class, LEFT/RIGHT for circuit)
-                bool isBestTimesViewer = page?.Title?.Contains("BEST TIME TRIAL TIMES") == true || 
-                                        page?.Title?.Contains("BEST RACE TIMES") == true;
-                
-                if (isBestTimesViewer)
-                {
-                    // UP/DOWN changes class (Venom/Rapier)
-                    if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
-                    {
-                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousClass);
-                    }
-                    if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
-                    {
-                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextClass);
-                    }
-                    // LEFT/RIGHT changes circuit
-                    if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
-                    {
-                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousCircuit);
-                    }
-                    if (InputManager.IsActionPressed(GameAction.MenuRight, KeyboardState))
-                    {
-                        MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextCircuit);
-                    }
-                }
-                else
-                {
-                    // Normal menu navigation
-                    if (InputManager.IsActionPressed(GameAction.MenuUp, KeyboardState))
-                    {
-                        _menuManager.HandleInput(MenuAction.Up);
-                        _logger.LogDebug("Menu: UP pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
-                    }
-                    if (InputManager.IsActionPressed(GameAction.MenuDown, KeyboardState))
-                    {
-                        _menuManager.HandleInput(MenuAction.Down);
-                        _logger.LogDebug("Menu: DOWN pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
-                    }
-                    if (InputManager.IsActionPressed(GameAction.MenuLeft, KeyboardState))
-                    {
-                        _menuManager.HandleInput(MenuAction.Left);
-                    }
-                    if (InputManager.IsActionPressed(GameAction.MenuRight, KeyboardState))
-                    {
-                        _menuManager.HandleInput(MenuAction.Right);
-                    }
-                }
-                if (InputManager.IsActionPressed(GameAction.MenuSelect, KeyboardState))
-                {
-                    // Reuse page variable from above
-                    var item = page?.SelectedItem;
-                    _logger.LogInformation("Menu: ENTER pressed on '{Title}', item {Index}: {Label}", 
-                        page?.Title, page?.SelectedIndex, item?.Label);
-                    if (item != null && item.IsEnabled)
-                    {
-                        _menuManager.HandleInput(MenuAction.Select);
-                    }
-                }
-                if (InputManager.IsActionPressed(GameAction.MenuBack, KeyboardState))
-                {
-                    if (_menuManager.CurrentPage != null && _menuManager.HandleInput(MenuAction.Back))
-                    {
-                        _logger.LogInformation("Menu: BACKSPACE - returned to previous page");
-                    }
-                    else
-                    {
-                        // No more pages, go back to title
-                        _gameState.CurrentMode = GameMode.SplashScreen;
-                        _titleScreen.Reset();
-                        _logger.LogInformation("Menu: BACKSPACE - returning to title screen...");
-                    }
-                }
-                if (InputManager.IsActionPressed(GameAction.Exit, KeyboardState))
-                {
-                    // ESC in menu goes back to splash screen
-                    _gameState.CurrentMode = GameMode.SplashScreen;
-                    _titleScreen.Reset();
-                    _logger.LogInformation("Menu: ESC - returning to title screen...");
-                }
-            }
+            UpdateMenuMode(KeyboardState, (float)args.Time);
 
-            // Attract mode update
+            // Attract mode visual update
             if (_gameState?.CurrentMode == GameMode.AttractMode && _attractMode != null)
             {
                 _attractMode.Update((float)args.Time);
@@ -460,22 +267,6 @@ namespace WipeoutRewrite
                     
             }
 
-            // Sprite movement based on input (for visual testing)
-            float speed = 5f;
-            if (InputManager.IsActionDown(GameAction.Accelerate, KeyboardState))
-                _spriteY -= speed;
-            if (InputManager.IsActionDown(GameAction.Brake, KeyboardState))
-                _spriteY += speed;
-            if (InputManager.IsActionDown(GameAction.TurnLeft, KeyboardState))
-                _spriteX -= speed;
-            if (InputManager.IsActionDown(GameAction.TurnRight, KeyboardState))
-                _spriteX += speed;
-
-            // Clamp sprite within window bounds
-            float spriteSize = 128;
-            _spriteX = Math.Max(0, Math.Min(_spriteX, Size.X - spriteSize));
-            _spriteY = Math.Max(0, Math.Min(_spriteY, Size.Y - spriteSize));
-
             // TODO: Update game logic here (physics, AI)
             
             // Update input state at the END of frame for next frame's comparison
@@ -483,6 +274,7 @@ namespace WipeoutRewrite
 #pragma warning restore CS8602
         }
 
+        [ExcludeFromCodeCoverage]
         protected override void OnRenderFrame(FrameEventArgs args)
         {
             base.OnRenderFrame(args);
@@ -590,6 +382,7 @@ namespace WipeoutRewrite
             SwapBuffers();
         }
 
+        [ExcludeFromCodeCoverage]
         protected override void OnResize(ResizeEventArgs e)
         {
             base.OnResize(e);
@@ -611,11 +404,12 @@ namespace WipeoutRewrite
             }
         }
 
+        [ExcludeFromCodeCoverage]
         private void LoadMenuBackground()
         {
             try
             {
-                string timPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "wipeout", "textures", "wipeout1.tim");
+                string timPath = AssetPaths.GetTexturePath(AssetPaths.GetWipeoutAssetsPath(), "wipeout1.tim");
                 if (File.Exists(timPath))
                 {
                     // Preserve TIM transparency when loading the menu background
@@ -654,6 +448,235 @@ namespace WipeoutRewrite
         public override void Run()
         {
             base.Run();
-        }   
+        }
+
+        /// <summary>
+        /// Handles intro video mode updates and transitions.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void UpdateIntroMode(KeyboardState keyboardState)
+        {
+            if (_gameState?.CurrentMode == GameMode.Intro && _introVideoPlayer != null)
+            {
+                if (InputManager.IsActionPressed(GameAction.MenuSelect, keyboardState))
+                {
+                    _introVideoPlayer.Skip();
+                    _gameState.CurrentMode = GameMode.SplashScreen;
+                    _musicPlayer?.SetMode(MusicMode.Random); // Start music when skipping intro
+                    _logger.LogInformation("Saltando para splash screen...");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles splash screen mode updates and transitions.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void UpdateSplashScreenMode(KeyboardState keyboardState, float deltaTime)
+        {
+            if (_gameState?.CurrentMode != GameMode.SplashScreen)
+                return;
+
+            _titleScreen.Update(deltaTime, out bool shouldStartAttract, out bool shouldStartMenu);
+            
+            if (InputManager.IsActionPressed(GameAction.MenuSelect, keyboardState))
+            {
+                _gameState.CurrentMode = GameMode.Menu;
+                
+                // Initialize preview for menu - position objects at origin
+                _contentPreview3D.SetShipPosition(0, 0, 0);
+                _contentPreview3D.SetRotationSpeed(0.015f);
+                
+                // Pass dependencies to MainMenuPages
+                MainMenuPages.GameStateRef = _gameState as GameState;
+                MainMenuPages.ContentPreview3DRef = _contentPreview3D;
+                MainMenuPages.OptionsFactoryRef = _optionsFactory;
+                MainMenuPages.SettingsPersistenceServiceRef = _settingsPersistenceService;
+                MainMenuPages.QuitGameAction = () => Close();
+                
+                _menuManager?.PushPage(MainMenuPages.CreateMainMenu());
+                
+                _logger.LogInformation("Entering main menu: {Title}, {Count} items", 
+                    _menuManager?.CurrentPage?.Title ?? "<no page>", _menuManager?.CurrentPage?.Items?.Count ?? 0);
+                InputManager.Update(keyboardState);
+            }
+            else if (shouldStartAttract)
+            {
+                _gameState.CurrentMode = GameMode.AttractMode;
+                _creditsScreen.Reset();
+                _logger.LogInformation("Starting attract mode (credits)...");
+            }
+        }
+
+        /// <summary>
+        /// Handles attract mode updates and transitions.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void UpdateAttractMode(KeyboardState keyboardState, float deltaTime)
+        {
+            if (_gameState?.CurrentMode != GameMode.AttractMode)
+                return;
+
+            _creditsScreen.Update(deltaTime);
+            
+            // Any key returns to splash screen
+            if (keyboardState.IsAnyKeyDown)
+            {
+                _gameState.CurrentMode = GameMode.SplashScreen;
+                _titleScreen.Reset();
+                _logger.LogInformation("Returning to splash screen...");
+            }
+        }
+
+        /// <summary>
+        /// Handles menu mode input and state transitions.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void UpdateMenuMode(KeyboardState keyboardState, float deltaTime)
+        {
+            if (_gameState.CurrentMode != GameMode.Menu)
+                return;
+
+            _menuManager.Update(deltaTime);
+            
+            var page = _menuManager.CurrentPage;
+            
+            // Special handling for "AWAITING INPUT" (control remapping)
+            bool isAwaitingInput = page?.Title == "AWAITING INPUT";
+            
+            if (isAwaitingInput)
+            {
+                HandleAwaitingInputMode(keyboardState, deltaTime);
+                return;
+            }
+            
+            // Special handling for Best Times Viewer
+            bool isBestTimesViewer = page?.Title?.Contains("BEST TIME TRIAL TIMES") == true || 
+                                    page?.Title?.Contains("BEST RACE TIMES") == true;
+            
+            if (isBestTimesViewer)
+            {
+                HandleBestTimesViewerNavigation(keyboardState);
+            }
+            else
+            {
+                HandleNormalMenuNavigation(keyboardState);
+            }
+        }
+
+        /// <summary>
+        /// Handles awaiting input mode (control remapping).
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void HandleAwaitingInputMode(KeyboardState keyboardState, float deltaTime)
+        {
+            bool stillWaiting = MainMenuPages.UpdateAwaitingInput(deltaTime);
+            
+            if (!stillWaiting)
+            {
+                _menuManager.PopPage();
+                _logger.LogInformation("Control remap timeout - returning to controls menu");
+                return;
+            }
+            
+            bool waitingForRelease = MainMenuPages.UpdateKeyReleaseState(keyboardState.IsAnyKeyDown);
+            
+            if (!waitingForRelease)
+            {
+                if (keyboardState.IsKeyDown(Keys.Escape))
+                {
+                    _menuManager.PopPage();
+                    _logger.LogInformation("Control remap cancelled");
+                }
+                else if (keyboardState.IsAnyKeyDown)
+                {
+                    foreach (Keys key in Enum.GetValues(typeof(Keys)))
+                    {
+                        if (key == Keys.Unknown || key == Keys.Escape)
+                            continue;
+                            
+                        if (keyboardState.IsKeyDown(key))
+                        {
+                            uint buttonCode = InputManager.MapKeyToButtonCode(key);
+                            if (buttonCode != 0)
+                            {
+                                MainMenuPages.CaptureButtonForControl(buttonCode, true);
+                                _menuManager.PopPage();
+                                _logger.LogInformation("Control remapped to key: {Key} (code: {Code})", key, buttonCode);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            InputManager.Update(keyboardState);
+        }
+
+        /// <summary>
+        /// Handles Best Times Viewer navigation.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void HandleBestTimesViewerNavigation(KeyboardState keyboardState)
+        {
+            if (InputManager.IsActionPressed(GameAction.MenuUp, keyboardState))
+                MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousClass);
+            if (InputManager.IsActionPressed(GameAction.MenuDown, keyboardState))
+                MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextClass);
+            if (InputManager.IsActionPressed(GameAction.MenuLeft, keyboardState))
+                MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.PreviousCircuit);
+            if (InputManager.IsActionPressed(GameAction.MenuRight, keyboardState))
+                MainMenuPages.HandleBestTimesViewerInput(BestTimesViewerAction.NextCircuit);
+        }
+
+        /// <summary>
+        /// Handles normal menu navigation.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void HandleNormalMenuNavigation(KeyboardState keyboardState)
+        {
+            if (InputManager.IsActionPressed(GameAction.MenuUp, keyboardState))
+            {
+                _menuManager.HandleInput(MenuAction.Up);
+                _logger.LogDebug("Menu: UP pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+            }
+            if (InputManager.IsActionPressed(GameAction.MenuDown, keyboardState))
+            {
+                _menuManager.HandleInput(MenuAction.Down);
+                _logger.LogDebug("Menu: DOWN pressed, selected={Selected}", _menuManager.CurrentPage?.SelectedIndex);
+            }
+            if (InputManager.IsActionPressed(GameAction.MenuLeft, keyboardState))
+                _menuManager.HandleInput(MenuAction.Left);
+            if (InputManager.IsActionPressed(GameAction.MenuRight, keyboardState))
+                _menuManager.HandleInput(MenuAction.Right);
+            
+            if (InputManager.IsActionPressed(GameAction.MenuSelect, keyboardState))
+            {
+                var item = _menuManager.CurrentPage?.SelectedItem;
+                _logger.LogInformation("Menu: ENTER pressed on '{Title}', item {Index}: {Label}", 
+                    _menuManager.CurrentPage?.Title, _menuManager.CurrentPage?.SelectedIndex, item?.Label);
+                if (item != null && item.IsEnabled)
+                    _menuManager.HandleInput(MenuAction.Select);
+            }
+            if (InputManager.IsActionPressed(GameAction.MenuBack, keyboardState))
+            {
+                if (_menuManager.CurrentPage != null && _menuManager.HandleInput(MenuAction.Back))
+                {
+                    _logger.LogInformation("Menu: BACKSPACE - returned to previous page");
+                }
+                else
+                {
+                    _gameState.CurrentMode = GameMode.SplashScreen;
+                    _titleScreen.Reset();
+                    _logger.LogInformation("Menu: BACKSPACE - returning to title screen...");
+                }
+            }
+            if (InputManager.IsActionPressed(GameAction.Exit, keyboardState))
+            {
+                _gameState.CurrentMode = GameMode.SplashScreen;
+                _titleScreen.Reset();
+                _logger.LogInformation("Menu: ESC - returning to title screen...");
+            }
+        }
     }
 }

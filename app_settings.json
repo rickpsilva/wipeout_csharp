@@ -5,7 +5,7 @@
   "ShowAxes": false,
   "ShowDirectionalLights": true,
   "ShowGizmo": true,
-  "ShowGrid": true,
+  "ShowGrid": false,
   "ShowProperties": true,
   "ShowTextures": true,
   "ShowTrackDataInspector": true,

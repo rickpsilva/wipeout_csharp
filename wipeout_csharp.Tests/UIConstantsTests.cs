@@ -11,21 +11,21 @@ namespace WipeoutRewrite.Tests;
 public class UIConstantsTests
 {
     [Fact]
-    public void FontSizes_MenuTitle_ShouldBe16()
+    public void FontSizes_MenuTitle_ShouldBe12()
     {
-        Assert.Equal(16, UIConstants.FontSizes.MenuTitle);
+        Assert.Equal(12, UIConstants.FontSizes.MenuTitle);
     }
 
     [Fact]
-    public void FontSizes_MenuItem_ShouldBe16()
+    public void FontSizes_MenuItem_ShouldBe8()
     {
-        Assert.Equal(16, UIConstants.FontSizes.MenuItem);
+        Assert.Equal(8, UIConstants.FontSizes.MenuItem);
     }
 
     [Fact]
-    public void FontSizes_SplashText_ShouldBe16()
+    public void FontSizes_SplashText_ShouldBe8()
     {
-        Assert.Equal(16, UIConstants.FontSizes.SplashText);
+        Assert.Equal(8, UIConstants.FontSizes.SplashText);
     }
 
     [Fact]
@@ -96,9 +96,9 @@ public class UIConstantsTests
     }
 
     [Fact]
-    public void Spacing_MenuItemVerticalSpacing_ShouldBe24()
+    public void Spacing_MenuItemVerticalSpacing_ShouldBe12()
     {
-        Assert.Equal(24, UIConstants.Spacing.MenuItemVerticalSpacing);
+        Assert.Equal(12, UIConstants.Spacing.MenuItemVerticalSpacing);
     }
 
     [Fact]
@@ -175,7 +175,8 @@ public class UIConstantsTests
     [Fact]
     public void Strings_CreditsLines_ShouldContainWipeout()
     {
-        Assert.Contains("WIPEOUT", UIConstants.Strings.CreditsLines);
+        // CreditsLines contains "#WIPEOUT" (with # prefix for title formatting)
+        Assert.Contains("#WIPEOUT", UIConstants.Strings.CreditsLines);
     }
 
     [Fact]

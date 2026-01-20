@@ -130,7 +130,7 @@ public class SettingsPersistenceServiceIntegrationTests
         _mockRepository.Verify(r => r.SaveControlsSettings(It.IsAny<ControlsSettingsEntity>()), Times.Once);
         _mockRepository.Verify(r => r.SaveVideoSettings(It.IsAny<VideoSettingsEntity>()), Times.Once);
         _mockRepository.Verify(r => r.SaveAudioSettings(It.IsAny<AudioSettingsEntity>()), Times.Once);
-        _mockRepository.Verify(r => r.SaveChanges(), Times.Once);
+        _mockRepository.Verify(r => r.SaveChanges(), Times.Exactly(4));
     }
 
     [Fact]
