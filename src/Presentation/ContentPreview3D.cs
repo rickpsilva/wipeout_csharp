@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OpenTK.Graphics.OpenGL;
 using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Infrastructure.Assets;
 using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Presentation;
@@ -30,6 +31,32 @@ public class ContentPreview3D : IContentPreview3D
 
     // Positioning configurations (adjustable)
     private Vec3 _shipPosition = new Vec3(0, 0, -15);
+    
+    // Track images loader
+    private readonly ITrackImageLoader _trackImageLoader;
+    
+    // Cache for track images (lazy loaded)
+    private Dictionary<int, (byte[] pixels, int width, int height)>? _trackImages;
+
+    // Cache for track image textures (persistent across frames)
+    private Dictionary<int, uint> _trackImageTextures = new();
+
+    private (float x, float y, float renderWidth, float renderHeight, float scale) ComputeTrackImageLayout(int imageWidth, int imageHeight)
+    {
+        // Allocate ~35% of viewport height for the image and clamp scale to reasonable bounds
+        float maxImageHeight = _renderer.ScreenHeight * 0.35f;
+        float scale = maxImageHeight / imageHeight;
+        scale = Math.Clamp(scale, 2.0f, 6.0f);
+
+        float renderWidth = imageWidth * scale;
+        float renderHeight = imageHeight * scale;
+
+        // Anchor slightly above center to leave vertical space for the menu
+        float x = (_renderer.ScreenWidth - renderWidth) / 2f;
+        float y = (_renderer.ScreenHeight * 0.38f) - (renderHeight / 2f);
+
+        return (x, y, renderWidth, renderHeight, scale);
+    }
 
     // Mapping of marker types to categories
     private static readonly Dictionary<System.Type, GameObjectCategory> CategoryMap = new()
@@ -52,13 +79,15 @@ public class ContentPreview3D : IContentPreview3D
         ILogger<ContentPreview3D> logger,
         IGameObjectCollection gameObjects,
         IRenderer renderer,
-        ICamera camera
+        ICamera camera,
+        ITrackImageLoader trackImageLoader
     )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _gameObjects = gameObjects ?? throw new ArgumentNullException(nameof(gameObjects));
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _camera = camera ?? throw new ArgumentNullException(nameof(camera));
+        _trackImageLoader = trackImageLoader ?? throw new ArgumentNullException(nameof(trackImageLoader));
     }
 
     #region methods
@@ -260,6 +289,65 @@ public class ContentPreview3D : IContentPreview3D
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error rendering 3D preview");
+        }
+    }
+
+    /// <summary>
+    /// Renders a 2D circuit preview image
+    /// </summary>
+    public void RenderTrackImage(int trackIndex)
+    {
+        try
+        {
+            // Lazy load track images on first use
+            if (_trackImages == null)
+            {
+                var cmpPath = Path.Combine("assets", "wipeout", "textures", "track.cmp");
+                _trackImages = _trackImageLoader.LoadAllTrackImages(cmpPath);
+            }
+
+            if (!_trackImages.ContainsKey(trackIndex))
+            {
+                _logger.LogWarning("[TRACK IMAGE] Track {Index} not found", trackIndex);
+                return;
+            }
+
+            var (pixels, width, height) = _trackImages[trackIndex];
+            
+            // Create or get cached texture
+            uint textureId;
+            if (!_trackImageTextures.ContainsKey(trackIndex))
+            {
+                textureId = (uint)GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, textureId);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, 
+                             PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                
+                _trackImageTextures[trackIndex] = textureId;
+            }
+            else
+            {
+                textureId = _trackImageTextures[trackIndex];
+            }
+
+            var (x, y, renderWidth, renderHeight, scale) = ComputeTrackImageLayout(width, height);
+
+            var glRenderer = _renderer as GLRenderer;
+            if (glRenderer == null)
+            {
+                _logger.LogError("[TRACK IMAGE] Renderer is not GLRenderer!");
+                return;
+            }
+
+            // Set texture and push sprite
+            glRenderer.SetCurrentTexture((int)textureId);
+            glRenderer.PushSprite(x, y, renderWidth, renderHeight, new OpenTK.Mathematics.Vector4(1, 1, 1, 1));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[TRACK IMAGE] Error rendering track {Index}", trackIndex);
         }
     }
 

@@ -31,6 +31,12 @@ namespace WipeoutRewrite.Presentation
         void Render<T>(int categoryIndex, float? customScale);
         
         /// <summary>
+        /// Renders a 2D circuit preview image
+        /// </summary>
+        /// <param name="trackIndex">Index of the track/circuit (0-6)</param>
+        void RenderTrackImage(int trackIndex);
+        
+        /// <summary>
         /// Configura a posição da nave no preview 3D (X, Y, Z)
         /// </summary>
         void SetShipPosition(float x, float y, float z);

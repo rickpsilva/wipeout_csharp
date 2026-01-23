@@ -16,6 +16,7 @@ public class ContentPreview3DTests
     private readonly Mock<IGameObjectCollection> _mockGameObjects;
     private readonly Mock<ILogger<ContentPreview3D>> _mockLogger;
     private readonly Mock<IRenderer> _mockRenderer;
+    private readonly Mock<ITrackImageLoader> _mockTrackImageLoader;
     private readonly ContentPreview3D _preview;
 
     public ContentPreview3DTests()
@@ -24,6 +25,7 @@ public class ContentPreview3DTests
         _mockRenderer = new Mock<IRenderer>();
         _mockCamera = new Mock<ICamera>();
         _mockGameObjects = new Mock<IGameObjectCollection>();
+        _mockTrackImageLoader = new Mock<ITrackImageLoader>();
 
         // Setup default camera behavior
         _mockCamera.Setup(c => c.Position).Returns(new OpenTK.Mathematics.Vector3(0, 15, 30));
@@ -43,7 +45,8 @@ public class ContentPreview3DTests
             _mockLogger.Object,
             _mockGameObjects.Object,
             _mockRenderer.Object,
-            _mockCamera.Object
+            _mockCamera.Object,
+            _mockTrackImageLoader.Object
         );
     }
 
@@ -54,7 +57,7 @@ public class ContentPreview3DTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new ContentPreview3D(_mockLogger.Object, _mockGameObjects.Object, _mockRenderer.Object, null!));
+            new ContentPreview3D(_mockLogger.Object, _mockGameObjects.Object, _mockRenderer.Object, null!, _mockTrackImageLoader.Object));
     }
 
     [Fact]
@@ -62,7 +65,7 @@ public class ContentPreview3DTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new ContentPreview3D(_mockLogger.Object, null!, _mockRenderer.Object, _mockCamera.Object));
+            new ContentPreview3D(_mockLogger.Object, null!, _mockRenderer.Object, _mockCamera.Object, _mockTrackImageLoader.Object));
     }
 
     [Fact]
@@ -70,7 +73,7 @@ public class ContentPreview3DTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new ContentPreview3D(null!, _mockGameObjects.Object, _mockRenderer.Object, _mockCamera.Object));
+            new ContentPreview3D(null!, _mockGameObjects.Object, _mockRenderer.Object, _mockCamera.Object, _mockTrackImageLoader.Object));
     }
 
     [Fact]
@@ -78,7 +81,7 @@ public class ContentPreview3DTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new ContentPreview3D(_mockLogger.Object, _mockGameObjects.Object, null!, _mockCamera.Object));
+            new ContentPreview3D(_mockLogger.Object, _mockGameObjects.Object, null!, _mockCamera.Object, _mockTrackImageLoader.Object));
     }
 
     [Fact]
@@ -269,6 +272,54 @@ public class ContentPreview3DTests
 
         // Assert - Verify the method doesn't throw
         Assert.True(true);
+    }
+
+    [Fact]
+    public void RenderTrackImage_ShouldClampScale_MinAndMax()
+    {
+        // Arrange: tiny viewport forces clamp to min 2x
+        _mockRenderer.Setup(r => r.ScreenWidth).Returns(400);
+        _mockRenderer.Setup(r => r.ScreenHeight).Returns(200);
+
+        var layoutMin = InvokeLayout(128, 74);
+        Assert.InRange(layoutMin.scale, 1.999f, 2.001f);
+
+        // Arrange: huge viewport forces clamp to max 6x
+        _mockRenderer.Setup(r => r.ScreenWidth).Returns(4000);
+        _mockRenderer.Setup(r => r.ScreenHeight).Returns(4000);
+
+        var layoutMax = InvokeLayout(128, 74);
+        Assert.InRange(layoutMax.scale, 5.999f, 6.001f);
+    }
+
+    [Fact]
+    public void RenderTrackImage_ShouldCenterAndOffsetVertically()
+    {
+        // Arrange: typical 1280x720 viewport
+        _mockRenderer.Setup(r => r.ScreenWidth).Returns(1280);
+        _mockRenderer.Setup(r => r.ScreenHeight).Returns(720);
+
+        var layout = InvokeLayout(128, 74);
+
+        // Expect roughly centered horizontally
+        float expectedX = (1280 - layout.renderWidth) / 2f;
+        Assert.InRange(layout.x, expectedX - 0.001f, expectedX + 0.001f);
+
+        // Vertical anchor: 38% height minus half image height
+        float maxImageHeight = 720 * 0.35f;
+        float expectedScale = Math.Clamp(maxImageHeight / 74f, 2.0f, 6.0f);
+        float expectedRenderHeight = 74f * expectedScale;
+        float expectedY = (720 * 0.38f) - (expectedRenderHeight / 2f);
+        Assert.InRange(layout.y, expectedY - 0.001f, expectedY + 0.001f);
+    }
+
+    private (float x, float y, float renderWidth, float renderHeight, float scale) InvokeLayout(int w, int h)
+    {
+        var method = typeof(ContentPreview3D).GetMethod("ComputeTrackImageLayout", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(method);
+        var result = method!.Invoke(_preview, new object[] { w, h });
+        Assert.NotNull(result);
+        return ((float x, float y, float renderWidth, float renderHeight, float scale))result!;
     }
 
     // Helper method to create a mock GameObject

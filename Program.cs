@@ -11,6 +11,7 @@ using WipeoutRewrite.Infrastructure.Database;
 using WipeoutRewrite.Core.Graphics;
 using WipeoutRewrite.Infrastructure.UI;
 using WipeoutRewrite.Core.Services;
+using WipeoutRewrite.Core.Data;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Factory;
 using WipeoutRewrite.Infrastructure.Video;
@@ -120,11 +121,15 @@ class Program
         services.AddSingleton<IAssetLoader, AssetLoader>();
         services.AddSingleton<ICmpImageLoader, CmpImageLoader>();
         services.AddSingleton<ITimImageLoader, TimImageLoader>();
+        services.AddSingleton<ITrackImageLoader, TrackImageLoader>();
         services.AddSingleton<IAssetPathResolver, AssetPathResolver>();
         services.AddSingleton<IModelLoader, ModelLoader>();
 
         // Game state and options
         services.AddSingleton<IGameState, GameState>();
+        services.AddSingleton<IGameDataService, GameDataService>();
+        services.AddSingleton<IMenuBuilder, MenuBuilder>();
+        services.AddSingleton<IMenuActionHandler, MenuActionHandler>();
         services.AddSingleton<IOptionsFactory>(sp => 
             new OptionsFactory(sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<ISettingsRepository>()));
         services.AddSingleton<IControlsSettings>(sp => sp.GetRequiredService<IOptionsFactory>().CreateControlsSettings());

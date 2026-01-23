@@ -1,5 +1,6 @@
 using System.Linq;
 using WipeoutRewrite.Core.Services;
+using WipeoutRewrite.Core.Data;
 using WipeoutRewrite.Core.Entities;
 using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 using Microsoft.Extensions.Logging;
@@ -39,6 +40,9 @@ public static class MainMenuPages
     public static IOptionsFactory? OptionsFactoryRef { get; set; }
     public static SettingsPersistenceService? SettingsPersistenceServiceRef { get; set; }
     public static IBestTimesManager? BestTimesManagerRef { get; set; }
+    public static IMenuBuilder? MenuBuilderRef { get; set; }
+    public static IMenuActionHandler? MenuActionHandlerRef { get; set; }
+    public static IGameDataService? GameDataServiceRef { get; set; }
     public static Action? QuitGameAction { get; set; }  // Callback to close the game
     public static OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState? CurrentKeyboardState { get; set; }
     
@@ -80,7 +84,7 @@ public static class MainMenuPages
     {
         var page = new MenuPage
         {
-            Title = "OPTIONS",
+            Title = "MAIN MENU",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
@@ -751,6 +755,10 @@ public static class MainMenuPages
             PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
             OnClick = (menu, data) =>
             {
+                if (GameStateRef != null)
+                {
+                    GameStateRef.SelectedRaceClass = RaceClass.Venom;
+                }
                 var raceTypePage = CreateRaceTypeMenu();
                 menu.PushPage(raceTypePage);
             }
@@ -763,6 +771,10 @@ public static class MainMenuPages
             PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
             OnClick = (menu, data) =>
             {
+                if (GameStateRef != null)
+                {
+                    GameStateRef.SelectedRaceClass = RaceClass.Rapier;
+                }
                 var raceTypePage = CreateRaceTypeMenu();
                 menu.PushPage(raceTypePage);
             }
@@ -787,9 +799,13 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CHAMPIONSHIP RACE",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 1),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 2),
             OnClick = (menu, data) =>
             {
+                if (GameStateRef != null)
+                {
+                    GameStateRef.SelectedRaceType = RaceType.Championship;
+                }
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -799,9 +815,13 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "SINGLE RACE",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 2),
+            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 0),
             OnClick = (menu, data) =>
             {
+                if (GameStateRef != null)
+                {
+                    GameStateRef.SelectedRaceType = RaceType.Single;
+                }
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -814,6 +834,10 @@ public static class MainMenuPages
             PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
             OnClick = (menu, data) =>
             {
+                if (GameStateRef != null)
+                {
+                    GameStateRef.SelectedRaceType = RaceType.TimeTrial;
+                }
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -824,6 +848,49 @@ public static class MainMenuPages
     
     public static MenuPage CreateTeamMenu()
     {
+        // Try using MenuBuilder if available (data-driven approach)
+        if (MenuBuilderRef != null && GameStateRef != null && GameDataServiceRef != null)
+        {
+            try
+            {
+                var menuPage = MenuBuilderRef.BuildMenu("teamSelectMenu");
+                
+                // Connect OnClick callbacks for each team item
+                var teamsList = GameDataServiceRef.GetTeams().ToList();
+                for (int i = 0; i < menuPage.Items.Count && i < teamsList.Count; i++)
+                {
+                    var team = teamsList[i];
+                    var teamId = team.Id;
+                    var index = i;
+                    
+                    if (menuPage.Items[i] is MenuButton button)
+                    {
+                        button.OnClick = (menu, data) =>
+                        {
+                            // Save selected team to game state
+                            if (GameStateRef != null)
+                            {
+                                GameStateRef.SelectedTeam = (Team)teamId;
+                            }
+                            
+                            var pilotPage = CreatePilotMenu(teamId);
+                            menu.PushPage(pilotPage);
+                        };
+                        
+                        // Add preview info for ship
+                        button.PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), index);
+                    }
+                }
+                
+                return menuPage;
+            }
+            catch (Exception)
+            {
+                // Fall back to hardcoded if MenuBuilder fails
+            }
+        }
+        
+        // Fallback: Original hardcoded implementation
         var page = new MenuPage
         {
             Title = "SELECT YOUR TEAM",
@@ -840,6 +907,7 @@ public static class MainMenuPages
         for (int i = 0; i < teams.Length; i++)
         {
             var team = teams[i];
+            var teamId = i;
             var shipIndex = i;
             page.Items.Add(new MenuButton
             {
@@ -847,7 +915,13 @@ public static class MainMenuPages
                 PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), shipIndex),
                 OnClick = (menu, data) =>
                 {
-                    var pilotPage = CreatePilotMenu(team);
+                    // Save selected team to game state
+                    if (GameStateRef != null)
+                    {
+                        GameStateRef.SelectedTeam = (Team)teamId;
+                    }
+                    
+                    var pilotPage = CreatePilotMenu(teamId);
                     menu.PushPage(pilotPage);
                 }
             });
@@ -856,7 +930,7 @@ public static class MainMenuPages
         return page;
     }
     
-    public static MenuPage CreatePilotMenu(string team)
+    public static MenuPage CreatePilotMenu(int teamId)
     {
         var page = new MenuPage
         {
@@ -868,38 +942,124 @@ public static class MainMenuPages
             ItemsAnchor = UIAnchor.BottomCenter
         };
         
-        page.Items.Add(new MenuButton
+        // Get pilots for the selected team
+        if (GameDataServiceRef != null)
         {
-            Label = $"{team} PILOT 1",
-            OnClick = (menu, data) =>
+            var allPilots = GameDataServiceRef.GetPilots();
+            var teamPilots = allPilots.Where(p => p.TeamId == teamId).ToList();
+            
+            for (int i = 0; i < teamPilots.Count; i++)
             {
-                var circuitPage = CreateCircuitMenu();
-                menu.PushPage(circuitPage);
+                var pilot = teamPilots[i];
+                var pilotIndex = i;
+                
+                page.Items.Add(new MenuButton
+                {
+                    Label = pilot.Name,
+                    PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), pilot.LogoModelIndex),
+                    OnClick = (menu, data) =>
+                    {
+                        // Championship mode: Skip circuit selection (championship uses all circuits)
+                        if (GameStateRef != null && GameStateRef.SelectedRaceType == RaceType.Championship)
+                        {
+                            // TODO: Start championship or show championship info screen
+                            // For now, show empty menu (race not implemented yet)
+                            var emptyPage = new MenuPage
+                            {
+                                Title = "CHAMPIONSHIP STARTING...",
+                                LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
+                                TitlePos = new Vec2i(0, 0),
+                                TitleAnchor = UIAnchor.TopCenter
+                            };
+                            menu.PushPage(emptyPage);
+                        }
+                        else
+                        {
+                            // Single Race / Time Trial: Show circuit selection
+                            var circuitPage = CreateCircuitMenu();
+                            menu.PushPage(circuitPage);
+                        }
+                    }
+                });
             }
-        });
-        
-        page.Items.Add(new MenuButton
+        }
+        else
         {
-            Label = $"{team} PILOT 2",
-            OnClick = (menu, data) =>
+            // Fallback if GameDataService not available
+            page.Items.Add(new MenuButton
             {
-                var circuitPage = CreateCircuitMenu();
-                menu.PushPage(circuitPage);
-            }
-        });
+                Label = "PILOT 1",
+                OnClick = (menu, data) =>
+                {
+                    var circuitPage = CreateCircuitMenu();
+                    menu.PushPage(circuitPage);
+                }
+            });
+            
+            page.Items.Add(new MenuButton
+            {
+                Label = "PILOT 2",
+                OnClick = (menu, data) =>
+                {
+                    var circuitPage = CreateCircuitMenu();
+                    menu.PushPage(circuitPage);
+                }
+            });
+        }
         
         return page;
     }
     
     public static MenuPage CreateCircuitMenu()
     {
+        // Try using MenuBuilder if available (data-driven approach)
+        if (MenuBuilderRef != null && GameStateRef != null && GameDataServiceRef != null)
+        {
+            try
+            {
+                var menuPage = MenuBuilderRef.BuildMenu("circuitSelectMenu");
+                
+                // Connect OnClick callbacks for each circuit item
+                var circuitsList = GameDataServiceRef.GetCircuits().ToList();
+                for (int i = 0; i < menuPage.Items.Count && i < circuitsList.Count; i++)
+                {
+                    var circuit = circuitsList[i];
+                    var circuitName = circuit.Name;
+                    var circuitIndex = i;
+                    
+                    if (menuPage.Items[i] is MenuButton button)
+                    {
+                        button.OnClick = (menu, data) =>
+                        {
+                            if (GameStateRef != null)
+                            {
+                                GameStateRef.SelectedCircuit = (Circuit)circuitIndex;
+                                GameStateRef.CurrentMode = GameMode.Racing;
+                                Console.WriteLine($"Starting race on {circuitName}");
+                            }
+                        };
+                        
+                        // Set circuit preview image
+                        button.PreviewInfo = ContentPreview3DInfo.CreateTrackImagePreview(circuitIndex);
+                    }
+                }
+                
+                return menuPage;
+            }
+            catch (Exception)
+            {
+                // Fall back to hardcoded if MenuBuilder fails
+            }
+        }
+        
+        // Fallback: Original hardcoded implementation
         var page = new MenuPage
         {
-            Title = "SELECT RACING CIRCUT",  // Matching C typo: CIRCUT not CIRCUIT
+            Title = "Select Racing Circuit",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, -100),  // -100 not -110 (different from other race menus)
+            ItemsPos = new Vec2i(0, -110),
             ItemsAnchor = UIAnchor.BottomCenter
         };
         
@@ -914,16 +1074,20 @@ public static class MainMenuPages
             "FIRESTAR"
         };
         
-        foreach (var circuit in circuits)
+        for (int i = 0; i < circuits.Length; i++)
         {
+            var circuit = circuits[i];
             string circuitName = circuit;
+            var circuitIndex = i;
             page.Items.Add(new MenuButton
             {
                 Label = circuit,
+                PreviewInfo = ContentPreview3DInfo.CreateTrackImagePreview(circuitIndex),
                 OnClick = (menu, data) =>
                 {
                     if (GameStateRef != null)
                     {
+                        GameStateRef.SelectedCircuit = (Circuit)circuitIndex;
                         GameStateRef.CurrentMode = GameMode.Racing;
                         Console.WriteLine($"Starting race on {circuitName}");
                     }

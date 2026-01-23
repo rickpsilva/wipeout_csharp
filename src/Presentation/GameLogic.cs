@@ -333,16 +333,35 @@ public class GameLogic : IDisposable
             }
             _renderer.EndFrame2D();
 
+            // Render preview (3D model or 2D track image) in its own 2D context
             var currentPage = _menuManager.CurrentPage;
             if (currentPage != null && currentPage.SelectedItem?.PreviewInfo != null)
             {
                 var previewInfo = currentPage.SelectedItem.PreviewInfo;
-                var renderMethod = typeof(IContentPreview3D)
-                    .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
-                    ?.MakeGenericMethod(previewInfo.CategoryType);
-                renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomScale });
+                
+                // Setup 2D context for preview rendering
+                _renderer.Setup2DRendering();
+                _renderer.SetDepthTest(false);
+                
+                // Check if this is a track image preview
+                if (previewInfo.IsTrackImage)
+                {
+                    _contentPreview3D.RenderTrackImage(previewInfo.ModelIndex);
+                }
+                else
+                {
+                    // Render 3D model
+                    var renderMethod = typeof(IContentPreview3D)
+                        .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
+                        ?.MakeGenericMethod(previewInfo.CategoryType);
+                    renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomScale });
+                }
+                
+                // End preview 2D context
+                _renderer.EndFrame2D();
             }
 
+            // Render menu UI in final 2D context
             _renderer.Setup2DRendering();
             _renderer.SetDepthTest(false);
             _renderer.SetPassthroughProjection(false);

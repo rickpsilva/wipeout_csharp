@@ -140,10 +140,10 @@ public class MainMenuPagesTests
         var page = MainMenuPages.CreateRaceTypeMenu();
         var singleRaceItem = page.Items[1];  // SINGLE RACE
 
-        // Assert - Uses CategoryOptions preview
+        // Assert - Uses CategoryMsDos preview (matches current menu setup)
         Assert.NotNull(singleRaceItem.PreviewInfo);
-        Assert.Equal(typeof(CategoryOptions), singleRaceItem.PreviewInfo.CategoryType);
-        Assert.Equal(2, singleRaceItem.PreviewInfo.ModelIndex);
+        Assert.Equal(typeof(CategoryMsDos), singleRaceItem.PreviewInfo.CategoryType);
+        Assert.Equal(0, singleRaceItem.PreviewInfo.ModelIndex);
     }
 
     [Fact]
@@ -239,16 +239,18 @@ public class MainMenuPagesTests
     }
 
     [Fact]
-    public void CreatePilotMenu_Items_ShouldNotHavePreviewInfo()
+    public void CreatePilotMenu_WithoutGameDataService_UsesFallback()
     {
-        // Act
-        var page = MainMenuPages.CreatePilotMenu("FEISAR");
+        // Arrange - Ensure GameDataServiceRef is null for fallback
+        MainMenuPages.GameDataServiceRef = null;
+        
+        // Act - Pass teamId (3 = FEISAR)
+        var page = MainMenuPages.CreatePilotMenu(3);
 
-        // Assert - Pilot selection doesn't have 3D previews yet
-        foreach (var item in page.Items)
-        {
-            Assert.Null(item.PreviewInfo);
-        }
+        // Assert - Should have 2 pilots (fallback)
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal("PILOT 1", ((MenuButton)page.Items[0]).Label);
+        Assert.Equal("PILOT 2", ((MenuButton)page.Items[1]).Label);
     }
 
     [Fact]
@@ -257,10 +259,13 @@ public class MainMenuPagesTests
         // Act
         var page = MainMenuPages.CreateCircuitMenu();
 
-        // Assert - Circuit selection doesn't have 3D previews yet
-        foreach (var item in page.Items)
+        // Assert - Circuit selection uses 2D track images
+        for (int i = 0; i < page.Items.Count; i++)
         {
-            Assert.Null(item.PreviewInfo);
+            var item = page.Items[i];
+            Assert.NotNull(item.PreviewInfo);
+            Assert.True(item.PreviewInfo.IsTrackImage);
+            Assert.Equal(i, item.PreviewInfo.ModelIndex);
         }
     }
 }

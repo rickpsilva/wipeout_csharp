@@ -14,6 +14,7 @@ using WipeoutRewrite.Infrastructure.Audio;
 using WipeoutRewrite.Infrastructure.Input;
 using WipeoutRewrite.Infrastructure.UI;
 using WipeoutRewrite.Core.Services;
+using WipeoutRewrite.Core.Data;
 using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Presentation;
 using WipeoutRewrite.Presentation.Menus;
@@ -42,6 +43,9 @@ namespace WipeoutRewrite
         private readonly IOptionsFactory _optionsFactory;
         private readonly SettingsPersistenceService _settingsPersistenceService;
         private readonly IBestTimesManager _bestTimesManager;
+        private readonly IMenuBuilder _menuBuilder;
+        private readonly IMenuActionHandler _menuActionHandler;
+        private readonly IGameDataService _gameDataService;
         
         // Menu background
         private int _menuBackgroundTexture;
@@ -70,7 +74,10 @@ namespace WipeoutRewrite
             ICreditsScreen creditsScreen,
             IOptionsFactory optionsFactory,
             SettingsPersistenceService settingsPersistenceService,
-            IBestTimesManager bestTimesManager
+            IBestTimesManager bestTimesManager,
+            IMenuBuilder menuBuilder,
+            IMenuActionHandler menuActionHandler,
+            IGameDataService gameDataService
             )
             : base(gws, nws)
         {
@@ -91,6 +98,9 @@ namespace WipeoutRewrite
             _optionsFactory = optionsFactory ?? throw new ArgumentNullException(nameof(optionsFactory));
             _settingsPersistenceService = settingsPersistenceService ?? throw new ArgumentNullException(nameof(settingsPersistenceService));
             _bestTimesManager = bestTimesManager ?? throw new ArgumentNullException(nameof(bestTimesManager));
+            _menuBuilder = menuBuilder ?? throw new ArgumentNullException(nameof(menuBuilder));
+            _menuActionHandler = menuActionHandler ?? throw new ArgumentNullException(nameof(menuActionHandler));
+            _gameDataService = gameDataService ?? throw new ArgumentNullException(nameof(gameDataService));
         }
 
         [ExcludeFromCodeCoverage]
@@ -154,6 +164,12 @@ namespace WipeoutRewrite
             MainMenuPages.OptionsFactoryRef = _optionsFactory;
             MainMenuPages.SettingsPersistenceServiceRef = _settingsPersistenceService;
             MainMenuPages.BestTimesManagerRef = _bestTimesManager;
+            MainMenuPages.MenuBuilderRef = _menuBuilder;
+            MainMenuPages.MenuActionHandlerRef = _menuActionHandler;
+            MainMenuPages.GameDataServiceRef = _gameDataService;
+            
+            // Initialize MenuBuilder with game data
+            _menuBuilder.Initialize(_gameDataService);
             
             // Load menu background texture (wipeout1.tim)
             LoadMenuBackground();
@@ -344,7 +360,7 @@ namespace WipeoutRewrite
                 }
                 _renderer.EndFrame2D();
                 
-                // 3D preview - render based on selected menu item's PreviewInfo
+                // Preview (3D model or 2D track image) in its own 2D context
                 var currentPage = _menuManager.CurrentPage;
                 if (currentPage != null && currentPage.SelectedItem != null)
                 {
@@ -352,13 +368,30 @@ namespace WipeoutRewrite
                     if (selectedItem.PreviewInfo != null)
                     {
                         var previewInfo = selectedItem.PreviewInfo;
-                        // Specify parameter types to resolve ambiguity between the two Render overloads
-                        var renderMethod = typeof(IContentPreview3D)
-                            .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
-                            ?.MakeGenericMethod(previewInfo.CategoryType);
                         
-                        // Pass ModelIndex and CustomScale
-                        renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomScale });
+                        // Setup 2D context for preview rendering
+                        _renderer.Setup2DRendering();
+                        _renderer.SetDepthTest(false);  // Disable depth test for 2D preview
+                        
+                        // Check if this is a track image preview
+                        if (previewInfo.IsTrackImage)
+                        {
+                            _contentPreview3D.RenderTrackImage(previewInfo.ModelIndex);
+                        }
+                        else
+                        {
+                            // Render 3D model
+                            // Specify parameter types to resolve ambiguity between the two Render overloads
+                            var renderMethod = typeof(IContentPreview3D)
+                                .GetMethod(nameof(IContentPreview3D.Render), new[] { typeof(int), typeof(float?) })
+                                ?.MakeGenericMethod(previewInfo.CategoryType);
+                            
+                            // Pass ModelIndex and CustomScale
+                            renderMethod?.Invoke(_contentPreview3D, new object?[] { previewInfo.ModelIndex, previewInfo.CustomScale });
+                        }
+                        
+                        // End preview 2D context
+                        _renderer.EndFrame2D();
                     }
                 }
                 
