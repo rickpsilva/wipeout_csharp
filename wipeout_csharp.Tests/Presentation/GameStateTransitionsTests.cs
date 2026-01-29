@@ -235,4 +235,105 @@ public class GameStateTransitionsTests
         // Assert
         Assert.False(result);
     }
+
+    [Fact]
+    public void ShouldPopMenu_BestTimesViewerWithBack_ReturnsTrue()
+    {
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.BestTimesViewer,
+            menuBackPressed: true,
+            exitPressed: false,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_BestTimesViewerWithEsc_ReturnsTrue()
+    {
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.BestTimesViewer,
+            menuBackPressed: false,
+            exitPressed: true,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_BestTimesViewerWithNoInput_ReturnsFalse()
+    {
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.BestTimesViewer,
+            menuBackPressed: false,
+            exitPressed: false,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_AwaitingInput_ReturnsFalse()
+    {
+        // Awaiting Input has special handling - should not pop here
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.AwaitingInput,
+            menuBackPressed: true,
+            exitPressed: false,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_NormalMenuWithBack_ReturnsTrue()
+    {
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.Options,
+            menuBackPressed: true,
+            exitPressed: false,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_NormalMenuWithBackNoPages_ReturnsFalse()
+    {
+        // No pages to pop - should exit to splash instead
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.Main,
+            menuBackPressed: true,
+            exitPressed: false,
+            hasMenuPages: false);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldPopMenu_NormalMenuWithEsc_ReturnsTrue()
+    {
+        // ESC always pops/exits
+        // Act
+        bool result = GameStateTransitions.ShouldPopMenu(
+            WipeoutRewrite.Infrastructure.UI.MenuPageIds.Team,
+            menuBackPressed: false,
+            exitPressed: true,
+            hasMenuPages: true);
+
+        // Assert
+        Assert.True(result);
+    }
 }

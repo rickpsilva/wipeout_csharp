@@ -8,7 +8,7 @@ namespace WipeoutRewrite.Core.Services;
 /// Service to persist settings changes to database automatically.
 /// Should be called whenever settings are modified.
 /// </summary>
-public class SettingsPersistenceService
+public class SettingsPersistenceService : ISettingsPersistenceService
 {
     private readonly ISettingsRepository _repository;
     private readonly ILogger<SettingsPersistenceService> _logger;

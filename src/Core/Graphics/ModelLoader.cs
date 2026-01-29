@@ -11,163 +11,12 @@ public class ModelLoader : IModelLoader
     private readonly ILogger<ModelLoader> _logger;
     private HashSet<short>? _primitiveTypesSeen;
 
-    // Debug: track which types we encounter
-
     public ModelLoader(ILogger<ModelLoader> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     #region methods
-
-    /// <summary>
-    /// Creates a simple mock model for testing when PRM loading fails
-    /// </summary>
-    public Mesh CreateMockModel(string name)
-    {
-        return CreateMockModelScaled(name, 1.0f);
-    }
-
-    /// <summary>
-    /// Creates a mock model with scaled geometry - Wipeout-style futuristic racer
-    /// </summary>
-    public Mesh CreateMockModelScaled(string name, float scale = 1.0f)
-    {
-        var mesh = new Mesh(name)
-        {
-            Origin = new Vec3(0, 0, 0),
-            Radius = 500.0f * scale,
-            Flags = 0,
-            // Wipeout-style anti-gravity racer - elongated with prominent wings
-            Vertices = new Vec3[]
-        {
-                // Sharp nose (0-3)
-                new(0, 20 * scale, 500 * scale),           // 0: Nose tip (sharp point)
-                new(-25 * scale, -5 * scale, 450 * scale), // 1: Nose left
-                new(25 * scale, -5 * scale, 450 * scale),  // 2: Nose right  
-                new(0, 35 * scale, 450 * scale),           // 3: Nose top
-                
-                // Front body (4-7)
-                new(-50 * scale, 5 * scale, 350 * scale),  // 4: Front left
-                new(50 * scale, 5 * scale, 350 * scale),   // 5: Front right
-                new(0, 50 * scale, 350 * scale),           // 6: Front top (cockpit)
-                new(0, -10 * scale, 350 * scale),          // 7: Front bottom
-                
-                // Mid body / main section (8-11)
-                new(-70 * scale, 10 * scale, 200 * scale), // 8: Mid left
-                new(70 * scale, 10 * scale, 200 * scale),  // 9: Mid right
-                new(0, 55 * scale, 200 * scale),           // 10: Mid top
-                new(0, -5 * scale, 200 * scale),           // 11: Mid bottom
-                
-                // Wing tips - LARGE for silhouette (12-15)
-                new(-180 * scale, 5 * scale, 150 * scale), // 12: Left wing tip (extended)
-                new(180 * scale, 5 * scale, 150 * scale),  // 13: Right wing tip (extended)
-                new(-160 * scale, 0 * scale, 100 * scale), // 14: Left wing trailing
-                new(160 * scale, 0 * scale, 100 * scale),  // 15: Right wing trailing
-                
-                // Engine pods - rear section (16-23)
-                new(-60 * scale, 20 * scale, 80 * scale),  // 16: Left engine top
-                new(60 * scale, 20 * scale, 80 * scale),   // 17: Right engine top
-                new(-60 * scale, -10 * scale, 80 * scale), // 18: Left engine bottom
-                new(60 * scale, -10 * scale, 80 * scale),  // 19: Right engine bottom
-                new(-55 * scale, 15 * scale, -50 * scale), // 20: Left exhaust top
-                new(55 * scale, 15 * scale, -50 * scale),  // 21: Right exhaust top
-                new(-55 * scale, -10 * scale, -50 * scale),// 22: Left exhaust bottom
-                new(55 * scale, -10 * scale, -50 * scale), // 23: Right exhaust bottom
-                
-                // Tail / rear stabilizers (24-27)
-                new(0, 45 * scale, 50 * scale),            // 24: Center fin top
-                new(0, -5 * scale, 50 * scale),            // 25: Center bottom
-                new(0, 60 * scale, -30 * scale),           // 26: Tail fin top
-                new(0, 0 * scale, -30 * scale),            // 27: Tail fin base
-        },
-
-            Normals = new Vec3[]
-        {
-                new(0, 1, 0),  // Top
-                new(0, -1, 0), // Bottom
-                new(-1, 0, 0), // Left
-                new(1, 0, 0),  // Right
-                new(0, 0, 1),  // Front
-                new(0, 0, -1), // Back
-        }
-        };
-
-        // Color palette - HIGH CONTRAST colors
-        var yellow = (r: (byte)255, g: (byte)220, b: (byte)0, a: (byte)255);    // Bright yellow
-        var orange = (r: (byte)255, g: (byte)100, b: (byte)0, a: (byte)255);    // Orange
-        var red = (r: (byte)255, g: (byte)0, b: (byte)0, a: (byte)255);         // Pure red
-        var darkBlue = (r: (byte)0, g: (byte)50, b: (byte)150, a: (byte)255);   // Dark blue
-        var white = (r: (byte)255, g: (byte)255, b: (byte)255, a: (byte)255);   // White
-        var black = (r: (byte)40, g: (byte)40, b: (byte)40, a: (byte)255);      // Almost black
-
-        mesh.Primitives = new List<Primitive>
-            {
-                // === NOSE - Yellow/Orange ===
-                new F3 { CoordIndices = new short[] { 0, 3, 1 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 0, 2, 3 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 0, 1, 2 }, Color = orange },
-                
-                // === FRONT BODY - Yellow top, dark sides ===
-                new F3 { CoordIndices = new short[] { 1, 3, 4 }, Color = orange },
-                new F3 { CoordIndices = new short[] { 2, 5, 3 }, Color = orange },
-                new F3 { CoordIndices = new short[] { 3, 6, 4 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 3, 5, 6 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 1, 4, 7 }, Color = darkBlue },
-                new F3 { CoordIndices = new short[] { 2, 7, 5 }, Color = darkBlue },
-                
-                // === COCKPIT TOP - Bright yellow ===
-                new F3 { CoordIndices = new short[] { 6, 10, 4 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 6, 5, 10 }, Color = yellow },
-                
-                // === MAIN BODY - Orange/Dark contrast ===
-                new F3 { CoordIndices = new short[] { 4, 8, 7 }, Color = black },
-                new F3 { CoordIndices = new short[] { 5, 7, 9 }, Color = black },
-                new F3 { CoordIndices = new short[] { 10, 8, 4 }, Color = orange },
-                new F3 { CoordIndices = new short[] { 10, 9, 5 }, Color = orange },
-                new F3 { CoordIndices = new short[] { 7, 8, 11 }, Color = darkBlue },
-                new F3 { CoordIndices = new short[] { 7, 11, 9 }, Color = darkBlue },
-                
-                // === LARGE WINGS - Red/Dark for visibility ===
-                // Left wing
-                new F3 { CoordIndices = new short[] { 8, 12, 11 }, Color = red },
-                new F3 { CoordIndices = new short[] { 12, 14, 11 }, Color = red },
-                new F3 { CoordIndices = new short[] { 8, 10, 12 }, Color = orange },
-                // Right wing
-                new F3 { CoordIndices = new short[] { 9, 11, 13 }, Color = red },
-                new F3 { CoordIndices = new short[] { 13, 11, 15 }, Color = red },
-                new F3 { CoordIndices = new short[] { 9, 13, 10 }, Color = orange },
-                
-                // === ENGINE PODS - Dark with red accents ===
-                // Left pod
-                new F3 { CoordIndices = new short[] { 8, 16, 14 }, Color = darkBlue },
-                new F3 { CoordIndices = new short[] { 14, 16, 18 }, Color = black },
-                new F3 { CoordIndices = new short[] { 16, 20, 18 }, Color = red },
-                new F3 { CoordIndices = new short[] { 18, 20, 22 }, Color = red },
-                // Right pod
-                new F3 { CoordIndices = new short[] { 9, 15, 17 }, Color = darkBlue },
-                new F3 { CoordIndices = new short[] { 15, 19, 17 }, Color = black },
-                new F3 { CoordIndices = new short[] { 17, 19, 21 }, Color = red },
-                new F3 { CoordIndices = new short[] { 19, 23, 21 }, Color = red },
-                
-                // === REAR / TAIL ===
-                new F3 { CoordIndices = new short[] { 10, 24, 16 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 10, 17, 24 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 24, 26, 16 }, Color = orange },
-                new F3 { CoordIndices = new short[] { 24, 17, 26 }, Color = orange },
-                
-                // === ENGINE EXHAUSTS - Bright white/yellow glow ===
-                new F3 { CoordIndices = new short[] { 20, 21, 26 }, Color = white },
-                new F3 { CoordIndices = new short[] { 20, 26, 22 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 21, 23, 26 }, Color = yellow },
-                new F3 { CoordIndices = new short[] { 22, 26, 23 }, Color = white },
-            };
-
-        _logger.LogInformation("Created enhanced mock model with {VertCount} vertices, {PrimCount} primitives",
-            mesh.Vertices.Length, mesh.Primitives.Count);
-
-        return mesh;
-    }
 
     /// <summary>
     /// Scans a PRM file and returns a list of object names and their indices.
@@ -189,84 +38,22 @@ public class ModelLoader : IModelLoader
             int p = 0;
             int objectIndex = 0;
 
-            while (p < bytes.Length - 144)
+            while (TryReadObjectHeader(bytes, ref p, out var header))
             {
-                // Read object header
-                string name = ReadFixedString(bytes, ref p, 16);
-
-                short verticesLen = ReadI16(bytes, ref p); p += 2; // padding
-                int verticesPtr = ReadI32(bytes, ref p);
-
-                short normalsLen = ReadI16(bytes, ref p); p += 2; // padding
-                int normalsPtr = ReadI32(bytes, ref p);
-
-                short primitivesLen = ReadI16(bytes, ref p); p += 2; // padding
-                int primitivesPtr = ReadI32(bytes, ref p);
-
-                p += 4; // unused ptr
-                p += 4; // unused ptr
-                p += 4; // skeleton ref
-
-                int extent = ReadI32(bytes, ref p);
-                short flags = ReadI16(bytes, ref p); p += 2; // padding
-                int nextPtr = ReadI32(bytes, ref p);
-
-                p += 3 * 3 * 2; // relative rotation matrix (3x3 i16)
-                p += 2; // padding
-
-                int originX = ReadI32(bytes, ref p);
-                int originY = ReadI32(bytes, ref p);
-                int originZ = ReadI32(bytes, ref p);
-
-                p += 3 * 3 * 2; // absolute rotation matrix
-                p += 2; // padding
-                p += 3 * 4; // absolute translation
-                p += 2; // skeleton update flag
-                p += 2; // padding
-                p += 4; // skeleton super
-                p += 4; // skeleton sub
-                p += 4; // skeleton next
-
-                // Validate counts
-                if (verticesLen < 0 || normalsLen < 0 || primitivesLen < 0 ||
-                    verticesLen > 10000 || normalsLen > 10000 || primitivesLen > 10000)
+                if (IsInvalidCount(header))
                 {
                     _logger.LogWarning("Invalid object counts at index {Index}, stopping scan", objectIndex);
                     break;
                 }
 
-                // Only add objects with vertices (skip markers/lights)
-                if (verticesLen > 0)
+                if (header.VerticesLen > 0)
                 {
-                    objects.Add((objectIndex, name));
+                    objects.Add((objectIndex, header.Name));
                     _logger.LogInformation("Found object {Index}: '{Name}' ({VertCount} vertices, {PrimCount} primitives)",
-                        objectIndex, name, verticesLen, primitivesLen);
+                        objectIndex, header.Name, header.VerticesLen, header.PrimitivesLen);
                 }
 
-                // Skip data for this object (even if verticesLen == 0, we still need to skip)
-                p += verticesLen * 8; // Each vertex: 3*i16 + pad = 8 bytes
-                p += normalsLen * 8; // Each normal: 3*i16 + pad = 8 bytes
-
-                // Skip primitives
-                for (int i = 0; i < primitivesLen; i++)
-                {
-                    if (p + 4 > bytes.Length)
-                    {
-                        _logger.LogWarning("Not enough bytes to skip primitive, stopping scan");
-                        return objects;
-                    }
-
-                    short prmType = ReadI16(bytes, ref p);
-                    short prmFlag = ReadI16(bytes, ref p);
-
-                    int skipped = SkipPrimitive(bytes, ref p, prmType);
-                    if (skipped < 0)
-                    {
-                        _logger.LogWarning("Unknown primitive type {Type} at position {Pos}, stopping scan", prmType, p);
-                        return objects;
-                    }
-                }
-
+                SkipObjectData(bytes, ref p, header);
                 objectIndex++;
             }
 
@@ -287,194 +74,16 @@ public class ModelLoader : IModelLoader
     /// </summary>
     public List<Mesh> LoadAllObjectsFromPrmFile(string filepath)
     {
-        var allMeshes = new List<Mesh>();
-
         try
         {
-            if (string.IsNullOrWhiteSpace(filepath))
+            var bytes = ReadPrmBytes(filepath);
+            var meshes = new List<Mesh>();
+            foreach (var mesh in EnumerateMeshes(bytes, null))
             {
-                throw new ArgumentException("File path cannot be null or empty", nameof(filepath));
+                meshes.Add(mesh);
             }
-
-            if (!File.Exists(filepath))
-            {
-                throw new FileNotFoundException($"PRM file not found: {filepath}", filepath);
-            }
-
-            byte[] bytes = File.ReadAllBytes(filepath);
-            _logger.LogWarning("Loading ALL objects from PRM: {Path} ({Size} bytes)", filepath, bytes.Length);
-
-            // Start at the beginning - objects are stored SEQUENTIALLY in the file
-            // (nextPtr is used in memory, but is 0 in the file)
-            int p = 0;
-            int objectCount = 0;
-
-            // Loop through ALL objects sequentially (NOT using nextPtr!)
-            while (p < bytes.Length - 144) // Need at least header size
-            {
-                int objectStart = p; // Save start position for this object
-                objectCount++;
-                
-                _logger.LogWarning("=== Reading object #{Num} at position {Pos} (remaining: {Remain} bytes) ===", 
-                    objectCount, p, bytes.Length - p);
-
-                // Debug: show first 32 bytes at this position
-                if (p + 32 <= bytes.Length)
-                {
-                    var hexPreview = string.Join(" ", bytes.Skip(p).Take(32).Select(b => b.ToString("X2")));
-                    _logger.LogWarning("[DEBUG] Hex bytes at {Pos}: {Hex}", p, hexPreview);
-                }
-
-                // Read object header
-                string name = ReadFixedString(bytes, ref p, 16);
-
-                short verticesLen = ReadI16(bytes, ref p); p += 2;
-                int verticesPtr = ReadI32(bytes, ref p);
-
-                short normalsLen = ReadI16(bytes, ref p); p += 2;
-                int normalsPtr = ReadI32(bytes, ref p);
-
-                short primitivesLen = ReadI16(bytes, ref p); p += 2;
-                int primitivesPtr = ReadI32(bytes, ref p);
-
-                p += 4; p += 4; p += 4; // unused ptrs + skeleton ref
-
-                int extent = ReadI32(bytes, ref p);
-                short flags = ReadI16(bytes, ref p); p += 2;
-                int nextPtr = ReadI32(bytes, ref p); // NOTE: This is 0 in files!
-
-                p += 3 * 3 * 2 + 2; // relative rotation matrix + padding
-
-                int originX = ReadI32(bytes, ref p);
-                int originY = ReadI32(bytes, ref p);
-                int originZ = ReadI32(bytes, ref p);
-
-                p += 3 * 3 * 2 + 2; // absolute rotation matrix + padding
-                p += 3 * 4 + 2 + 2; // absolute translation + skeleton flags
-                p += 4 + 4 + 4; // skeleton pointers
-
-                _logger.LogWarning("Object #{Num}: '{Name}', Verts={VertCount}, Normals={NormCount}, Prims={PrimCount}",
-                    objectCount, name, verticesLen, normalsLen, primitivesLen);
-
-                // Check for obviously invalid counts - likely reached EOF
-                if ((verticesLen < 0 || normalsLen < 0 || primitivesLen < 0) ||
-                    (verticesLen > 5000 || normalsLen > 5000 || primitivesLen > 5000))
-                {
-                    _logger.LogWarning("Invalid object counts - likely EOF or corrupted data. Stopping parse at position {Pos}", objectStart);
-                    break;
-                }
-
-                // Allow objects with zero vertices or zero primitives - just skip them
-                if (verticesLen == 0 && normalsLen == 0 && primitivesLen == 0)
-                {
-                    _logger.LogWarning("Skipping object '{Name}': all counts are zero", name);
-                    continue;
-                }
-
-                // Skip objects with no vertices - but consume their data
-                if (verticesLen == 0)
-                {
-                    _logger.LogDebug("Skipping object '{Name}' with no vertices", name);
-                    p += normalsLen * 8; // Skip normals
-
-                    // Skip primitives
-                    for (int i = 0; i < primitivesLen; i++)
-                    {
-                        if (p + 4 > bytes.Length) break;
-                        short prmType = ReadI16(bytes, ref p);
-                        short prmFlag = ReadI16(bytes, ref p);
-                        int skipped = SkipPrimitive(bytes, ref p, prmType);
-                        if (skipped < 0) break;
-                    }
-                    
-                    // Continue to next object (read sequentially, don't use nextPtr)
-                    continue;
-                }
-
-                // Create mesh for this object
-                var mesh = new Mesh(name)
-                {
-                    Origin = new Vec3(originX, originY, originZ),
-                    Flags = flags,
-                    Vertices = new Vec3[verticesLen]
-                };
-
-                float radius = 0;
-                for (int i = 0; i < verticesLen; i++)
-                {
-                    short x = ReadI16(bytes, ref p);
-                    short y = ReadI16(bytes, ref p);
-                    short z = ReadI16(bytes, ref p);
-                    p += 2;
-                    mesh.Vertices[i] = new Vec3(x, y, z);
-                    if (Math.Abs(x) > radius) radius = Math.Abs(x);
-                    if (Math.Abs(y) > radius) radius = Math.Abs(y);
-                    if (Math.Abs(z) > radius) radius = Math.Abs(z);
-                }
-                mesh.Radius = radius;
-
-                // Read normals
-                mesh.Normals = new Vec3[normalsLen];
-                for (int i = 0; i < normalsLen; i++)
-                {
-                    short nx = ReadI16(bytes, ref p);
-                    short ny = ReadI16(bytes, ref p);
-                    short nz = ReadI16(bytes, ref p);
-                    p += 2;
-                    mesh.Normals[i] = new Vec3(nx, ny, nz);
-                }
-
-                // Read primitives
-                mesh.Primitives = new List<Primitive>();
-                for (int i = 0; i < primitivesLen; i++)
-                {
-                    short prmType = ReadI16(bytes, ref p);
-                    short prmFlag = ReadI16(bytes, ref p);
-
-                    try
-                    {
-                        var parsed = ParsePrimitive(bytes, ref p, prmType, prmFlag);
-                        if (parsed != null && parsed.Count > 0)
-                            mesh.Primitives.AddRange(parsed);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("Failed to parse primitive {Index} type {Type}: {Error}", i, prmType, ex.Message);
-                        // Try to skip this primitive and continue with the next one
-                        // This is safer than break, which would leave p in an unknown state
-                        try
-                        {
-                            SkipPrimitive(bytes, ref p, prmType);
-                        }
-                        catch
-                        {
-                            _logger.LogWarning("Failed to skip primitive {Index}, stopping object parsing", i);
-                            break;
-                        }
-                    }
-                }
-
-                // Add to list if valid
-                if (mesh.Vertices.Length > 0 && mesh.Primitives.Count > 0)
-                {
-                    allMeshes.Add(mesh);
-                    _logger.LogWarning("Loaded object '{Name}': {VertCount} vertices, {PrimCount} primitives",
-                        mesh.Name, mesh.Vertices.Length, mesh.Primitives.Count);
-                }
-                else
-                {
-                    _logger.LogWarning("Skipped object '{Name}': no vertices or primitives", name);
-                }
-                
-                _logger.LogWarning("After object #{Num}: position={Pos}, remaining={Remain} bytes, condition={Cond}", 
-                    objectCount, p, bytes.Length - p, p < bytes.Length - 144);
-                
-                // Continue to next object sequentially (don't use nextPtr - it's 0 in files!)
-                // The loop will naturally advance p through the file
-            }
-
-            _logger.LogWarning("Loaded {Count} total objects from {Path}", allMeshes.Count, filepath);
-            return allMeshes;
+            _logger.LogInformation("Loaded {Count} total objects from {Path}", meshes.Count, filepath);
+            return meshes;
         }
         catch (Exception ex)
         {
@@ -484,10 +93,11 @@ public class ModelLoader : IModelLoader
     }
 
     /// <summary>
+    /// Load a PRM file and return a Mesh.
+    /// Directly ported from oo
+    /// <summary>
     /// Creates the original simple mock model (kept for compatibility)
     /// </summary>
-    // Note: Previous simple mock generator was replaced with more detailed version above.
-
     /// <summary>
     /// Load a PRM file and return a Mesh.
     /// Directly ported from objects_load() in object.c
@@ -496,270 +106,9 @@ public class ModelLoader : IModelLoader
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(filepath))
-            {
-                throw new ArgumentException("File path cannot be null or empty", nameof(filepath));
-            }
-
-            if (!File.Exists(filepath))
-            {
-                throw new FileNotFoundException($"PRM file not found: {filepath}", filepath);
-            }
-
-            byte[] bytes = File.ReadAllBytes(filepath);
-            Console.WriteLine($"[ModelLoader] Loading PRM: {filepath} ({bytes.Length} bytes), objectIndex={objectIndex}");
-            _logger.LogInformation("Loading PRM: {Path} ({Size} bytes), objectIndex={ObjIdx}", filepath, bytes.Length, objectIndex);
-
-            int p = 0; // Current position in byte array
-            Mesh? resultMesh = null;
-            int currentObjectIndex = 0;
-
-            // PRM files can contain multiple objects (like object.c:29 while (p < length))
-            // We'll load all and return the first one with vertices
-            // Console.WriteLine($"[ModelLoader] Entering while loop: p={p}, bytes.Length={bytes.Length}, condition={p < bytes.Length - 144}");
-            while (p < bytes.Length - 144) // Need at least header size
-            {
-                // Console.WriteLine($"[ModelLoader] Loop iteration: p={p}");
-                _logger.LogInformation("=== Starting to read object at position {Pos} (remaining: {Remain} bytes) ===", p, bytes.Length - p);
-                int objectStart = p;
-
-                // Read object header (based on object.c lines 35-76)
-                string name = ReadFixedString(bytes, ref p, 16);
-                _logger.LogInformation("Object name: '{Name}' at p={Pos}", name, p);
-
-                short verticesLen = ReadI16(bytes, ref p); p += 2; // padding
-                _logger.LogInformation("verticesLen={V}, p={Pos}", verticesLen, p);
-                int verticesPtr = ReadI32(bytes, ref p); // We'll ignore pointers and read sequentially
-
-                short normalsLen = ReadI16(bytes, ref p); p += 2; // padding
-                int normalsPtr = ReadI32(bytes, ref p);
-
-                short primitivesLen = ReadI16(bytes, ref p); p += 2; // padding
-                int primitivesPtr = ReadI32(bytes, ref p);
-
-                p += 4; // unused ptr
-                p += 4; // unused ptr
-                p += 4; // skeleton ref
-
-                int extent = ReadI32(bytes, ref p);
-                short flags = ReadI16(bytes, ref p); p += 2; // padding
-                int nextPtr = ReadI32(bytes, ref p);
-
-                p += 3 * 3 * 2; // relative rotation matrix (3x3 i16)
-                p += 2; // padding
-
-                int originX = ReadI32(bytes, ref p);
-                int originY = ReadI32(bytes, ref p);
-                int originZ = ReadI32(bytes, ref p);
-
-                p += 3 * 3 * 2; // absolute rotation matrix
-                p += 2; // padding
-                p += 3 * 4; // absolute translation
-                p += 2; // skeleton update flag
-                p += 2; // padding
-                p += 4; // skeleton super
-                p += 4; // skeleton sub
-                p += 4; // skeleton next
-
-                _logger.LogInformation("Object: {Name}, Verts={VertCount}, Normals={NormCount}, Prims={PrimCount}",
-                    name, verticesLen, normalsLen, primitivesLen);
-                _logger.LogDebug("Current position in file: {Pos} of {Total}", p, bytes.Length);
-
-                // Skip objects with invalid counts
-                // Console.WriteLine($"[ModelLoader] Object '{name}': vertices={verticesLen}, normals={normalsLen}, prims={primitivesLen}");
-                if (verticesLen < 0 || normalsLen < 0 || primitivesLen < 0 ||
-                    verticesLen > 10000 || normalsLen > 10000 || primitivesLen > 10000)
-                {
-                    // Console.WriteLine($"[ModelLoader] Invalid counts - stopping (resultMesh={(resultMesh == null ? "null" : "SET")})");
-                    _logger.LogWarning("Invalid object counts, stopping parse");
-                    break; // Exit loop - if we already have resultMesh, that's OK
-                }
-
-                // Skip objects with no vertices (markers, lights, etc) - but consume their data
-                if (verticesLen == 0)
-                {
-                    // Console.WriteLine($"[ModelLoader] Skipping object '{name}' (p={p})");
-                    _logger.LogDebug("Skipping object '{Name}' (index {Index}) with no vertices (consuming {NormCount} normals, {PrimCount} primitives)",
-                        name, currentObjectIndex, normalsLen, primitivesLen);
-
-                    // Skip normals data
-                    p += normalsLen * 8; // Each normal: 3*i16 + pad = 8 bytes
-                                         // Console.WriteLine($"[ModelLoader] Skipped {normalsLen} normals, p={p}");
-
-                    // Skip primitives data
-                    for (int i = 0; i < primitivesLen; i++)
-                    {
-                        if (p + 4 > bytes.Length)
-                        {
-                            _logger.LogWarning("ERROR: Not enough bytes to read primitive {Index}/{Total} at p={Pos}, fileSize={Size}", i, primitivesLen, p, bytes.Length);
-                            // If we already have a valid mesh, stop here gracefully
-                            if (resultMesh != null)
-                            {
-                                _logger.LogWarning("File truncated but already have valid mesh, returning it");
-                                return resultMesh;
-                            }
-                            break;
-                        }
-
-                        int pBefore = p;
-                        // if (i < 3) Console.WriteLine($"[ModelLoader] About to read prim {i} at p={p}, next 4 bytes: {bytes[p]:X2} {bytes[p+1]:X2} {bytes[p+2]:X2} {bytes[p+3]:X2}");
-                        short prmType = ReadI16(bytes, ref p);
-                        short prmFlag = ReadI16(bytes, ref p);
-
-                        int skipped = SkipPrimitive(bytes, ref p, prmType);
-                        if (skipped < 0)
-                        {
-                            _logger.LogWarning("Unknown primitive type {Type} at position {Pos}", prmType, p);
-                            break;
-                        }
-                        // if (i < 5) Console.WriteLine($"[ModelLoader] Prim {i}: type={prmType}, flag={prmFlag}, p: {pBefore} → {p} (advanced {p-pBefore} bytes)");
-                    }
-
-                    // Console.WriteLine($"[ModelLoader] Skipped to position {p} after {primitivesLen} primitives");
-                    _logger.LogDebug("Skipped to position {Pos}", p);
-                    currentObjectIndex++;  // CRITICAL: Increment even for objects without vertices!
-                    continue; // Go to next object
-                }
-
-                // Check if this is the object we want (by index) BEFORE creating the mesh
-                bool isTargetObject = (currentObjectIndex == objectIndex);
-                
-                _logger.LogInformation("Object at position {Pos}: currentIndex={CurrentIdx}, targetIndex={TargetIdx}, name='{Name}', isTarget={IsTarget}", 
-                    p, currentObjectIndex, objectIndex, name, isTargetObject);
-                
-                // If not the target object, skip it without creating mesh
-                if (!isTargetObject)
-                {
-                    _logger.LogDebug("Skipping non-target object '{Name}' at index {Index}", name, currentObjectIndex);
-                    
-                    // Skip vertices
-                    p += verticesLen * 8;
-                    // Skip normals
-                    p += normalsLen * 8;
-                    
-                    // Skip primitives
-                    for (int i = 0; i < primitivesLen; i++)
-                    {
-                        if (p + 4 > bytes.Length)
-                            break;
-                        
-                        short prmType = ReadI16(bytes, ref p);
-                        short prmFlag = ReadI16(bytes, ref p);
-                        int skipped = SkipPrimitive(bytes, ref p, prmType);
-                        if (skipped < 0)
-                            break;
-                    }
-                    
-                    currentObjectIndex++;
-                    continue;
-                }
-                
-                // Create mesh ONLY for target object
-                _logger.LogInformation("Loading TARGET object {Index} '{Name}' with {VertCount} vertices, {NormCount} normals, {PrimCount} primitives", 
-                    currentObjectIndex, name, verticesLen, normalsLen, primitivesLen);
-
-                var mesh = new Mesh(name)
-                {
-                    Origin = new Vec3(originX, originY, originZ),
-                    Flags = flags,
-                    // Read vertices (based on object.c lines 77-90)
-                    Vertices = new Vec3[verticesLen]
-                };
-                float radius = 0;
-                for (int i = 0; i < verticesLen; i++)
-                {
-                    short x = ReadI16(bytes, ref p);
-                    short y = ReadI16(bytes, ref p);
-                    short z = ReadI16(bytes, ref p);
-                    p += 2; // padding
-
-                    mesh.Vertices[i] = new Vec3(x, y, z);
-
-                    // Calculate radius
-                    if (Math.Abs(x) > radius) radius = Math.Abs(x);
-                    if (Math.Abs(y) > radius) radius = Math.Abs(y);
-                    if (Math.Abs(z) > radius) radius = Math.Abs(z);
-                }
-                mesh.Radius = radius;
-
-                // Read normals (based on object.c lines 94-99)
-                mesh.Normals = new Vec3[normalsLen];
-                for (int i = 0; i < normalsLen; i++)
-                {
-                    short nx = ReadI16(bytes, ref p);
-                    short ny = ReadI16(bytes, ref p);
-                    short nz = ReadI16(bytes, ref p);
-                    p += 2; // padding
-
-                    mesh.Normals[i] = new Vec3(nx, ny, nz);
-                }
-
-                // Read primitives (based on object.c lines 101-450)
-                mesh.Primitives = new List<Primitive>();
-
-                var primitiveTypeCounts = new Dictionary<short, int>();
-                for (int i = 0; i < primitivesLen; i++)
-                {
-                    short prmType = ReadI16(bytes, ref p);
-                    short prmFlag = ReadI16(bytes, ref p);
-
-                    if (primitiveTypeCounts.TryGetValue(prmType, out var existing))
-                        primitiveTypeCounts[prmType] = existing + 1;
-                    else
-                        primitiveTypeCounts[prmType] = 1;
-
-                    _logger.LogDebug("  Primitive {Index}: type={Type}, flag={Flag}, pos={Pos}", i, prmType, prmFlag, p);
-
-                    try
-                    {
-                        var parsed = ParsePrimitive(bytes, ref p, prmType, prmFlag);
-                        if (parsed != null && parsed.Count > 0)
-                        {
-                            mesh.Primitives.AddRange(parsed);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("Failed to parse primitive {Index} type {Type}: {Error}", i, prmType, ex.Message);
-                        break; // Stop parsing on error
-                    }
-                }
-
-                _logger.LogDebug("Primitive types in '{Name}': {Types}", name, string.Join(", ", primitiveTypeCounts.Select(kv => $"type{kv.Key}={kv.Value}")));
-                _logger.LogInformation("Loaded object '{Name}': {VertCount} vertices, {PrimCount} primitives",
-                    mesh.Name, mesh.Vertices.Length, mesh.Primitives.Count);
-
-                // Log first few primitive colors for debugging
-                int colorSampleCount = 0;
-                foreach (var prim in mesh.Primitives)
-                {
-                    if (colorSampleCount++ >= 5) break;
-                    if (prim is FT3 ft3)
-                        _logger.LogInformation("  Sample FT3 color: R={R} G={G} B={B} A={A}", ft3.Color.r, ft3.Color.g, ft3.Color.b, ft3.Color.a);
-                    else if (prim is F3 f3)
-                        _logger.LogInformation("  Sample F3 color: R={R} G={G} B={B} A={A}", f3.Color.r, f3.Color.g, f3.Color.b, f3.Color.a);
-                    else if (prim is G3 g3)
-                        _logger.LogInformation("  Sample G3 colors: R={R0},{R1},{R2} G={G0},{G1},{G2} B={B0},{B1},{B2}",
-                            g3.Colors[0].r, g3.Colors[1].r, g3.Colors[2].r,
-                            g3.Colors[0].g, g3.Colors[1].g, g3.Colors[2].g,
-                            g3.Colors[0].b, g3.Colors[1].b, g3.Colors[2].b);
-                }
-
-                // We found the target object, return it!
-                _logger.LogInformation("Found and loaded target object at index {Index}: '{Name}'", objectIndex, mesh.Name);
-                resultMesh = mesh;
-                break; // Stop parsing, we got what we wanted
-
-            } // end while loop
-
-            _logger.LogDebug("Exited loop, p={Pos}, fileSize={Size}", p, bytes.Length);
-
-            if (resultMesh == null)
-            {
-                throw new InvalidDataException("No valid mesh found in PRM file");
-            }
-
-            return resultMesh;
+            var bytes = ReadPrmBytes(filepath);
+            var mesh = EnumerateMeshes(bytes, objectIndex).FirstOrDefault();
+            return mesh ?? throw new InvalidDataException("No valid mesh found in PRM file");
         }
         catch (Exception ex)
         {
@@ -769,353 +118,307 @@ public class ModelLoader : IModelLoader
     }
 
     /// <summary>
-    /// Parse a single primitive based on type.
-    /// Ported from the switch statement in object.c lines 107-450
+    /// Converts byte UV coordinates (0-255) to normalized float UV coordinates (0.0-1.0).
+    /// PlayStation 1 PRM files store texture coordinates as bytes, but OpenGL expects floats in the 0-1 range.
     /// </summary>
-    // Return a list since some PRM primitives (e.g. GT4) expand into multiple triangles
-    private System.Collections.Generic.List<Primitive> ParsePrimitive(byte[] bytes, ref int p, short type, short flag)
+    /// <typeparam name="T">A textured primitive type that implements <see cref="ITexturedPrimitive"/></typeparam>
+    /// <param name="primitive">The primitive whose UVsF property will be populated</param>
+    /// <param name="uvs">Array of byte UV coordinates read from the PRM file</param>
+    private static void ConvertUVsToFloat<T>(T primitive, (byte u, byte v)[] uvs) where T : ITexturedPrimitive
     {
-        // Debug: log all primitive types being parsed
-        // Track new primitive types seen and log first-occurrence only.
+        for (int i = 0; i < uvs.Length; i++)
+            primitive.UVsF[i] = (uvs[i].u / 255f, uvs[i].v / 255f);
+    }
+
+    private IEnumerable<Mesh> EnumerateMeshes(byte[] bytes, int? targetIndex)
+    {
+        int p = 0;
+        int currentIndex = 0;
+
+        while (TryReadObjectHeader(bytes, ref p, out var header))
+        {
+            if (IsInvalidCount(header))
+            {
+                _logger.LogWarning("Invalid counts for object {Index}, stopping parse", currentIndex);
+                yield break;
+            }
+
+            bool isTarget = !targetIndex.HasValue || currentIndex == targetIndex.Value;
+
+            if (header.VerticesLen == 0)
+            {
+                SkipObjectData(bytes, ref p, header);
+                currentIndex++;
+                continue;
+            }
+
+            if (!isTarget)
+            {
+                SkipObjectData(bytes, ref p, header);
+                currentIndex++;
+                continue;
+            }
+
+            var mesh = ReadMesh(bytes, ref p, header);
+            _logger.LogInformation("Loaded object '{Name}' (index {Index}): {VertCount} vertices, {PrimCount} primitives",
+                mesh.Name, currentIndex, mesh.Vertices.Length, mesh.Primitives.Count);
+
+            yield return mesh;
+
+            currentIndex++;
+
+            if (targetIndex.HasValue)
+                yield break;
+        }
+    }
+
+    /// <summary>
+    /// Returns the size in bytes for a given primitive type in PRM file format.
+    /// Returns -1 for unknown types.
+    /// </summary>
+    private static int GetPrimitiveSizeInBytes(PrimitiveType type)
+    {
+        return type switch
+        {
+            PrimitiveType.F3 => 12,        // 3*i16 + pad + u32
+            PrimitiveType.FT3 => 24,       // 3*i16 + 3*i16 + 6*u8 + pad + u32
+            PrimitiveType.F4 => 12,        // 4*i16 + u32
+            PrimitiveType.FT4 => 28,       // 4*i16 + 3*i16 + 8*u8 + pad + u32
+            PrimitiveType.G3 => 20,        // 3*i16 + pad + 3*u32
+            PrimitiveType.GT3 => 32,       // 3*i16 + 3*i16 + 6*u8 + pad + 3*u32
+            PrimitiveType.G4 => 24,        // 4*i16 + 4*u32
+            PrimitiveType.GT4 => 40,       // 4*i16 + 3*i16 + 8*u8 + pad + 4*u32
+            PrimitiveType.LF2 => 12,       // Unknown, estimated
+            PrimitiveType.TSPR => 12,      // Transparent sprite
+            PrimitiveType.BSPR => 12,      // Billboard sprite
+            PrimitiveType.LSF3 => 12,      // Light source flat triangle
+            PrimitiveType.LSFT3 => 24,     // Light source flat textured triangle
+            PrimitiveType.LSF4 => 16,      // Light source flat quad
+            PrimitiveType.LSFT4 => 30,     // Light source flat textured quad
+            PrimitiveType.LSG3 => 24,      // Light source gouraud triangle
+            PrimitiveType.LSGT3 => 36,     // Light source gouraud textured triangle
+            PrimitiveType.LSG4 => 32,      // Light source gouraud quad
+            PrimitiveType.LSGT4 => 46,     // Light source gouraud textured quad
+            PrimitiveType.Spline => 52,    // (vec3+pad)*3 + rgba
+            PrimitiveType.InfiniteLight => 12,  // i16*3 + pad + rgba
+            PrimitiveType.PointLight => 24,     // vec3 + pad + rgba + i16*2
+            PrimitiveType.SpotLight => 36,      // vec3 + pad + i16*3 + pad + rgba + i16*4
+            _ => -1
+        };
+    }
+
+    private List<Primitive> HandleUnknownType(short type)
+    {
+        _logger.LogWarning("Unknown primitive type {Type}, stopping parse", type);
+        return new List<Primitive>();
+    }
+
+    private static bool IsInvalidCount(in PrmObjectHeader header)
+    {
+        return header.VerticesLen < 0 || header.NormalsLen < 0 || header.PrimitivesLen < 0 ||
+               header.VerticesLen > 10000 || header.NormalsLen > 10000 || header.PrimitivesLen > 10000;
+    }
+
+    private void LogNewPrimitiveType(short type)
+    {
         _primitiveTypesSeen ??= new HashSet<short>();
         if (_primitiveTypesSeen.Add(type))
         {
             _logger.LogWarning("DEBUG: Encountered primitive type {Type} for first time", type);
         }
-
-        switch (type)
-        {
-            case 1: // PRM_TYPE_F3
-                {
-                    var f3 = new F3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        }
-                    };
-                    p += 2; // pad1
-                    f3.Color = RgbaFromU32(ReadU32(bytes, ref p));
-                    return new System.Collections.Generic.List<Primitive> { f3 };
-                }
-
-            case 2: // PRM_TYPE_FT3 - Textured Triangle
-                {
-                    var ft3 = new FT3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        },
-                        TextureId = ReadI16(bytes, ref p)
-                    };
-                    short cba = ReadI16(bytes, ref p);
-                    short tsb = ReadI16(bytes, ref p);
-
-                    ft3.UVs = new (byte u, byte v)[3]
-                    {
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p))
-                    };
-
-                    p += 2; // pad1
-                    ft3.Color = RgbaFromU32(ReadU32(bytes, ref p));
-
-                    // Convert UV bytes to float 0-1 range
-                    for (int k = 0; k < 3; k++)
-                    {
-                        ft3.UVsF[k] = (ft3.UVs[k].u / 255f, ft3.UVs[k].v / 255f);
-                    }
-
-                    return new System.Collections.Generic.List<Primitive> { ft3 };
-                }
-
-            case 3: // PRM_TYPE_F4 - Flat Quad (4 vertices, solid color)
-                {
-                    var f4 = new F4
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[4]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        },
-                        Color = RgbaFromU32(ReadU32(bytes, ref p))
-                    };
-
-                    return new System.Collections.Generic.List<Primitive> { f4 };
-                }
-
-            case 4: // PRM_TYPE_FT4 - Textured Quad (4 vertices)
-                {
-                    var ft4 = new FT4
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[4]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        },
-                        TextureId = ReadI16(bytes, ref p)
-                    };
-                    p += 4; // cba, tsb
-
-                    ft4.UVs = new (byte u, byte v)[4]
-                    {
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p))
-                    };
-
-                    p += 2; // pad1
-                    ft4.Color = RgbaFromU32(ReadU32(bytes, ref p));
-
-                    // Convert UV bytes to float 0-1 range
-                    for (int k = 0; k < 4; k++)
-                    {
-                        ft4.UVsF[k] = (ft4.UVs[k].u / 255f, ft4.UVs[k].v / 255f);
-                    }
-
-                    return new System.Collections.Generic.List<Primitive> { ft4 };
-                }
-
-            case 5: // PRM_TYPE_G3
-                {
-                    var g3 = new G3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        }
-                    };
-                    p += 2; // pad1
-                    g3.Colors = new (byte r, byte g, byte b, byte a)[3]
-                    {
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p))
-                    };
-                    return new System.Collections.Generic.List<Primitive> { g3 };
-                }
-
-            case 6: // PRM_TYPE_GT3 - Gouraud Textured Triangle
-                {
-                    var gt3 = new GT3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        },
-                        TextureId = ReadI16(bytes, ref p)
-                    };
-                    p += 4; // cba, tsb
-
-                    gt3.UVs = new (byte u, byte v)[3]
-                    {
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p))
-                    };
-
-                    p += 2; // pad1
-                    gt3.Colors = new (byte r, byte g, byte b, byte a)[3]
-                    {
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p))
-                    };
-
-                    for (int k = 0; k < 3; k++)
-                    {
-                        gt3.UVsF[k] = (gt3.UVs[k].u / 255f, gt3.UVs[k].v / 255f);
-                    }
-
-                    return new System.Collections.Generic.List<Primitive> { gt3 };
-                }
-
-            case 7: // PRM_TYPE_G4 - Gouraud Quad (4 vertices, Gouraud shading, no texture)
-                {
-                    var g4 = new G4
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[4]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        },
-                        Colors = new (byte r, byte g, byte b, byte a)[4]
-                    {
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p)),
-                        RgbaFromU32(ReadU32(bytes, ref p))
-                    }
-                    };
-
-                    return new System.Collections.Generic.List<Primitive> { g4 };
-                }
-
-            case 8: // PRM_TYPE_GT4 - Gouraud Textured Quad (split into 2 triangles)
-                {
-                    short i0 = ReadI16(bytes, ref p);
-                    short i1 = ReadI16(bytes, ref p);
-                    short i2 = ReadI16(bytes, ref p);
-                    short i3 = ReadI16(bytes, ref p);
-
-                    short texId = ReadI16(bytes, ref p);
-                    p += 4; // cba, tsb
-
-                    byte u0 = ReadU8(bytes, ref p), v0 = ReadU8(bytes, ref p);
-                    byte u1 = ReadU8(bytes, ref p), v1 = ReadU8(bytes, ref p);
-                    byte u2 = ReadU8(bytes, ref p), v2 = ReadU8(bytes, ref p);
-                    byte u3 = ReadU8(bytes, ref p), v3 = ReadU8(bytes, ref p);
-
-                    p += 2; // pad1
-
-                    var c0 = RgbaFromU32(ReadU32(bytes, ref p));
-                    var c1 = RgbaFromU32(ReadU32(bytes, ref p));
-                    var c2 = RgbaFromU32(ReadU32(bytes, ref p));
-                    var (r, g, b, a) = RgbaFromU32(ReadU32(bytes, ref p));
-
-                    var gt3a = new GT3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[] { i0, i1, i2 },
-                        TextureId = texId,
-                        UVs = new[] { (u0, v0), (u1, v1), (u2, v2) },
-                        Colors = new[] { c0, c1, c2 }
-                    };
-                    for (int k = 0; k < 3; k++)
-                    {
-                        gt3a.UVsF[k] = (gt3a.UVs[k].u / 255f, gt3a.UVs[k].v / 255f);
-                    }
-
-                    // Create second triangle (0,2,3) from the quad to fully represent GT4
-                    var gt3b = new GT3
-                    {
-                        Flags = flag,
-                        // Match original C rendering: second triangle uses coords[1],coords[3],coords[2]
-                        CoordIndices = new short[] { i1, i3, i2 },
-                        TextureId = texId,
-                        UVs = new[] { (u1, v1), (u3, v3), (u2, v2) },
-                        Colors = new[] { c1, c2, (r, g, b, a) }
-                    };
-                    gt3b.UVsF[0] = (gt3b.UVs[0].u / 255f, gt3b.UVs[0].v / 255f);
-                    gt3b.UVsF[1] = (gt3b.UVs[1].u / 255f, gt3b.UVs[1].v / 255f);
-                    gt3b.UVsF[2] = (gt3b.UVs[2].u / 255f, gt3b.UVs[2].v / 255f);
-
-                    return new System.Collections.Generic.List<Primitive> { gt3a, gt3b };
-                }
-
-            case 12: // PRM_TYPE_LSF3 - Light source flat triangle
-                {
-                    var lsf3 = new F3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        }
-                    };
-                    short normal = ReadI16(bytes, ref p);
-                    lsf3.Color = RgbaFromU32(ReadU32(bytes, ref p));
-                    return new System.Collections.Generic.List<Primitive> { lsf3 };
-                }
-
-            case 13: // PRM_TYPE_LSFT3 - Light source flat textured triangle
-                {
-                    var lsft3 = new FT3
-                    {
-                        Flags = flag,
-                        CoordIndices = new short[3]
-                        {
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p),
-                            ReadI16(bytes, ref p)
-                        }
-                    };
-                    short normal = ReadI16(bytes, ref p);
-                    lsft3.TextureId = ReadI16(bytes, ref p);
-                    p += 4; // cba, tsb
-
-                    lsft3.UVs = new (byte u, byte v)[3]
-                    {
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
-                        (ReadU8(bytes, ref p), ReadU8(bytes, ref p))
-                    };
-
-                    lsft3.Color = RgbaFromU32(ReadU32(bytes, ref p));
-
-                    for (int k = 0; k < 3; k++)
-                    {
-                        lsft3.UVsF[k] = (lsft3.UVs[k].u / 255f, lsft3.UVs[k].v / 255f);
-                    }
-
-                    return new System.Collections.Generic.List<Primitive> { lsft3 };
-                }
-
-            case 14: // PRM_TYPE_LSF4
-            case 15: // PRM_TYPE_LSFT4
-            case 16: // PRM_TYPE_LSG3
-            case 17: // PRM_TYPE_LSGT3
-            case 18: // PRM_TYPE_LSG4
-            case 19: // PRM_TYPE_LSGT4
-                     // TODO: Implement remaining light source types
-                _logger.LogDebug("Skipping unimplemented light source primitive type {Type}", type);
-                return new System.Collections.Generic.List<Primitive>();
-
-            case 10: // PRM_TYPE_TSPR - Transparent sprite
-            case 11: // PRM_TYPE_BSPR - Billboard sprite
-                     // Skip sprite primitives
-                p += 12; // Skip remaining sprite data (type+flag already read)
-                return new System.Collections.Generic.List<Primitive>();
-
-            case 20: // PRM_TYPE_SPLINE
-                p += 40; // sizeof(Spline) - 2
-                return new System.Collections.Generic.List<Primitive>();
-
-            case 21: // PRM_TYPE_INFINITE_LIGHT
-                p += 18; // sizeof(InfiniteLight) - 2
-                return new System.Collections.Generic.List<Primitive>();
-
-            case 22: // PRM_TYPE_POINT_LIGHT
-                p += 26; // sizeof(PointLight) - 2
-                return new System.Collections.Generic.List<Primitive>();
-
-            case 23: // PRM_TYPE_SPOT_LIGHT
-                p += 42; // sizeof(SpotLight) - 2
-                return new System.Collections.Generic.List<Primitive>();
-
-            default:
-                _logger.LogWarning("Unknown primitive type {Type}, stopping parse", type);
-                return new System.Collections.Generic.List<Primitive>();
-        }
     }
 
-    // Binary reading helpers (little-endian)
+    private static List<Primitive> ParseF3(byte[] bytes, ref int p, short flag)
+    {
+        var f3 = new F3 { Flags = flag, CoordIndices = ReadCoordIndices(bytes, ref p, 3) };
+        p += 2; // pad1
+        f3.Color = RgbaFromU32(ReadU32(bytes, ref p));
+        return new List<Primitive> { f3 };
+    }
+
+    private static List<Primitive> ParseF4(byte[] bytes, ref int p, short flag)
+    {
+        var f4 = new F4
+        {
+            Flags = flag,
+            CoordIndices = ReadCoordIndices(bytes, ref p, 4),
+            Color = RgbaFromU32(ReadU32(bytes, ref p))
+        };
+        return new List<Primitive> { f4 };
+    }
+
+    private static List<Primitive> ParseFT3(byte[] bytes, ref int p, short flag)
+    {
+        var ft3 = new FT3
+        {
+            Flags = flag,
+            CoordIndices = ReadCoordIndices(bytes, ref p, 3),
+            TextureId = ReadI16(bytes, ref p)
+        };
+        p += 4; // cba, tsb
+        ft3.UVs = ReadUVs(bytes, ref p, 3);
+        p += 2; // pad1
+        ft3.Color = RgbaFromU32(ReadU32(bytes, ref p));
+        ConvertUVsToFloat(ft3, ft3.UVs);
+        return new List<Primitive> { ft3 };
+    }
+
+    private static List<Primitive> ParseFT4(byte[] bytes, ref int p, short flag)
+    {
+        var ft4 = new FT4
+        {
+            Flags = flag,
+            CoordIndices = ReadCoordIndices(bytes, ref p, 4),
+            TextureId = ReadI16(bytes, ref p)
+        };
+        p += 4; // cba, tsb
+        ft4.UVs = ReadUVs(bytes, ref p, 4);
+        p += 2; // pad1
+        ft4.Color = RgbaFromU32(ReadU32(bytes, ref p));
+        ConvertUVsToFloat(ft4, ft4.UVs);
+        return new List<Primitive> { ft4 };
+    }
+
+    private static List<Primitive> ParseG3(byte[] bytes, ref int p, short flag)
+    {
+        var g3 = new G3 { Flags = flag, CoordIndices = ReadCoordIndices(bytes, ref p, 3) };
+        p += 2; // pad1
+        g3.Colors = ReadColors(bytes, ref p, 3);
+        return new List<Primitive> { g3 };
+    }
+
+    private static List<Primitive> ParseG4(byte[] bytes, ref int p, short flag)
+    {
+        var g4 = new G4
+        {
+            Flags = flag,
+            CoordIndices = ReadCoordIndices(bytes, ref p, 4),
+            Colors = ReadColors(bytes, ref p, 4)
+        };
+        return new List<Primitive> { g4 };
+    }
+
+    private static List<Primitive> ParseGT3(byte[] bytes, ref int p, short flag)
+    {
+        var gt3 = new GT3
+        {
+            Flags = flag,
+            CoordIndices = ReadCoordIndices(bytes, ref p, 3),
+            TextureId = ReadI16(bytes, ref p)
+        };
+        p += 4; // cba, tsb
+        gt3.UVs = ReadUVs(bytes, ref p, 3);
+        p += 2; // pad1
+        gt3.Colors = ReadColors(bytes, ref p, 3);
+        ConvertUVsToFloat(gt3, gt3.UVs);
+        return new List<Primitive> { gt3 };
+    }
+
+    private static List<Primitive> ParseGT4(byte[] bytes, ref int p, short flag)
+    {
+        var coords = new short[] { ReadI16(bytes, ref p), ReadI16(bytes, ref p), ReadI16(bytes, ref p), ReadI16(bytes, ref p) };
+        var texId = ReadI16(bytes, ref p);
+        p += 4; // cba, tsb
+
+        var uvs = new[] { (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
+                          (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
+                          (ReadU8(bytes, ref p), ReadU8(bytes, ref p)),
+                          (ReadU8(bytes, ref p), ReadU8(bytes, ref p)) };
+        p += 2; // pad1
+
+        var colors = new[] { RgbaFromU32(ReadU32(bytes, ref p)),
+                             RgbaFromU32(ReadU32(bytes, ref p)),
+                             RgbaFromU32(ReadU32(bytes, ref p)),
+                             RgbaFromU32(ReadU32(bytes, ref p)) };
+
+        var gt3a = new GT3
+        {
+            Flags = flag,
+            CoordIndices = new short[] { coords[0], coords[1], coords[2] },
+            TextureId = texId,
+            UVs = new[] { uvs[0], uvs[1], uvs[2] },
+            Colors = new[] { colors[0], colors[1], colors[2] }
+        };
+        ConvertUVsToFloat(gt3a, gt3a.UVs);
+
+        var gt3b = new GT3
+        {
+            Flags = flag,
+            CoordIndices = new short[] { coords[1], coords[3], coords[2] },
+            TextureId = texId,
+            UVs = new[] { uvs[1], uvs[3], uvs[2] },
+            Colors = new[] { colors[1], colors[2], colors[3] }
+        };
+        ConvertUVsToFloat(gt3b, gt3b.UVs);
+
+        return new List<Primitive> { gt3a, gt3b };
+    }
+
+    private static List<Primitive> ParseLSF3(byte[] bytes, ref int p, short flag)
+    {
+        var lsf3 = new F3 { Flags = flag, CoordIndices = ReadCoordIndices(bytes, ref p, 3) };
+        _ = ReadI16(bytes, ref p); // skip light source field
+        lsf3.Color = RgbaFromU32(ReadU32(bytes, ref p));
+        return new List<Primitive> { lsf3 };
+    }
+
+    private static List<Primitive> ParseLSFT3(byte[] bytes, ref int p, short flag)
+    {
+        var lsft3 = new FT3 { Flags = flag, CoordIndices = ReadCoordIndices(bytes, ref p, 3) };
+        _ = ReadI16(bytes, ref p); // skip light source field
+        lsft3.TextureId = ReadI16(bytes, ref p);
+        p += 4; // cba, tsb
+        lsft3.UVs = ReadUVs(bytes, ref p, 3);
+        lsft3.Color = RgbaFromU32(ReadU32(bytes, ref p));
+        ConvertUVsToFloat(lsft3, lsft3.UVs);
+        return new List<Primitive> { lsft3 };
+    }
+
+    /// <summary>
+    /// Parse a single primitive based on type.
+    /// Ported from the switch statement in object.c lines 107-450
+    /// Returns a list since some PRM primitives (e.g. GT4) expand into multiple triangles.
+    /// </summary>
+    private List<Primitive> ParsePrimitive(byte[] bytes, ref int p, short type, short flag)
+    {
+        LogNewPrimitiveType(type);
+
+        return (PrimitiveType)type switch
+        {
+            PrimitiveType.F3 => ParseF3(bytes, ref p, flag),
+            PrimitiveType.FT3 => ParseFT3(bytes, ref p, flag),
+            PrimitiveType.F4 => ParseF4(bytes, ref p, flag),
+            PrimitiveType.FT4 => ParseFT4(bytes, ref p, flag),
+            PrimitiveType.G3 => ParseG3(bytes, ref p, flag),
+            PrimitiveType.GT3 => ParseGT3(bytes, ref p, flag),
+            PrimitiveType.G4 => ParseG4(bytes, ref p, flag),
+            PrimitiveType.GT4 => ParseGT4(bytes, ref p, flag),
+            PrimitiveType.TSPR or PrimitiveType.BSPR => SkipSprite(bytes, ref p),
+            PrimitiveType.LSF3 => ParseLSF3(bytes, ref p, flag),
+            PrimitiveType.LSFT3 => ParseLSFT3(bytes, ref p, flag),
+            PrimitiveType.LSF4 or PrimitiveType.LSFT4 or PrimitiveType.LSG3 or
+            PrimitiveType.LSGT3 or PrimitiveType.LSG4 or PrimitiveType.LSGT4 => SkipUnimplementedLightSource(type),
+            PrimitiveType.Spline or PrimitiveType.InfiniteLight or
+            PrimitiveType.PointLight or PrimitiveType.SpotLight => SkipLightData(bytes, ref p, (PrimitiveType)type),
+            _ => HandleUnknownType(type)
+        };
+    }
+
+    private static (byte r, byte g, byte b, byte a)[] ReadColors(byte[] bytes, ref int p, int count)
+    {
+        var colors = new (byte, byte, byte, byte)[count];
+        for (int i = 0; i < count; i++)
+            colors[i] = RgbaFromU32(ReadU32(bytes, ref p));
+        return colors;
+    }
+
+    private static short[] ReadCoordIndices(byte[] bytes, ref int p, int count)
+    {
+        var indices = new short[count];
+        for (int i = 0; i < count; i++)
+            indices[i] = ReadI16(bytes, ref p);
+        return indices;
+    }
 
     private static string ReadFixedString(byte[] bytes, ref int p, int length)
     {
@@ -1141,16 +444,122 @@ public class ModelLoader : IModelLoader
         return value;
     }
 
+    private Mesh ReadMesh(byte[] bytes, ref int p, in PrmObjectHeader header)
+    {
+        var mesh = new Mesh(header.Name)
+        {
+            Origin = new Vec3(header.OriginX, header.OriginY, header.OriginZ),
+            Flags = header.Flags
+        };
+
+        mesh.Vertices = ReadVertices(bytes, ref p, header.VerticesLen, out float radius);
+        mesh.Radius = radius;
+        mesh.Normals = ReadNormals(bytes, ref p, header.NormalsLen);
+        mesh.Primitives = ReadPrimitives(bytes, ref p, header.PrimitivesLen);
+
+        return mesh;
+    }
+
+    private static Vec3[] ReadNormals(byte[] bytes, ref int p, short count)
+    {
+        var normals = new Vec3[count];
+        for (int i = 0; i < count; i++)
+        {
+            short nx = ReadI16(bytes, ref p);
+            short ny = ReadI16(bytes, ref p);
+            short nz = ReadI16(bytes, ref p);
+            p += 2; // padding
+            normals[i] = new Vec3(nx, ny, nz);
+        }
+        return normals;
+    }
+
+    private List<Primitive> ReadPrimitives(byte[] bytes, ref int p, short count)
+    {
+        var primitives = new List<Primitive>();
+
+        for (int i = 0; i < count; i++)
+        {
+            if (p + 4 > bytes.Length)
+            {
+                _logger.LogWarning("Truncated primitive data at {Pos}", p);
+                break;
+            }
+
+            short prmType = ReadI16(bytes, ref p);
+            short prmFlag = ReadI16(bytes, ref p);
+
+            try
+            {
+                var parsed = ParsePrimitive(bytes, ref p, prmType, prmFlag);
+                if (parsed.Count > 0)
+                {
+                    primitives.AddRange(parsed);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Failed to parse primitive {Index} type {Type}: {Error}", i, prmType, ex.Message);
+                break;
+            }
+        }
+
+        return primitives;
+    }
+
+    private byte[] ReadPrmBytes(string filepath)
+    {
+        if (string.IsNullOrWhiteSpace(filepath))
+        {
+            throw new ArgumentException("File path cannot be null or empty", nameof(filepath));
+        }
+
+        if (!File.Exists(filepath))
+        {
+            throw new FileNotFoundException($"PRM file not found: {filepath}", filepath);
+        }
+
+        byte[] bytes = File.ReadAllBytes(filepath);
+        _logger.LogInformation("Loading PRM: {Path} ({Size} bytes)", filepath, bytes.Length);
+        return bytes;
+    }
+
     private static uint ReadU32(byte[] bytes, ref int p)
     {
         return (uint)ReadI32(bytes, ref p);
     }
 
-    // NOTE: ReadI8 removed — not used in current model parsing code.
-
     private static byte ReadU8(byte[] bytes, ref int p)
     {
         return bytes[p++];
+    }
+
+    private static (byte u, byte v)[] ReadUVs(byte[] bytes, ref int p, int count)
+    {
+        var uvs = new (byte, byte)[count];
+        for (int i = 0; i < count; i++)
+            uvs[i] = (ReadU8(bytes, ref p), ReadU8(bytes, ref p));
+        return uvs;
+    }
+
+    private static Vec3[] ReadVertices(byte[] bytes, ref int p, short count, out float radius)
+    {
+        radius = 0;
+        var vertices = new Vec3[count];
+        for (int i = 0; i < count; i++)
+        {
+            short x = ReadI16(bytes, ref p);
+            short y = ReadI16(bytes, ref p);
+            short z = ReadI16(bytes, ref p);
+            p += 2; // padding
+
+            vertices[i] = new Vec3(x, y, z);
+
+            if (Math.Abs(x) > radius) radius = Math.Abs(x);
+            if (Math.Abs(y) > radius) radius = Math.Abs(y);
+            if (Math.Abs(z) > radius) radius = Math.Abs(z);
+        }
+        return vertices;
     }
 
     /// <summary>
@@ -1166,91 +575,146 @@ public class ModelLoader : IModelLoader
         );
     }
 
+    private static List<Primitive> SkipLightData(byte[] bytes, ref int p, PrimitiveType type)
+    {
+        int skipBytes = GetPrimitiveSizeInBytes(type);
+        if (skipBytes > 0)
+            p += skipBytes;
+        return new List<Primitive>();
+    }
+
+    private static void SkipObjectData(byte[] bytes, ref int p, in PrmObjectHeader header)
+    {
+        p += header.VerticesLen * 8; // vertices
+        p += header.NormalsLen * 8; // normals
+
+        for (int i = 0; i < header.PrimitivesLen; i++)
+        {
+            if (p + 4 > bytes.Length)
+                break;
+
+            short prmType = ReadI16(bytes, ref p);
+            _ = ReadI16(bytes, ref p); // flag ignored here
+            int skipped = SkipPrimitive(bytes, ref p, prmType);
+            if (skipped < 0)
+                break;
+        }
+    }
+
     /// <summary>
     /// Skip bytes for a primitive without parsing (for objects we don't want to load).
     /// Returns number of bytes skipped, or -1 if unknown type.
     /// </summary>
     private static int SkipPrimitive(byte[] bytes, ref int p, short type)
     {
-        int start = p;
+        int bytesToSkip = GetPrimitiveSizeInBytes((PrimitiveType)type);
+        if (bytesToSkip < 0)
+            return -1;
 
-        switch (type)
+        p += bytesToSkip;
+        return bytesToSkip;
+    }
+
+    private static List<Primitive> SkipSprite(byte[] bytes, ref int p)
+    {
+        p += 12; // Skip remaining sprite data
+        return new List<Primitive>();
+    }
+
+    private List<Primitive> SkipUnimplementedLightSource(short type)
+    {
+        _logger.LogDebug("Skipping unimplemented light source primitive type {Type}", type);
+        return new List<Primitive>();
+    }
+
+    private static bool TryReadObjectHeader(byte[] bytes, ref int p, out PrmObjectHeader header)
+    {
+        header = default;
+
+        const int minimumHeaderSize = 144;
+        if (p > bytes.Length - minimumHeaderSize)
         {
-            case 1: // PRM_TYPE_F3: 3*i16 + pad + u32 = 12 bytes
-                p += 12;
-                break;
-            case 2: // PRM_TYPE_FT3: 3*i16 + 3*i16 + 6*u8 + pad + u32 = 24 bytes
-                p += 24;
-                break;
-            case 3: // PRM_TYPE_F4: 4*i16 + u32 = 12 bytes
-                p += 12;
-                break;
-            case 4: // PRM_TYPE_FT4: 4*i16 + 3*i16 + 8*u8 + pad + u32 = 28 bytes
-                p += 28;
-                break;
-            case 5: // PRM_TYPE_G3: 3*i16 + pad + 3*u32 = 20 bytes
-                p += 20;
-                break;
-            case 6: // PRM_TYPE_GT3: 3*i16 + 3*i16 + 6*u8 + pad + 3*u32 = 32 bytes
-                p += 32;
-                break;
-            case 7: // PRM_TYPE_G4: 4*i16 + 4*u32 = 24 bytes
-                p += 24;
-                break;
-            case 8: // PRM_TYPE_GT4: 4*i16 + 3*i16 + 8*u8 + pad + 4*u32 = 40 bytes
-                p += 40;
-                break;
-            case 9: // PRM_TYPE_LF2: (unknown, skip for now)
-                p += 12;
-                break;
-            case 10: // PRM_TYPE_TSPR: i16 + i16 + i16 + i16 + u32 = 12 bytes
-                p += 12;
-                break;
-            case 11: // PRM_TYPE_BSPR: i16 + i16 + i16 + i16 + u32 = 12 bytes
-                p += 12;
-                break;
-            case 12: // PRM_TYPE_LSF3: 3*i16 + i16 + u32 = 12 bytes
-                p += 12;
-                break;
-            case 13: // PRM_TYPE_LSFT3: 3*i16 + i16 + 3*i16 + 6*u8 + u32 = 24 bytes
-                p += 24;
-                break;
-            case 14: // PRM_TYPE_LSF4: 4*i16 + i16 + pad + u32 = 16 bytes
-                p += 16;
-                break;
-            case 15: // PRM_TYPE_LSFT4: 4*i16 + i16 + 3*i16 + 8*u8 + u32 = 30 bytes
-                p += 30;
-                break;
-            case 16: // PRM_TYPE_LSG3: 3*i16 + 3*i16 + 3*u32 = 24 bytes
-                p += 24;
-                break;
-            case 17: // PRM_TYPE_LSGT3: 3*i16 + 3*i16 + 3*i16 + 6*u8 + 3*u32 = 36 bytes
-                p += 36;
-                break;
-            case 18: // PRM_TYPE_LSG4: 4*i16 + 4*i16 + 4*u32 = 32 bytes
-                p += 32;
-                break;
-            case 19: // PRM_TYPE_LSGT4: 4*i16 + 4*i16 + 3*i16 + 8*u8 + pad + 4*u32 = 46 bytes
-                p += 46;
-                break;
-            case 20: // PRM_TYPE_SPLINE: (vec3+pad)*3 + rgba = 16+16+16+4 = 52 bytes
-                p += 52;
-                break;
-            case 21: // PRM_TYPE_INFINITE_LIGHT: i16*3 + pad + rgba = 6+2+4 = 12 bytes
-                p += 12;
-                break;
-            case 22: // PRM_TYPE_POINT_LIGHT: vec3 + pad + rgba + i16*2 = 12+4+4+4 = 24 bytes
-                p += 24;
-                break;
-            case 23: // PRM_TYPE_SPOT_LIGHT: vec3 + pad + i16*3 + pad + rgba + i16*4 = 12+4+6+2+4+8 = 36 bytes
-                p += 36;
-                break;
-            default:
-                return -1; // Unknown type
+            return false;
         }
 
-        return p - start;
+        string name = ReadFixedString(bytes, ref p, 16);
+
+        short verticesLen = ReadI16(bytes, ref p); p += 2; // padding
+        _ = ReadI32(bytes, ref p); // verticesPtr
+
+        short normalsLen = ReadI16(bytes, ref p); p += 2; // padding
+        _ = ReadI32(bytes, ref p); // normalsPtr
+
+        short primitivesLen = ReadI16(bytes, ref p); p += 2; // padding
+        _ = ReadI32(bytes, ref p); // primitivesPtr
+
+        p += 4; // unused ptr
+        p += 4; // unused ptr
+        p += 4; // skeleton ref
+
+        _ = ReadI32(bytes, ref p); // extent
+        short flags = ReadI16(bytes, ref p); p += 2; // padding
+        _ = ReadI32(bytes, ref p); // nextPtr (unused)
+
+        p += 3 * 3 * 2; // relative rotation matrix (3x3 i16)
+        p += 2; // padding
+
+        int originX = ReadI32(bytes, ref p);
+        int originY = ReadI32(bytes, ref p);
+        int originZ = ReadI32(bytes, ref p);
+
+        p += 3 * 3 * 2; // absolute rotation matrix
+        p += 2; // padding
+        p += 3 * 4; // absolute translation
+        p += 2; // skeleton update flag
+        p += 2; // padding
+        p += 4; // skeleton super
+        p += 4; // skeleton sub
+        p += 4; // skeleton next
+
+        header = new PrmObjectHeader(name, verticesLen, normalsLen, primitivesLen, originX, originY, originZ, flags);
+        return true;
     }
 
     #endregion 
+
+    /// <summary>
+    /// Primitive type identifiers from PlayStation 1 PRM file format
+    /// </summary>
+    private enum PrimitiveType : short
+    {
+        F3 = 1,              // Flat triangle
+        FT3 = 2,             // Flat textured triangle
+        F4 = 3,              // Flat quad
+        FT4 = 4,             // Flat textured quad
+        G3 = 5,              // Gouraud triangle
+        GT3 = 6,             // Gouraud textured triangle
+        G4 = 7,              // Gouraud quad
+        GT4 = 8,             // Gouraud textured quad
+        LF2 = 9,             // Line (unknown)
+        TSPR = 10,           // Transparent sprite
+        BSPR = 11,           // Billboard sprite
+        LSF3 = 12,           // Light source flat triangle
+        LSFT3 = 13,          // Light source flat textured triangle
+        LSF4 = 14,           // Light source flat quad
+        LSFT4 = 15,          // Light source flat textured quad
+        LSG3 = 16,           // Light source gouraud triangle
+        LSGT3 = 17,          // Light source gouraud textured triangle
+        LSG4 = 18,           // Light source gouraud quad
+        LSGT4 = 19,          // Light source gouraud textured quad
+        Spline = 20,         // Spline curve
+        InfiniteLight = 21,  // Infinite light source
+        PointLight = 22,     // Point light source
+        SpotLight = 23       // Spot light source
+    }
+
+    private record struct PrmObjectHeader(
+                                    string Name,
+                                    short VerticesLen,
+                                    short NormalsLen,
+                                    short PrimitivesLen,
+                                    int OriginX,
+                                    int OriginY,
+                                    int OriginZ,
+                                    short Flags);
 }

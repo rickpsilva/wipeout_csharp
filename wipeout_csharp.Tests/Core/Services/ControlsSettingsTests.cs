@@ -1,3 +1,4 @@
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using Xunit;
 using WipeoutRewrite.Core.Services;
 
@@ -34,7 +35,7 @@ public class ControlsSettingsTests
 
         // UP action should have keyboard binding
         uint upKeyboard = settings.GetButtonBinding(RaceAction.Up, InputDevice.Keyboard);
-        Assert.Equal(82u, upKeyboard); // SDL_SCANCODE_UP
+        Assert.Equal((uint)Keys.Up, upKeyboard); // Default keyboard UP
     }
 
     [Fact]
@@ -61,7 +62,7 @@ public class ControlsSettingsTests
 
         // Check it's restored
         uint binding = settings.GetButtonBinding(RaceAction.Up, InputDevice.Keyboard);
-        Assert.Equal(82u, binding); // SDL_SCANCODE_UP
+        Assert.Equal((uint)Keys.Up, binding); // Default keyboard UP
     }
 
     [Theory]

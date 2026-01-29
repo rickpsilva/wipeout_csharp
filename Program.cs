@@ -16,7 +16,7 @@ using WipeoutRewrite.Core.Entities;
 using WipeoutRewrite.Factory;
 using WipeoutRewrite.Infrastructure.Video;
 using WipeoutRewrite.Presentation;
-
+using WipeoutRewrite.Presentation.Menus;
 namespace WipeoutRewrite;
 
 /// <summary>
@@ -89,7 +89,7 @@ class Program
         services.AddDbContext<GameSettingsDbContext>(opts => opts.UseSqlite($"Data Source={dbPath}"));
         services.AddScoped<ISettingsRepository, SettingsRepository>();
         services.AddScoped<DatabaseInitializer>();
-        services.AddSingleton<SettingsPersistenceService>();
+        services.AddSingleton<ISettingsPersistenceService, SettingsPersistenceService>();
     }
 
     private static void ConfigureWindow(IServiceCollection services)
@@ -130,6 +130,7 @@ class Program
         services.AddSingleton<IGameDataService, GameDataService>();
         services.AddSingleton<IMenuBuilder, MenuBuilder>();
         services.AddSingleton<IMenuActionHandler, MenuActionHandler>();
+        services.AddSingleton<IMainMenuPages, MainMenuPages>();
         services.AddSingleton<IOptionsFactory>(sp => 
             new OptionsFactory(sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<ISettingsRepository>()));
         services.AddSingleton<IControlsSettings>(sp => sp.GetRequiredService<IOptionsFactory>().CreateControlsSettings());
@@ -146,6 +147,7 @@ class Program
         services.AddSingleton<IMenuManager, MenuManager>();
         services.AddSingleton<IFontSystem, FontSystem>();
         services.AddSingleton<IMenuRenderer, MenuRenderer>();
+        services.AddScoped<IMenuPageRenderer, MenuPageRenderer>();
 
         // Presentation
         services.AddSingleton<ITitleScreen, TitleScreen>();

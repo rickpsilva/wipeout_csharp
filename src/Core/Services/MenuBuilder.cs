@@ -189,7 +189,7 @@ public class MenuBuilder : IMenuBuilder
         {
             Label = itemDef.Label,
             IsEnabled = itemDef.IsEnabled != false,
-            PreviewInfo = itemDef.Preview != null ? 
+            ContentViewPort = itemDef.Preview != null ? 
                 ConvertPreviewInfo(itemDef.Preview) : null,
             OnClick = null // Callbacks set elsewhere in game logic
         };
@@ -240,7 +240,7 @@ public class MenuBuilder : IMenuBuilder
             var item = new MenuButton
             {
                 Label = team.Name,
-                PreviewInfo = null, // TODO: Create proper category mapping
+                ContentViewPort = null, // TODO: Create proper category mapping
                 OnClick = null // Callback set in game logic
             };
             items.Add(item);
@@ -269,7 +269,7 @@ public class MenuBuilder : IMenuBuilder
             var item = new MenuButton
             {
                 Label = circuit.Name,
-                PreviewInfo = null, // TODO: Create proper category mapping
+                ContentViewPort = null, // TODO: Create proper category mapping
                 OnClick = null // Callback set in game logic
             };
             items.Add(item);
@@ -289,6 +289,7 @@ public class MenuBuilder : IMenuBuilder
             var item = new MenuButton
             {
                 Label = raceType.Name,
+                ContentViewPort = null, // TODO: Create proper category mapping
                 OnClick = null // Callback set in game logic
             };
             items.Add(item);
@@ -308,6 +309,7 @@ public class MenuBuilder : IMenuBuilder
             var item = new MenuButton
             {
                 Label = raceClass.Name,
+                ContentViewPort = null, // TODO: Create proper category mapping
                 OnClick = null // Callback set in game logic
             };
             items.Add(item);

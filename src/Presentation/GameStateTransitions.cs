@@ -73,6 +73,46 @@ public static class GameStateTransitions
     }
 
     /// <summary>
+    /// Handles menu sub-state transitions (BestTimesViewer, AwaitingInput, normal menu).
+    /// Returns true if should pop menu (go back), false otherwise.
+    /// </summary>
+    public static bool ShouldPopMenu(
+        string? pageId,
+        bool menuBackPressed,
+        bool exitPressed,
+        bool hasMenuPages)
+    {
+        // Best Times Viewer: Back/ESC -> pop back to options menu
+        if (pageId == WipeoutRewrite.Infrastructure.UI.MenuPageIds.BestTimesViewer)
+        {
+            if (menuBackPressed || exitPressed)
+                return true;
+        }
+        
+        // Awaiting Input: ESC handled separately in HandleAwaitingInputMode
+        // (needs special logic for key capture vs cancel)
+        if (pageId == WipeoutRewrite.Infrastructure.UI.MenuPageIds.AwaitingInput)
+        {
+            // Don't handle here - special logic in HandleAwaitingInputMode
+            return false;
+        }
+        
+        // Normal menu: Back -> pop if has pages, else exit to splash
+        if (menuBackPressed)
+        {
+            return hasMenuPages;
+        }
+        
+        // ESC always exits to splash
+        if (exitPressed)
+        {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /// <summary>
     /// Determine if UI scale needs recalculation based on screen height.
     /// Formula from original C code: scale = max(1, sh >= 720 ? sh / 360 : sh / 240)
     /// </summary>

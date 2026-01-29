@@ -1,6 +1,9 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 using WipeoutRewrite.Core.Services;
-using Microsoft.Extensions.Logging;
+using WipeoutRewrite.Infrastructure.Database;
 
 namespace WipeoutRewrite.Tests.Core.Services;
 
@@ -8,7 +11,9 @@ public class BestTimesManagerTests
 {
     private BestTimesManager CreateManager()
     {
-        return new BestTimesManager(new TestLoggerFactory().CreateLogger<BestTimesManager>() as ILogger<BestTimesManager> ?? new NullLogger<BestTimesManager>());
+        var logger = new TestLoggerFactory().CreateLogger<BestTimesManager>() as ILogger<BestTimesManager> ?? new NullLogger<BestTimesManager>();
+        var repository = new Mock<ISettingsRepository>().Object;
+        return new BestTimesManager(logger, repository);
     }
 
     private BestTimeRecord CreateTestRecord(string pilotName = "Test Pilot", string teamName = "Test Team", 

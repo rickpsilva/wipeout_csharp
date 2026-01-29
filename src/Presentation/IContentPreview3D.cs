@@ -31,6 +31,16 @@ namespace WipeoutRewrite.Presentation
         void Render<T>(int categoryIndex, float? customScale);
         
         /// <summary>
+        /// Renders a 3D object from a specific category with optional custom scale and camera offset
+        /// </summary>
+        /// <typeparam name="T">Marker type representing the category</typeparam>
+        /// <param name="categoryIndex">Index of the object within the category (0-based)</param>
+        /// <param name="customScale">Custom uniform scale for the object (optional)</param>
+        /// <param name="cameraOffset">Custom camera offset (optional)</param>
+        /// <param name="scaleOverride">Scale override that takes precedence over customScale</param>
+        void Render<T>(int categoryIndex, float? customScale, Vec3? cameraOffset, float? scaleOverride);
+        
+        /// <summary>
         /// Renders a 2D circuit preview image
         /// </summary>
         /// <param name="trackIndex">Index of the track/circuit (0-6)</param>
@@ -40,11 +50,6 @@ namespace WipeoutRewrite.Presentation
         /// Configura a posição da nave no preview 3D (X, Y, Z)
         /// </summary>
         void SetShipPosition(float x, float y, float z);
-        
-        /// <summary>
-        /// Configura o offset da câmera relativo à nave
-        /// </summary>
-        void SetCameraOffset(float x, float y, float z);
         
         /// <summary>
         /// Configura a velocidade de rotação

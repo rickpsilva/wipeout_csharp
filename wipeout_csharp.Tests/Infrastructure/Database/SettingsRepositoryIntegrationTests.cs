@@ -20,7 +20,7 @@ public class SettingsRepositoryIntegrationTests
     }
 
     private static VideoSettingsEntity CreateVideoEntity(bool fullscreen = true, float internalRoll = 45.0f, 
-        uint uiScale = 2u, bool showFps = true, int screenResolution = 1, int postEffect = 0)
+        uint uiScale = 2u, bool showFps = true, ScreenResolutionType screenResolution = ScreenResolutionType.Res240p, PostEffectType postEffect = PostEffectType.None)
     {
         return new VideoSettingsEntity
         {

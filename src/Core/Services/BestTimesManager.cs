@@ -13,23 +13,17 @@ public class BestTimesManager : IBestTimesManager
 {
     private readonly List<BestTimeRecord> _records = new();
     private readonly ILogger<BestTimesManager> _logger;
-    private readonly ISettingsRepository? _repository;
+    private readonly ISettingsRepository _repository;
 
-    public BestTimesManager(ILogger<BestTimesManager> logger, ISettingsRepository? repository = null)
+    public BestTimesManager(ILogger<BestTimesManager> logger, ISettingsRepository repository)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         LoadFromDatabase();
     }
 
     private void LoadFromDatabase()
     {
-        if (_repository == null)
-        {
-            _logger.LogWarning("[BEST TIMES] No repository available - best times will not be loaded");
-            return;
-        }
-
         try
         {
             var entities = _repository.GetAllBestTimes();
@@ -111,30 +105,27 @@ public class BestTimesManager : IBestTimesManager
         _records.Add(record);
 
         // Save to database
-        if (_repository != null)
+        try
         {
-            try
+            var entity = new BestTimeEntity
             {
-                var entity = new BestTimeEntity
-                {
-                    CircuitName = record.CircuitName,
-                    RacingClass = record.RacingClass,
-                    TimeMilliseconds = record.TimeMilliseconds,
-                    PilotName = record.PilotName,
-                    Team = record.TeamName,
-                    CreatedDate = DateTime.UtcNow
-                };
-                _repository.AddOrUpdateBestTime(entity);
-                _repository.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[BEST TIMES] Failed to save record to database");
-            }
+                CircuitName = record.CircuitName,
+                RacingClass = record.RacingClass,
+                TimeMilliseconds = record.TimeMilliseconds,
+                PilotName = record.PilotName,
+                Team = record.TeamName,
+                CreatedDate = DateTime.UtcNow
+            };
+            _repository.AddOrUpdateBestTime(entity);
+            _repository.SaveChanges();
+            
+            _logger.LogInformation("[BEST TIMES] Added record: {Pilot} - {Team} on {Circuit} ({Class}): {Time}",
+                record.PilotName, record.TeamName, record.CircuitName, record.RacingClass, record.FormatTime());
         }
-        _logger.LogInformation("[BEST TIMES] Added record: {Pilot} - {Team} on {Circuit} ({Class}): {Time}",
-            record.PilotName, record.TeamName, record.CircuitName, record.RacingClass, record.FormatTime());
-
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[BEST TIMES] Failed to save record to database");
+        }
         return true;
     }
 

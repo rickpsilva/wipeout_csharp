@@ -63,7 +63,7 @@ public class GameObjectCollection : IGameObjectCollection
         int id = 0;
         id = LoadAsset(commonPath, "allsh.prm", GameObjectCategory.Ship, 8, id);
         id = LoadAsset(commonPath, "msdos.prm", GameObjectCategory.MsDos, 4, id);
-        id = LoadAsset(commonPath, "teams.prm", GameObjectCategory.Teams, 1, id);
+        id = LoadAsset(commonPath, "teams.prm", GameObjectCategory.Teams, 4, id);
         id = LoadAsset(commonPath, "alopt.prm", GameObjectCategory.Options, 5, id);
         id = LoadAsset(commonPath, "miss.prm", GameObjectCategory.Weapon, 1, id);
         id = LoadAsset(commonPath, "mine.prm", GameObjectCategory.Weapon, 1, id);

@@ -113,7 +113,9 @@
       "displayName": "John Dekka",
       "teamId": 0,
       "portraitPath": "wipeout/textures/dekka.cmp",
-      "logoModelIndex": 0
+      "logoModelIndex": 0,
+      "shipNumber": 1,
+      "shipIndex": 7
     },
     {
       "id": 1,
@@ -121,7 +123,9 @@
       "displayName": "Daniel Chang",
       "teamId": 0,
       "portraitPath": "wipeout/textures/chang.cmp",
-      "logoModelIndex": 4
+      "logoModelIndex": 4,
+      "shipNumber": 2,
+      "shipIndex": 3
     },
     {
       "id": 2,
@@ -129,7 +133,9 @@
       "displayName": "Arial Tetsuo",
       "teamId": 1,
       "portraitPath": "wipeout/textures/arial.cmp",
-      "logoModelIndex": 6
+      "logoModelIndex": 6,
+      "shipNumber": 3,
+      "shipIndex": 5
     },
     {
       "id": 3,
@@ -137,7 +143,9 @@
       "displayName": "Anastasia Cherovoski",
       "teamId": 1,
       "portraitPath": "wipeout/textures/anast.cmp",
-      "logoModelIndex": 7
+      "logoModelIndex": 7,
+      "shipNumber": 4,
+      "shipIndex": 6
     },
     {
       "id": 4,
@@ -145,7 +153,9 @@
       "displayName": "Kel Solaar",
       "teamId": 2,
       "portraitPath": "wipeout/textures/solar.cmp",
-      "logoModelIndex": 2
+      "logoModelIndex": 2,
+      "shipNumber": 5,
+      "shipIndex": 1
     },
     {
       "id": 5,
@@ -153,7 +163,9 @@
       "displayName": "Arian Tetsuo",
       "teamId": 2,
       "portraitPath": "wipeout/textures/arian.cmp",
-      "logoModelIndex": 5
+      "logoModelIndex": 5,
+      "shipNumber": 6,
+      "shipIndex": 4
     },
     {
       "id": 6,
@@ -161,7 +173,9 @@
       "displayName": "Sofia de la Rente",
       "teamId": 3,
       "portraitPath": "wipeout/textures/sophi.cmp",
-      "logoModelIndex": 1
+      "logoModelIndex": 1,
+      "shipNumber": 7,
+      "shipIndex": 0
     },
     {
       "id": 7,
@@ -169,7 +183,9 @@
       "displayName": "Paul Jackson",
       "teamId": 3,
       "portraitPath": "wipeout/textures/paul.cmp",
-      "logoModelIndex": 3
+      "logoModelIndex": 3,
+      "shipNumber": 8,
+      "shipIndex": 2
     }
   ],
   
@@ -482,7 +498,7 @@
 
       "circuitSelectMenu": {
         "id": "circuitSelectMenu",
-        "title": "SELECT CIRCUIT",
+        "title": "SELECT RACING CIRCUIT",
         "isFixed": true,
         "titlePos": { "x": 0, "y": 30 },
         "itemsPos": { "x": 0, "y": -110 },

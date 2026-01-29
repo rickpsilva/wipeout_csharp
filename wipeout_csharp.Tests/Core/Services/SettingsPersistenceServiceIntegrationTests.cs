@@ -77,8 +77,8 @@ public class SettingsPersistenceServiceIntegrationTests
         _mockVideoSettings.Setup(s => s.InternalRoll).Returns(45.0f);
         _mockVideoSettings.Setup(s => s.UIScale).Returns(2u);
         _mockVideoSettings.Setup(s => s.ShowFPS).Returns(true);
-        _mockVideoSettings.Setup(s => s.ScreenResolution).Returns(1);
-        _mockVideoSettings.Setup(s => s.PostEffect).Returns(0);
+        _mockVideoSettings.Setup(s => s.ScreenResolution).Returns(ScreenResolutionType.Res240p);
+        _mockVideoSettings.Setup(s => s.PostEffect).Returns(PostEffectType.None);
 
         _service.SaveVideoSettings();
 
@@ -88,8 +88,8 @@ public class SettingsPersistenceServiceIntegrationTests
                 e.InternalRoll == 45.0f &&
                 e.UIScale == 2u &&
                 e.ShowFPS == true &&
-                e.ScreenResolution == 1 &&
-                e.PostEffect == 0)),
+                e.ScreenResolution == ScreenResolutionType.Res240p &&
+                e.PostEffect == PostEffectType.None)),
             Times.Once);
     }
 
