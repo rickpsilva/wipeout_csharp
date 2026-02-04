@@ -33,6 +33,18 @@ namespace WipeoutRewrite.Core.Services
         Feisar = 3
     }
 
+    public enum Pilot
+    {
+        John_Dekka = 0,
+        Daniel_Chang = 1,
+        Arial_Tetsuo = 2,
+        Anastasia_Cherovoski = 3,
+        Kel_Solaar = 4,
+        Arian_Tetsuvo = 5,
+        Sofia_Del_La_Rent = 6,
+        Paul_Jackson = 7
+    }
+
     public class GameState : IGameState
     {
         private readonly ILogger<GameState> _logger;
@@ -112,7 +124,7 @@ namespace WipeoutRewrite.Core.Services
             SelectedCircuit = Circuit.AltimaVII;
         }
 
-        public void Initialize(int playerShipId = 0)
+        public void Initialize()
         {
             CurrentTrack = GetCurrentTrack();
             CurrentMode = GameMode.Loading;
@@ -142,7 +154,7 @@ namespace WipeoutRewrite.Core.Services
             _logger.LogInformation("Starting new race: {RaceType} on {Circuit} with {Team} (Class: {RaceClass})",
                 SelectedRaceType, SelectedCircuit, SelectedTeam, SelectedRaceClass);
             
-            Initialize(SelectedPilot);
+            Initialize();
             CurrentMode = GameMode.Racing;
         }
 

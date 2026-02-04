@@ -28,4 +28,9 @@
     <Compile Remove="wipeout_csharp.Tests/**/*.cs" />
     <Compile Remove="tools/**/*.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copiar game_data.json para o diretório de saída -->
+    <None Include="data/game_data.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

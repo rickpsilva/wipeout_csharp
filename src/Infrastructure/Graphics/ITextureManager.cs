@@ -11,6 +11,10 @@ namespace WipeoutRewrite.Infrastructure.Graphics
         // Returns an array of texture handles
         int[] LoadTexturesFromCmp(string cmpPath);
 
+        // Load a single TIM file and create a texture
+        // Returns the texture handle
+        int LoadTextureFromTim(string timPath);
+
         // Returns true if the given GL texture handle contains any alpha<255 pixels
         bool HasAlpha(int textureHandle);
 

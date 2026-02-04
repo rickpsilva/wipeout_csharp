@@ -26,7 +26,7 @@ public class MenuItemTests
         Assert.Equal(string.Empty, item.Label);
         Assert.Equal(0, item.Data);
         Assert.True(item.IsEnabled);
-        Assert.Null(item.PreviewInfo);
+        Assert.Null(item.ContentViewPort);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class MenuItemTests
         var item = new TestMenuItem();
 
         // Assert
-        Assert.Null(item.PreviewInfo);
+        Assert.Null(item.ContentViewPort);
     }
 
     [Fact]
@@ -88,12 +88,12 @@ public class MenuItemTests
         var previewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 5);
 
         // Act
-        item.PreviewInfo = previewInfo;
+        item.ContentViewPort = previewInfo;
 
         // Assert
-        Assert.NotNull(item.PreviewInfo);
-        Assert.Equal(typeof(CategoryShip), item.PreviewInfo.CategoryType);
-        Assert.Equal(5, item.PreviewInfo.ModelIndex);
+        Assert.NotNull(item.ContentViewPort);
+        Assert.Equal(typeof(CategoryShip), item.ContentViewPort.CategoryType);
+        Assert.Equal(5, item.ContentViewPort.ModelIndex);
     }
 
     [Fact]
@@ -102,14 +102,14 @@ public class MenuItemTests
         // Arrange
         var item = new TestMenuItem
         {
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 0)
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryShip), 0)
         };
 
         // Act
-        item.PreviewInfo = null;
+        item.ContentViewPort = null;
 
         // Assert
-        Assert.Null(item.PreviewInfo);
+        Assert.Null(item.ContentViewPort);
     }
 
     [Fact]
@@ -122,14 +122,14 @@ public class MenuItemTests
         var button = new MenuButton
         {
             Label = "Options",
-            PreviewInfo = previewInfo
+            ContentViewPort = previewInfo
         };
 
         // Assert
         Assert.Equal("Options", button.Label);
-        Assert.NotNull(button.PreviewInfo);
-        Assert.Equal(typeof(CategoryMsDos), button.PreviewInfo.CategoryType);
-        Assert.Equal(3, button.PreviewInfo.ModelIndex);
+        Assert.NotNull(button.ContentViewPort);
+        Assert.Equal(typeof(CategoryMsDos), button.ContentViewPort.CategoryType);
+        Assert.Equal(3, button.ContentViewPort.ModelIndex);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public class MenuItemTests
         };
 
         // Assert
-        Assert.Null(button.PreviewInfo);
+        Assert.Null(button.ContentViewPort);
     }
 
     [Fact]
@@ -155,15 +155,15 @@ public class MenuItemTests
         var toggle = new MenuToggle
         {
             Label = "Fullscreen",
-            PreviewInfo = previewInfo,
+            ContentViewPort = previewInfo,
             Options = new[] { "OFF", "ON" }
         };
 
         // Assert
         Assert.Equal("Fullscreen", toggle.Label);
-        Assert.NotNull(toggle.PreviewInfo);
-        Assert.Equal(typeof(CategoryTeams), toggle.PreviewInfo.CategoryType);
-        Assert.Equal(2, toggle.PreviewInfo.ModelIndex);
+        Assert.NotNull(toggle.ContentViewPort);
+        Assert.Equal(typeof(CategoryTeams), toggle.ContentViewPort.CategoryType);
+        Assert.Equal(2, toggle.ContentViewPort.ModelIndex);
     }
 
     [Fact]
@@ -173,18 +173,18 @@ public class MenuItemTests
         var shipItem = new MenuButton
         {
             Label = "Ship",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 0)
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryShip), 0)
         };
         
         var msDosItem = new MenuButton
         {
             Label = "MsDos",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 1)
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryMsDos), 1)
         };
 
         // Assert
-        Assert.Equal(typeof(CategoryShip), shipItem.PreviewInfo!.CategoryType);
-        Assert.Equal(typeof(CategoryMsDos), msDosItem.PreviewInfo!.CategoryType);
-        Assert.NotEqual(shipItem.PreviewInfo.CategoryType, msDosItem.PreviewInfo.CategoryType);
+        Assert.Equal(typeof(CategoryShip), shipItem.ContentViewPort!.CategoryType);
+        Assert.Equal(typeof(CategoryMsDos), msDosItem.ContentViewPort!.CategoryType);
+        Assert.NotEqual(shipItem.ContentViewPort.CategoryType, msDosItem.ContentViewPort.CategoryType);
     }
 }

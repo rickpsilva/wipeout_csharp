@@ -30,13 +30,13 @@ public interface IVideoSettings
     /// Gets or sets the logical render resolution (Native/240p/480p).
     /// 0 = Native, 1 = 240p, 2 = 480p.
     /// </summary>
-    int ScreenResolution { get; set; }
+    ScreenResolutionType ScreenResolution { get; set; }
 
     /// <summary>
     /// Gets or sets the post effect (None/CRT).
     /// 0 = None, 1 = CRT.
     /// </summary>
-    int PostEffect { get; set; }
+    PostEffectType PostEffect { get; set; }
 
     /// <summary>
     /// Resets all video settings to defaults.

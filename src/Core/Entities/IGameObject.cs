@@ -1,5 +1,3 @@
-
-using OpenTK.Graphics.OpenGL;
 using WipeoutRewrite.Core.Graphics;
 
 namespace WipeoutRewrite.Core.Entities

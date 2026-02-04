@@ -1,3 +1,5 @@
+using OpenTK.Windowing.GraphicsLibraryFramework;
+
 namespace WipeoutRewrite.Core.Services;
 
 /// <summary>
@@ -28,17 +30,16 @@ public class ControlsSettings : IControlsSettings
     public void ResetToDefaults()
     {
         // Default keyboard bindings (matching original wipeout)
-        _buttons[(int)RaceAction.Up, (int)InputDevice.Keyboard] = 82; // UP arrow
-        _buttons[(int)RaceAction.Down, (int)InputDevice.Keyboard] = 81; // DOWN arrow
-        _buttons[(int)RaceAction.Left, (int)InputDevice.Keyboard] = 80; // LEFT arrow
-        _buttons[(int)RaceAction.Right, (int)InputDevice.Keyboard] = 79; // RIGHT arrow
-        _buttons[(int)RaceAction.BrakeLeft, (int)InputDevice.Keyboard] = 6; // C
-        _buttons[(int)RaceAction.BrakeRight, (int)InputDevice.Keyboard] = 25; // V
-        _buttons[(int)RaceAction.Thrust, (int)InputDevice.Keyboard] = 27; // X
-        _buttons[(int)RaceAction.Fire, (int)InputDevice.Keyboard] = 29; // Z
-        _buttons[(int)RaceAction.ChangeView, (int)InputDevice.Keyboard] = 4; // A
+        _buttons[(int)RaceAction.Up, (int)InputDevice.Keyboard] = (uint)Keys.Up;
+        _buttons[(int)RaceAction.Down, (int)InputDevice.Keyboard] = (uint)Keys.Down;
+        _buttons[(int)RaceAction.Left, (int)InputDevice.Keyboard] = (uint)Keys.Left;
+        _buttons[(int)RaceAction.Right, (int)InputDevice.Keyboard] = (uint)Keys.Right;
+        _buttons[(int)RaceAction.BrakeLeft, (int)InputDevice.Keyboard] = (uint)Keys.C;
+        _buttons[(int)RaceAction.BrakeRight, (int)InputDevice.Keyboard] = (uint)Keys.V;
+        _buttons[(int)RaceAction.Thrust, (int)InputDevice.Keyboard] = (uint)Keys.X;
+        _buttons[(int)RaceAction.Fire, (int)InputDevice.Keyboard] = (uint)Keys.Z;
+        _buttons[(int)RaceAction.ChangeView, (int)InputDevice.Keyboard] = (uint)Keys.A;
 
-        // Default joystick bindings (matching C enum: INPUT_GAMEPAD_*)
         // Using standard gamepad layout (Xbox/PlayStation compatible)
         _buttons[(int)RaceAction.Up, (int)InputDevice.Joystick] = 127; // INPUT_GAMEPAD_L_STICK_UP
         _buttons[(int)RaceAction.Down, (int)InputDevice.Joystick] = 128; // INPUT_GAMEPAD_L_STICK_DOWN

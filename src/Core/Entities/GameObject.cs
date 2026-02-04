@@ -8,38 +8,46 @@ namespace WipeoutRewrite.Core.Entities;
 
 public class GameObject : IGameObject
 {
+    #region properties
+
     // Position and rotation (initial Z rotation corrects PRM model orientation)
     public Vec3 Angle { get; set; } = new(0, 0, MathF.PI);
-    public Vec3 Position { get; set; } = new(0, 0, 0);
-    public Vec3 Scale { get; set; } = new(1, 1, 1);
-    public Vec3 Velocity { get; set; } = new(0, 0, 0);
+
+    public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
 
     // Direction vectors
     public Vec3 DirForward { get; private set; } = new(0, 0, 1);
+
     public Vec3 DirRight { get; private set; } = new(1, 0, 0);
     public Vec3 DirUp { get; private set; } = new(0, 1, 0);
 
     // Object identification and state
     public int GameObjectId { get; private set; }
-    public string Name { get; set; } = "Unnamed_GameObject";
-    public GameObjectCategory Category { get; set; } = GameObjectCategory.Unknown;
-    public bool IsVisible { get; set; }
-    public bool IsFlying => Position.Y > 0;
 
-    // Track and section info
-    public int SectionNum { get; set; }
-    public int TotalSectionNum { get; set; }
+    public bool IsFlying => Position.Y > 0;
+    public bool IsVisible { get; set; }
 
     // Graphics
     public Mesh? Model { get; private set; }
+
+    public string Name { get; set; } = "Unnamed_GameObject";
+    public Vec3 Position { get; set; } = new(0, 0, 0);
+    public Vec3 Scale { get; set; } = new(1, 1, 1);
+
+    // Track and section info
+    public int SectionNum { get; set; }
+
     public int ShadowTexture { get; private set; } = -1;
     public int[] Texture { get; set; } = new int[0];
+    public int TotalSectionNum { get; set; }
+    public Vec3 Velocity { get; set; } = new(0, 0, 0);
+    #endregion 
 
+    private readonly IAssetPathResolver _assetPathResolver;
     private readonly ILogger<GameObject> _logger;
+    private readonly IModelLoader _modelLoader;
     private readonly IRenderer _renderer;
     private readonly ITextureManager _textureManager;
-    private readonly IModelLoader _modelLoader;
-    private readonly IAssetPathResolver _assetPathResolver;
 
     public GameObject(
         IRenderer renderer,
@@ -55,33 +63,109 @@ public class GameObject : IGameObject
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
     }
 
-    internal void SetGameObjectId(int id) => GameObjectId = id;
+    #region methods
 
-    public void SetModel(Mesh mesh)
+    /// <summary>
+    /// Apply texture handles to model with UV normalization.
+    /// This normalizes UV coordinates by texture size so primitives render correctly.
+    /// </summary>
+    public void ApplyTexturesWithNormalization(int[] handles)
     {
-        Model = mesh;
-        if (mesh != null)
-            _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}", 
-                mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
-        else
-            _logger.LogWarning("[GameObject] Model set to null");
+        Texture = handles;
+        _logger.LogInformation("GameObject: Applying textures: {Count} handles", handles.Length);
+
+        // Count valid handles
+        int validHandles = handles.Count(static h => h > 0);
+        _logger.LogInformation("GameObject: Valid texture handles: {Valid}/{Total}", validHandles, handles.Length);
+
+        // Map texture handles to primitives and normalize UVs by texture size
+        if (Model != null && handles.Length > 0)
+        {
+            int mappedCount = 0;
+            int totalTextured = 0;
+            int texturedPrimitives = Model.Primitives.Count(static p => p is FT3 or FT4 or GT3 or GT4);
+
+            foreach (var primitive in Model.Primitives)
+            {
+                if (primitive is FT3 ft3)
+                {
+                    totalTextured++;
+                    if (ft3.TextureId >= 0 && ft3.TextureId < handles.Length)
+                    {
+                        ft3.TextureHandle = handles[ft3.TextureId];
+                        // Normalize UVs by actual texture size
+                        if (handles[ft3.TextureId] > 0)
+                        {
+                            var (width, height) = _textureManager.GetTextureSize(handles[ft3.TextureId]);
+                            for (int i = 0; i < ft3.UVs.Length; i++)
+                            {
+                                float u = ft3.UVs[i].u / (float)width;
+                                float v = ft3.UVs[i].v / (float)height;
+                                ft3.UVsF[i] = (u, v);
+                            }
+                            mappedCount++;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("GameObject: FT3 primitive has invalid TextureId={TexId} (max={Max})", ft3.TextureId, handles.Length - 1);
+                    }
+                }
+                else if (primitive is FT4 ft4)
+                {
+                    totalTextured++;
+                    if (ft4.TextureId >= 0 && ft4.TextureId < handles.Length)
+                    {
+                        ft4.TextureHandle = handles[ft4.TextureId];
+                        // Normalize UVs by actual texture size
+                        if (handles[ft4.TextureId] > 0)
+                        {
+                            var (width, height) = _textureManager.GetTextureSize(handles[ft4.TextureId]);
+                            for (int i = 0; i < ft4.UVs.Length; i++)
+                            {
+                                float u = ft4.UVs[i].u / (float)width;
+                                float v = ft4.UVs[i].v / (float)height;
+                                ft4.UVsF[i] = (u, v);
+                            }
+                            mappedCount++;
+                        }
+                    }
+                }
+                else if (primitive is GT3 gt3)
+                {
+                    totalTextured++;
+                    if (gt3.TextureId >= 0 && gt3.TextureId < handles.Length)
+                    {
+                        gt3.TextureHandle = handles[gt3.TextureId];
+                        // Normalize UVs by actual texture size
+                        if (handles[gt3.TextureId] > 0)
+                        {
+                            var (width, height) = _textureManager.GetTextureSize(handles[gt3.TextureId]);
+                            for (int i = 0; i < gt3.UVs.Length; i++)
+                            {
+                                float u = gt3.UVs[i].u / (float)width;
+                                float v = gt3.UVs[i].v / (float)height;
+                                gt3.UVsF[i] = (u, v);
+                            }
+                            mappedCount++;
+                        }
+                    }
+                }
+            }
+            _logger.LogInformation("GameObject: Mapped {Count} texture handles to {Total}/{TotalTextured} textured primitives",
+                mappedCount, totalTextured, texturedPrimitives);
+
+            // Log first few FT3 primitives with texture info
+            var sampleFT3 = Model.Primitives.OfType<FT3>().Take(3).ToList();
+            foreach (var ft3 in sampleFT3)
+            {
+                _logger.LogDebug("GameObject: Sample FT3 - TextureId={TexId}, TextureHandle={Handle}, UVs={HasUVs}",
+                    ft3.TextureId, ft3.TextureHandle, ft3.UVsF != null);
+            }
+        }
     }
 
     public Mat4 CalculateTransformMatrix() => Mat4.FromPositionAnglesScale(Position, Angle, Scale);
-
-    public (float minY, float maxY) GetModelBounds()
-    {
-        if (Model?.Vertices == null || Model.Vertices.Length == 0)
-            return (0, 0);
-
-        float minY = float.MaxValue, maxY = float.MinValue;
-        foreach (var v in Model.Vertices)
-        {
-            minY = MathF.Min(minY, v.Y);
-            maxY = MathF.Max(maxY, v.Y);
-        }
-        return (minY, maxY);
-    }
 
     public void CollideWithShip(GameObject other)
     {
@@ -90,21 +174,21 @@ public class GameObject : IGameObject
         other.Velocity = avg;
     }
 
-    public void CollideWithTrack(TrackFace face) => 
+    public void CollideWithTrack(TrackFace face) =>
         Velocity = new Vec3(Velocity.X, 0, Velocity.Z);
 
     /*
-        Render the ship model using the provided renderer.
-        Order:
-        F3 (flat triangles, sem cor)
-        F4 (flat quads, sem cor)
-        FT3 (flat textured triangles, uma cor + textura)
-        FT4 (flat textured quads, uma cor + textura)
-        G3 (Gouraud triangles, cores por vértice, sem textura)
-        G4 (Gouraud quads, cores por vértice, sem textura)
-        GT3 (Gouraud textured triangles, cores por vértice + textura)
-        GT4 (não renderizado diretamente pois é expandido em GT3 pelo ModelLoader)
-    */
+            Render the ship model using the provided renderer.
+            Order:
+            F3 (flat triangles, sem cor)
+            F4 (flat quads, sem cor)
+            FT3 (flat textured triangles, uma cor + textura)
+            FT4 (flat textured quads, uma cor + textura)
+            G3 (Gouraud triangles, cores por vértice, sem textura)
+            G4 (Gouraud quads, cores por vértice, sem textura)
+            GT3 (Gouraud textured triangles, cores por vértice + textura)
+            GT4 (não renderizado diretamente pois é expandido em GT3 pelo ModelLoader)
+        */
     public void Draw()
     {
         // Based on object_draw() from wipeout-rewrite/src/wipeout/object.c
@@ -225,7 +309,7 @@ public class GameObject : IGameObject
         }
 
         // Log primitive statistics
-        int enginePrimitives = Model!.Primitives.Count(p => (p.Flags & PrimitiveFlags.SHIP_ENGINE) != 0);
+        int enginePrimitives = Model!.Primitives.Count(static p => (p.Flags & PrimitiveFlags.SHIP_ENGINE) != 0);
         _logger.LogDebug("Model '{Name}' primitives: {Total} total, {SingleSided} single-sided, {DoubleSided} double-sided, {Engine} engine",
             Name, Model!.Primitives.Count, singleSidedCount, doubleSidedCount, enginePrimitives);
     }
@@ -238,6 +322,20 @@ public class GameObject : IGameObject
     public Mesh? GetModel()
     {
         return Model;
+    }
+
+    public (float minY, float maxY) GetModelBounds()
+    {
+        if (Model?.Vertices == null || Model.Vertices.Length == 0)
+            return (0, 0);
+
+        float minY = float.MaxValue, maxY = float.MinValue;
+        foreach (var v in Model.Vertices)
+        {
+            minY = MathF.Min(minY, v.Y);
+            maxY = MathF.Max(maxY, v.Y);
+        }
+        return (minY, maxY);
     }
 
     public Vec3 GetNosePosition()
@@ -476,6 +574,16 @@ public class GameObject : IGameObject
         // Stub: not yet implemented
     }
 
+    public void SetModel(Mesh mesh)
+    {
+        Model = mesh;
+        if (mesh != null)
+            _logger.LogInformation("[GameObject] Model set: {Name} vertices={Count} prims={PrimCount}",
+                mesh.Name, mesh.Vertices?.Length ?? 0, mesh.Primitives?.Count ?? 0);
+        else
+            _logger.LogWarning("[GameObject] Model set to null");
+    }
+
     public void Update()
     {
         // Minimal: recalc direction vectors and integrate velocity (no timing here)
@@ -507,6 +615,8 @@ public class GameObject : IGameObject
         Position = Position.Add(Velocity);
     }
 
+    internal void SetGameObjectId(int id) => GameObjectId = id;
+
     private void LoadCmpTextures(string cmpPath)
     {
         if (string.IsNullOrEmpty(cmpPath))
@@ -516,106 +626,6 @@ public class GameObject : IGameObject
         int[] handles = _textureManager.LoadTexturesFromCmp(cmpPath);
 
         ApplyTexturesWithNormalization(handles);
-    }
-
-    /// <summary>
-    /// Apply texture handles to model with UV normalization.
-    /// This normalizes UV coordinates by texture size so primitives render correctly.
-    /// </summary>
-    public void ApplyTexturesWithNormalization(int[] handles)
-    {
-        Texture = handles;
-        _logger.LogInformation("GameObject: Applying textures: {Count} handles", handles.Length);
-
-        // Count valid handles
-        int validHandles = handles.Count(h => h > 0);
-        _logger.LogInformation("GameObject: Valid texture handles: {Valid}/{Total}", validHandles, handles.Length);
-
-        // Map texture handles to primitives and normalize UVs by texture size
-        if (Model != null && handles.Length > 0)
-        {
-            int mappedCount = 0;
-            int totalTextured = 0;
-            int texturedPrimitives = Model.Primitives.Count(p => p is FT3 || p is FT4 || p is GT3 || p is GT4);
-
-            foreach (var primitive in Model.Primitives)
-            {
-                if (primitive is FT3 ft3)
-                {
-                    totalTextured++;
-                    if (ft3.TextureId >= 0 && ft3.TextureId < handles.Length)
-                    {
-                        ft3.TextureHandle = handles[ft3.TextureId];
-                        // Normalize UVs by actual texture size
-                        if (handles[ft3.TextureId] > 0)
-                        {
-                            var (width, height) = _textureManager.GetTextureSize(handles[ft3.TextureId]);
-                            for (int i = 0; i < ft3.UVs.Length; i++)
-                            {
-                                float u = ft3.UVs[i].u / (float)width;
-                                float v = ft3.UVs[i].v / (float)height;
-                                ft3.UVsF[i] = (u, v);
-                            }
-                            mappedCount++;
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("GameObject: FT3 primitive has invalid TextureId={TexId} (max={Max})", ft3.TextureId, handles.Length - 1);
-                    }
-                }
-                else if (primitive is FT4 ft4)
-                {
-                    totalTextured++;
-                    if (ft4.TextureId >= 0 && ft4.TextureId < handles.Length)
-                    {
-                        ft4.TextureHandle = handles[ft4.TextureId];
-                        // Normalize UVs by actual texture size
-                        if (handles[ft4.TextureId] > 0)
-                        {
-                            var (width, height) = _textureManager.GetTextureSize(handles[ft4.TextureId]);
-                            for (int i = 0; i < ft4.UVs.Length; i++)
-                            {
-                                float u = ft4.UVs[i].u / (float)width;
-                                float v = ft4.UVs[i].v / (float)height;
-                                ft4.UVsF[i] = (u, v);
-                            }
-                            mappedCount++;
-                        }
-                    }
-                }
-                else if (primitive is GT3 gt3)
-                {
-                    totalTextured++;
-                    if (gt3.TextureId >= 0 && gt3.TextureId < handles.Length)
-                    {
-                        gt3.TextureHandle = handles[gt3.TextureId];
-                        // Normalize UVs by actual texture size
-                        if (handles[gt3.TextureId] > 0)
-                        {
-                            var (width, height) = _textureManager.GetTextureSize(handles[gt3.TextureId]);
-                            for (int i = 0; i < gt3.UVs.Length; i++)
-                            {
-                                float u = gt3.UVs[i].u / (float)width;
-                                float v = gt3.UVs[i].v / (float)height;
-                                gt3.UVsF[i] = (u, v);
-                            }
-                            mappedCount++;
-                        }
-                    }
-                }
-            }
-            _logger.LogInformation("GameObject: Mapped {Count} texture handles to {Total}/{TotalTextured} textured primitives",
-                mappedCount, totalTextured, texturedPrimitives);
-
-            // Log first few FT3 primitives with texture info
-            var sampleFT3 = Model.Primitives.OfType<FT3>().Take(3).ToList();
-            foreach (var ft3 in sampleFT3)
-            {
-                _logger.LogDebug("GameObject: Sample FT3 - TextureId={TexId}, TextureHandle={Handle}, UVs={HasUVs}",
-                    ft3.TextureId, ft3.TextureHandle, ft3.UVsF != null);
-            }
-        }
     }
 
     /// <summary>
@@ -636,7 +646,7 @@ public class GameObject : IGameObject
 
     private void LoadShadowTexture(string shadowPath)
     {
-        if (!System.IO.File.Exists(shadowPath))
+        if (!File.Exists(shadowPath))
         {
             _logger.LogDebug($"[SHADOW DEBUG] Shadow texture NOT FOUND at: {shadowPath}");
             _logger.LogWarning("GameObject: Shadow texture not found at {Path}", shadowPath);
@@ -673,13 +683,13 @@ public class GameObject : IGameObject
     private static void RenderF3(IRenderer renderer, F3 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices to prevent crashes (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
         {
             return; // Skip invalid primitive
         }
-        
+
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -713,14 +723,14 @@ public class GameObject : IGameObject
     private static void RenderF4(IRenderer renderer, F4 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
             primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
         {
             return;
         }
-        
+
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -770,13 +780,13 @@ public class GameObject : IGameObject
     private static void RenderFT3(IRenderer renderer, FT3 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
         {
             return;
         }
-        
+
         // Get vertices
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
@@ -826,14 +836,14 @@ public class GameObject : IGameObject
     private static void RenderFT4(IRenderer renderer, FT4 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
             primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
         {
             return;
         }
-        
+
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -899,13 +909,13 @@ public class GameObject : IGameObject
     private static void RenderG3(IRenderer renderer, G3 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
         {
             return;
         }
-        
+
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -944,14 +954,14 @@ public class GameObject : IGameObject
     private static void RenderG4(IRenderer renderer, G4 primitive, Vec3[] vertices, Mat4 transform)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length ||
             primitive.CoordIndices[3] < 0 || primitive.CoordIndices[3] >= vertices.Length)
         {
             return;
         }
-        
+
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
         Vec3 v2 = vertices[primitive.CoordIndices[2]];
@@ -1005,13 +1015,13 @@ public class GameObject : IGameObject
     private static void RenderGT3(IRenderer renderer, GT3 primitive, Vec3[] vertices, Mat4 transform, bool isEngine = false)
     {
         // Validate indices (both negative and out of bounds)
-        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length || 
-            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length || 
+        if (primitive.CoordIndices[0] < 0 || primitive.CoordIndices[0] >= vertices.Length ||
+            primitive.CoordIndices[1] < 0 || primitive.CoordIndices[1] >= vertices.Length ||
             primitive.CoordIndices[2] < 0 || primitive.CoordIndices[2] >= vertices.Length)
         {
             return;
         }
-        
+
         // Similar to FT3 but with per-vertex colors
         Vec3 v0 = vertices[primitive.CoordIndices[0]];
         Vec3 v1 = vertices[primitive.CoordIndices[1]];
@@ -1094,4 +1104,6 @@ public class GameObject : IGameObject
         // Return 3D world coordinates - GPU will apply view and projection matrices
         return new OpenTK.Mathematics.Vector3(transformed.X, transformed.Y, transformed.Z);
     }
+
+    #endregion 
 }

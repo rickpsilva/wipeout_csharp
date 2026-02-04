@@ -9,6 +9,21 @@ namespace WipeoutRewrite.Tools.UI;
 /// </summary>
 public class FileDialogManager
 {
+    // Novo: tipo de filtro para dialog de arquivo
+    private string _fileDialogFilter = "*.prm";
+    private string _fileDialogTitle = "Open PRM Model Files";
+
+    /// <summary>
+    /// Show file picker dialog with custom filter and title
+    /// </summary>
+    public void ShowFileDialog(string initialPath, string filter = "*.prm", string title = "Open PRM Model Files")
+    {
+        _showFileDialog = true;
+        _fileDialogPath = string.IsNullOrEmpty(initialPath) ? ModelFileDialog.GetModelDirectory() : initialPath;
+        _fileDialogFilter = filter;
+        _fileDialogTitle = title;
+        _selectedFiles.Clear();
+    }
     // Callbacks
     public Action<string[]>? OnFilesSelected { get; set; }
 
@@ -75,7 +90,7 @@ public class FileDialogManager
         ImGui.SetNextWindowPos(ImGui.GetIO().DisplaySize * 0.5f, ImGuiCond.FirstUseEver, new System.Numerics.Vector2(0.5f, 0.5f));
         ImGui.SetNextWindowSize(new System.Numerics.Vector2(700, 500), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin("Open PRM Model Files", ref _showFileDialog))
+        if (ImGui.Begin(_fileDialogTitle, ref _showFileDialog))
         {
             ImGui.Text("Current path:");
             ImGui.InputText("##path", ref _fileDialogPath, 256);
@@ -100,13 +115,13 @@ public class FileDialogManager
 
             ImGui.Separator();
 
-            // List directories and PRM files
+            // List directories e arquivos filtrados
             if (Directory.Exists(_fileDialogPath))
             {
                 try
                 {
                     var directories = Directory.GetDirectories(_fileDialogPath).OrderBy(d => Path.GetFileName(d)).ToList();
-                    var prmFiles = Directory.GetFiles(_fileDialogPath, "*.prm", SearchOption.TopDirectoryOnly)
+                    var files = Directory.GetFiles(_fileDialogPath, _fileDialogFilter, SearchOption.TopDirectoryOnly)
                         .OrderBy(f => Path.GetFileName(f))
                         .ToList();
 
@@ -126,9 +141,9 @@ public class FileDialogManager
                         }
 
                         // Files
-                        for (int i = 0; i < prmFiles.Count; i++)
+                        for (int i = 0; i < files.Count; i++)
                         {
-                            var filePath = prmFiles[i];
+                            var filePath = files[i];
                             var fileName = Path.GetFileName(filePath);
                             bool isSelected = _selectedFiles.Contains(filePath);
 
@@ -151,7 +166,7 @@ public class FileDialogManager
                             }
                         }
 
-                        if (directories.Count == 0 && prmFiles.Count == 0)
+                        if (directories.Count == 0 && files.Count == 0)
                             ImGui.TextDisabled("(no files or folders)");
                     }
                     ImGui.EndChild();

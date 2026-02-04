@@ -1,9 +1,8 @@
 using System.Linq;
 using WipeoutRewrite.Core.Services;
-using WipeoutRewrite.Core.Entities;
+using WipeoutRewrite.Core.Data;
 using static WipeoutRewrite.Infrastructure.UI.UIConstants;
 using Microsoft.Extensions.Logging;
-using WipeoutRewrite.Presentation;
 using WipeoutRewrite.Infrastructure.UI;
 using WipeoutRewrite.Infrastructure.Input;
 using UIAnchor = WipeoutRewrite.Core.Services.UIAnchor;
@@ -28,59 +27,68 @@ public enum BestTimesViewerAction
 /// - Submenus (Controls, Video, Audio): Dynamic centered
 /// - Best Times: MENU_FIXED for type selection, then dynamic for viewer
 /// </summary>
-public static class MainMenuPages
+public class MainMenuPages : IMainMenuPages
 {
     // Helper function for clamping values
-    private static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
+    private int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
     
-    // Store references for menu callbacks
-    public static GameState? GameStateRef { get; set; }
-    public static IContentPreview3D? ContentPreview3DRef { get; set; }
-    public static IOptionsFactory? OptionsFactoryRef { get; set; }
-    public static SettingsPersistenceService? SettingsPersistenceServiceRef { get; set; }
-    public static IBestTimesManager? BestTimesManagerRef { get; set; }
-    public static Action? QuitGameAction { get; set; }  // Callback to close the game
-    public static OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState? CurrentKeyboardState { get; set; }
-    
-    // Option references - should come from SettingsPersistenceService
-    private static IControlsSettings? _controlsSettings;
-    private static IVideoSettings? _videoSettings;
-    private static IAudioSettings? _audioSettings;
-    private static IBestTimesManager? _bestTimesManager;
-    
-    private static void EnsureOptionsInitialized()
+    // Helper to create error page
+    private MenuPage CreateErrorPage(string title) => new MenuPage
     {
-        if (OptionsFactoryRef == null) return;
-        
-        // Try to get BestTimesManager from injected reference first
-        _bestTimesManager ??= BestTimesManagerRef;
-        
-        // Try to get settings from SettingsPersistenceService first (same instances used for saving)
-        if (SettingsPersistenceServiceRef != null)
-        {
-            _controlsSettings ??= SettingsPersistenceServiceRef.GetControlsSettings();
-            _videoSettings ??= SettingsPersistenceServiceRef.GetVideoSettings();
-            _audioSettings ??= SettingsPersistenceServiceRef.GetAudioSettings();
-        }
-        else
-        {
-            // Fallback to creating new instances if service not available
-            _controlsSettings ??= OptionsFactoryRef.CreateControlsSettings();
-            _videoSettings ??= OptionsFactoryRef.CreateVideoSettings();
-            _audioSettings ??= OptionsFactoryRef.CreateAudioSettings();
-        }
-        
-        // Fallback to creating BestTimesManager if not injected
-        _bestTimesManager ??= OptionsFactoryRef.CreateBestTimesManager();
+        Title = title,
+        LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
+        TitlePos = new Vec2i(0, 30),
+        TitleAnchor = UIAnchor.TopCenter
+    };
+
+    private readonly ILogger<MainMenuPages> _logger;
+    private readonly IGameState _gameState;
+    private readonly ISettingsPersistenceService _settingsPersistenceService;
+    private readonly IBestTimesManager _bestTimesManager;
+    private readonly IMenuBuilder _menuBuilder;
+    private readonly IMenuActionHandler _menuActionHandler;
+    private readonly IControlsSettings _controlsSettings;
+    private readonly IVideoSettings _videoSettings;
+    private readonly IAudioSettings _audioSettings;
+    private readonly IGameDataService _gameDataService;
+
+
+    public Action? QuitGameActionCallBack { get; set; }
+    public OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState? CurrentKeyboardState { get; set; }
+
+    public MainMenuPages(
+        ILogger<MainMenuPages> logger, 
+        IGameState gameState,
+        ISettingsPersistenceService settingsPersistenceService,
+        IBestTimesManager bestTimesManager,
+        IMenuBuilder menuBuilder,
+        IMenuActionHandler menuActionHandler,
+        IControlsSettings controlsSettings,
+        IVideoSettings videoSettings,
+        IAudioSettings audioSettings,
+        IGameDataService gameDataService     
+    )
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
+        _settingsPersistenceService = settingsPersistenceService ?? throw new ArgumentNullException(nameof(settingsPersistenceService));
+        _bestTimesManager = bestTimesManager ?? throw new ArgumentNullException(nameof(bestTimesManager));
+        _menuBuilder = menuBuilder ?? throw new ArgumentNullException(nameof(menuBuilder));
+        _menuActionHandler = menuActionHandler ?? throw new ArgumentNullException(nameof(menuActionHandler));
+        _controlsSettings = controlsSettings ?? throw new ArgumentNullException(nameof(controlsSettings));
+        _videoSettings = videoSettings ?? throw new ArgumentNullException(nameof(videoSettings));
+        _audioSettings = audioSettings ?? throw new ArgumentNullException(nameof(audioSettings));
+        _gameDataService = gameDataService ?? throw new ArgumentNullException(nameof(gameDataService));
     }
     
     // ===== MAIN MENU =====
     // Structure: MENU_FIXED, title at top (30), items at bottom (-110)
-    public static MenuPage CreateMainMenu()
+    public MenuPage CreateMainMenu()
     {
         var page = new MenuPage
         {
-            Title = "OPTIONS",
+            Id = MenuPageIds.Main,
+            Title = "MAIN MENU",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
@@ -92,7 +100,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "START GAME",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), 7),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryShip), 7),
             OnClick = (menu, data) =>
             {
                 var raceClassPage = CreateRaceClassMenu();
@@ -104,7 +112,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "OPTIONS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 3),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryMsDos), 3),
             OnClick = (menu, data) =>
             {
                 var optionsPage = CreateOptionsMenu();
@@ -116,7 +124,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "QUIT",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryMsDos), 1),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryMsDos), 1),
             OnClick = (menu, data) =>
             {
                 // Show confirmation dialog (matching C code)
@@ -130,11 +138,11 @@ public static class MainMenuPages
     
     // ===== OPTIONS MENU =====
     // Structure: MENU_FIXED, title at top (30), items at bottom (-110)
-    public static MenuPage CreateOptionsMenu()
+    public MenuPage CreateOptionsMenu()
     {
         var page = new MenuPage
         {
-            Title = "OPTIONS",
+            Id = MenuPageIds.Options,
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
             TitleAnchor = UIAnchor.TopCenter,
@@ -146,7 +154,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CONTROLS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 1),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryProp), 1),
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateControlsMenu());
@@ -157,7 +165,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VIDEO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryProp), 0),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryProp), 0),
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateVideoMenu());
@@ -168,7 +176,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "AUDIO",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryOptions), 3),
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateAudioMenu());
@@ -179,7 +187,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "BEST TIMES",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateBestTimesMenu());
@@ -196,12 +204,11 @@ public static class MainMenuPages
     /// Controls menu - displays keyboard and joystick bindings in a 3-column table.
     /// Equivalent to page_options_controls_init() in wipeout-rewrite.
     /// </summary>
-    public static MenuPage CreateControlsMenu()
-    {
-        EnsureOptionsInitialized();
-        
+    public MenuPage CreateControlsMenu()
+    {        
         var page = new MenuPage
         {
+            Id = MenuPageIds.OptionsControls,
             Title = "CONTROLS",  // System renders title automatically in FIXED menus
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(-160, -100),  // Matching C code
@@ -247,36 +254,36 @@ public static class MainMenuPages
     // ===== AWAITING INPUT MENU =====
     // Structure: Shows "AWAITING INPUT" with countdown timer
     // Equivalent to page_options_controls_set_init() and page_options_control_set_draw() in C
-    private static float _awaitInputDeadline;
-    private static RaceAction _currentControlAction;
-    private static bool _awaitingKeyRelease = true;  // Wait for all keys to be released first
+    private float _awaitInputDeadline;
+    private RaceAction _currentControlAction;
+    private bool _awaitingKeyRelease = true;  // Wait for all keys to be released first
     
-    public static MenuPage CreateAwaitingInputMenu(RaceAction action)
+    public MenuPage CreateAwaitingInputMenu(RaceAction action)
     {
         _currentControlAction = action;
         _awaitInputDeadline = 3.0f; // 3 seconds countdown (will be decremented in Game.cs)
         _awaitingKeyRelease = true;  // Must release all keys first
-        
+
         var page = new MenuPage
         {
+            Id = MenuPageIds.AwaitingInput,
             Title = "AWAITING INPUT",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.AlignCenter,  // Centered like C code
             TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
+            ItemsAnchor = UIAnchor.MiddleCenter,
+            // Custom draw callback to show countdown
+            DrawCallback = (renderer) =>
+                {
+                    // Draw countdown number (3, 2, 1) - UI_SIZE_16 in C
+                    int remaining = Math.Max(0, (int)Math.Ceiling(_awaitInputDeadline));
+                    string countdownText = remaining.ToString();
+
+                    Vec2i pos = new Vec2i(0, 24);  // Below title
+                    Vec2i screenPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, pos);
+                    UIHelper.DrawTextCentered(countdownText, screenPos, 16, UIColor.Default);
+                }
         };
-        
-        // Custom draw callback to show countdown
-        page.DrawCallback = (renderer) =>
-        {
-            // Draw countdown number (3, 2, 1) - UI_SIZE_16 in C
-            int remaining = Math.Max(0, (int)Math.Ceiling(_awaitInputDeadline));
-            string countdownText = remaining.ToString();
-            
-            Vec2i pos = new Vec2i(0, 24);  // Below title
-            Vec2i screenPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, pos);
-            UIHelper.DrawTextCentered(countdownText, screenPos, 16, UIColor.Default);
-        };
-        
+
         return page;
     }
     
@@ -284,7 +291,7 @@ public static class MainMenuPages
     /// Updates the awaiting input countdown. Called from Game.cs.
     /// Returns true if still waiting, false if timeout occurred.
     /// </summary>
-    public static bool UpdateAwaitingInput(float deltaTime)
+    public bool UpdateAwaitingInput(float deltaTime)
     {
         _awaitInputDeadline -= deltaTime;
         return _awaitInputDeadline > 0;
@@ -294,7 +301,7 @@ public static class MainMenuPages
     /// Checks if we're still waiting for keys to be released.
     /// Once all keys are released, starts capturing new input.
     /// </summary>
-    public static bool UpdateKeyReleaseState(bool anyKeyDown)
+    public bool UpdateKeyReleaseState(bool anyKeyDown)
     {
         if (_awaitingKeyRelease)
         {
@@ -312,7 +319,7 @@ public static class MainMenuPages
     /// Handles button capture for control remapping.
     /// Called from Game.cs when a button is pressed during "AWAITING INPUT".
     /// </summary>
-    public static void CaptureButtonForControl(uint button, bool isKeyboard)
+    public void CaptureButtonForControl(uint button, bool isKeyboard)
     {
         if (_controlsSettings == null)
             return;
@@ -332,18 +339,17 @@ public static class MainMenuPages
         _controlsSettings.SetButtonBinding(_currentControlAction, device, button);
         
         // Save the updated binding to database
-        SettingsPersistenceServiceRef?.SaveControlsSettings();
+        _settingsPersistenceService.SaveControlsSettings();
     }
     
     // ===== VIDEO MENU =====
     // Structure: MENU_FIXED, title at LEFT (-160, -100), items at LEFT (-160, -60)
     // Shows 6 toggles with options
-    public static MenuPage CreateVideoMenu()
+    public MenuPage CreateVideoMenu()
     {
-        EnsureOptionsInitialized();
-        
         var page = new MenuPage
         {
+            Id = MenuPageIds.OptionsVideo,
             Title = "VIDEO OPTIONS",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(-160, -100),
@@ -367,7 +373,7 @@ public static class MainMenuPages
             CurrentIndex = _videoSettings.Fullscreen ? 1 : 0,
             OnChange = (menu, value) => {
                 _videoSettings.Fullscreen = (value == 1);
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _settingsPersistenceService.SaveVideoSettings();
             }
         });
         
@@ -380,7 +386,7 @@ public static class MainMenuPages
             CurrentIndex = rollIndex,
             OnChange = (menu, value) => {
                 _videoSettings.InternalRoll = value * 0.1f;
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _settingsPersistenceService.SaveVideoSettings();
             }
         });
         
@@ -392,7 +398,7 @@ public static class MainMenuPages
             CurrentIndex = (int)_videoSettings.UIScale,
             OnChange = (menu, value) => {
                 _videoSettings.UIScale = (uint)value;
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _settingsPersistenceService?.SaveVideoSettings();
             }
         });
         
@@ -404,7 +410,7 @@ public static class MainMenuPages
             CurrentIndex = _videoSettings.ShowFPS ? 1 : 0,
             OnChange = (menu, value) => {
                 _videoSettings.ShowFPS = (value == 1);
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _settingsPersistenceService.SaveVideoSettings();
             }
         });
         
@@ -413,10 +419,10 @@ public static class MainMenuPages
         {
             Label = "SCREEN RESOLUTION",
             Options = new[] { "NATIVE", "240P", "480P" },
-            CurrentIndex = _videoSettings.ScreenResolution,
+            CurrentIndex = (int)_videoSettings.ScreenResolution,
             OnChange = (menu, value) => {
-                _videoSettings.ScreenResolution = value;
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _videoSettings.ScreenResolution = (ScreenResolutionType)value;
+                _settingsPersistenceService?.SaveVideoSettings();
             }
         });
         
@@ -425,10 +431,10 @@ public static class MainMenuPages
         {
             Label = "POST PROCESSING",
             Options = new[] { "NONE", "CRT EFFECT" },
-            CurrentIndex = _videoSettings.PostEffect,
+            CurrentIndex = (int)_videoSettings.PostEffect,
             OnChange = (menu, value) => {
-                _videoSettings.PostEffect = value;
-                SettingsPersistenceServiceRef?.SaveVideoSettings();
+                _videoSettings.PostEffect = (PostEffectType)value;
+                _settingsPersistenceService.SaveVideoSettings();
             }
         });
         
@@ -438,12 +444,11 @@ public static class MainMenuPages
     // ===== AUDIO MENU =====
     // Structure: MENU_FIXED, title at LEFT (-160, -100), items at LEFT (-160, -80)
     // Shows 2 volume toggles
-    public static MenuPage CreateAudioMenu()
+    public MenuPage CreateAudioMenu()
     {
-        EnsureOptionsInitialized();
-        
         var page = new MenuPage
         {
+            Id = MenuPageIds.OptionsAudio,
             Title = "AUDIO OPTIONS",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed,
             TitlePos = new Vec2i(-160, -100),
@@ -469,7 +474,7 @@ public static class MainMenuPages
             CurrentIndex = Clamp((int)(_audioSettings.MusicVolume * 10), 0, 10),
             OnChange = (menu, value) => {
                 _audioSettings.MusicVolume = value * 0.1f;
-                SettingsPersistenceServiceRef?.SaveAudioSettings();
+                _settingsPersistenceService?.SaveAudioSettings();
             }
         });
         
@@ -481,7 +486,7 @@ public static class MainMenuPages
             CurrentIndex = Clamp((int)(_audioSettings.SoundEffectsVolume * 10), 0, 10),
             OnChange = (menu, value) => {
                 _audioSettings.SoundEffectsVolume = value * 0.1f;
-                SettingsPersistenceServiceRef?.SaveAudioSettings();
+                _settingsPersistenceService.SaveAudioSettings();
             }
         });
         
@@ -490,12 +495,11 @@ public static class MainMenuPages
     
     // ===== BEST TIMES MENU =====
     // Structure: MENU_FIXED (like main menu), title at top (30), items at bottom (-110)
-    public static MenuPage CreateBestTimesMenu()
+    public MenuPage CreateBestTimesMenu()
     {
-        EnsureOptionsInitialized();
-        
         var page = new MenuPage
         {
+            Id = MenuPageIds.OptionsBestTimes,
             Title = "VIEW BEST TIMES",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
@@ -508,7 +512,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "TIME TRIAL TIMES",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),  // Stopwatch
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryOptions), 3),  // Stopwatch
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateBestTimesViewerMenu(HighscoreType.TimeTrial));
@@ -518,7 +522,7 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "RACE TIMES",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 3),  // Stopwatch
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryOptions), 3),  // Stopwatch
             OnClick = (menu, data) =>
             {
                 menu.PushPage(CreateBestTimesViewerMenu(HighscoreType.Race));
@@ -538,7 +542,7 @@ public static class MainMenuPages
     /// <summary>
     /// Handles input for Best Times Viewer (called from Game.cs)
     /// </summary>
-    public static void HandleBestTimesViewerInput(BestTimesViewerAction action)
+    public void HandleBestTimesViewerInput(BestTimesViewerAction action)
     {
         switch (action)
         {
@@ -557,13 +561,14 @@ public static class MainMenuPages
         }
     }
     
-    private static MenuPage CreateBestTimesViewerMenu(HighscoreType type)
+    private MenuPage CreateBestTimesViewerMenu(HighscoreType type)
     {
         _bestTimesCurrentClass = 0;
         _bestTimesCurrentCircuit = 0;
         
         var page = new MenuPage
         {
+            Id = MenuPageIds.BestTimesViewer,
             Title = type == HighscoreType.TimeTrial ? "BEST TIME TRIAL TIMES" : "BEST RACE TIMES",
             LayoutFlags = MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
@@ -586,7 +591,7 @@ public static class MainMenuPages
         return page;
     }
     
-    private static void DrawBestTimesViewerData(IMenuRenderer renderer, HighscoreType type, int classIndex, int circuitIndex)
+    private void DrawBestTimesViewerData(IMenuRenderer renderer, HighscoreType type, int classIndex, int circuitIndex)
     {
         // Get class and circuit names
         var classNames = new[] { "VENOM CLASS", "RAPIER CLASS" };
@@ -669,7 +674,7 @@ public static class MainMenuPages
             }
             
             // Draw lap record at bottom (use best time from all records)
-            if (records.Any())
+            if (records.Count != 0)
             {
                 long bestTimeMs = records.Min(r => r.TimeMilliseconds);
                 long tenths = (bestTimeMs / 100) % 10;
@@ -715,25 +720,14 @@ public static class MainMenuPages
             UIHelper.DrawText("--:--.-", lapTimePos, FontSizes.MenuItem, UIColor.Accent);
         }
     }
-    
-    private static string FormatTime(float seconds)
-    {
-        // Format as MM:SS.T (tenths of a second)
-        long totalMs = (long)(seconds * 1000);
-        long tenths = (totalMs / 100) % 10;
-        long secs = (totalMs / 1000) % 60;
-        long mins = totalMs / (60 * 1000);
         
-        return $"{mins:D2}:{secs:D2}.{tenths}";
-    }
-    
     // ===== RACE MENUS =====
     // Structure: MENU_FIXED, title at top (30), items at bottom (-110)
-    
-    public static MenuPage CreateRaceClassMenu()
+    public MenuPage CreateRaceClassMenu()
     {
         var page = new MenuPage
         {
+            Id = MenuPageIds.RaceClass,
             Title = "SELECT RACING CLASS",
             // NOTE: In C code, page_race_class_draw() adds MENU_FIXED flag during drawing!
             // So despite initial menu_push, it becomes FIXED (0,30) / (0,-110)
@@ -748,9 +742,11 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "VENOM CLASS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryPilot), 8),
             OnClick = (menu, data) =>
             {
+                _gameState.SelectedRaceClass = RaceClass.Venom;
+                
                 var raceTypePage = CreateRaceTypeMenu();
                 menu.PushPage(raceTypePage);
             }
@@ -760,9 +756,13 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "RAPIER CLASS",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryPilot), 9),
             OnClick = (menu, data) =>
             {
+                _gameState.SelectedRaceClass = RaceClass.Rapier;
+                {
+                    _gameState.SelectedRaceClass = RaceClass.Rapier;
+                }
                 var raceTypePage = CreateRaceTypeMenu();
                 menu.PushPage(raceTypePage);
             }
@@ -771,7 +771,7 @@ public static class MainMenuPages
         return page;
     }
     
-    public static MenuPage CreateRaceTypeMenu()
+    public MenuPage CreateRaceTypeMenu()
     {
         var page = new MenuPage
         {
@@ -787,9 +787,10 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "CHAMPIONSHIP RACE",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 1),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryMsDos), 2),
             OnClick = (menu, data) =>
             {
+                _gameState.SelectedRaceType = RaceType.Championship;
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -799,9 +800,11 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "SINGLE RACE",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 2),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryMsDos), 0),
             OnClick = (menu, data) =>
             {
+                _gameState.SelectedRaceType = RaceType.Single;
+                
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -811,9 +814,12 @@ public static class MainMenuPages
         page.Items.Add(new MenuButton
         {
             Label = "TIME TRIAL",
-            PreviewInfo = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
+            ContentViewPort = new ContentPreview3DInfo(typeof(CategoryOptions), 0),
             OnClick = (menu, data) =>
             {
+
+                _gameState.SelectedRaceType = RaceType.TimeTrial;
+                
                 var teamPage = CreateTeamMenu();
                 menu.PushPage(teamPage);
             }
@@ -822,44 +828,55 @@ public static class MainMenuPages
         return page;
     }
     
-    public static MenuPage CreateTeamMenu()
+    public MenuPage CreateTeamMenu()
     {
-        var page = new MenuPage
+        // Try using MenuBuilder if available (data-driven approach)
+        if (_menuBuilder != null && _gameState != null && _gameDataService != null)
         {
-            Title = "SELECT YOUR TEAM",
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
-            TitlePos = new Vec2i(0, 30),
-            TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, -110),
-            ItemsAnchor = UIAnchor.BottomCenter
-        };
-        
-        // Teams in exact C order: AG SYSTEMS, AURICOM, QIREX, FEISAR
-        var teams = new[] { "AG SYSTEMS", "AURICOM", "QIREX", "FEISAR" };
-        
-        for (int i = 0; i < teams.Length; i++)
-        {
-            var team = teams[i];
-            var shipIndex = i;
-            page.Items.Add(new MenuButton
+            try
             {
-                Label = team,
-                PreviewInfo = new ContentPreview3DInfo(typeof(CategoryShip), shipIndex),
-                OnClick = (menu, data) =>
+                var menuPage = _menuBuilder.BuildMenu("teamSelectMenu");
+                menuPage.Id = MenuPageIds.Team;
+                // Connect OnClick callbacks for each team item
+                var teamsList = _gameDataService.GetTeams().ToList();
+                for (int i = 0; i < menuPage.Items.Count && i < teamsList.Count; i++)
                 {
-                    var pilotPage = CreatePilotMenu(team);
-                    menu.PushPage(pilotPage);
+                    var team = teamsList[i];
+                    var teamId = team.Id;
+                    var index = i;
+                    
+                    if (menuPage.Items[i] is MenuButton button)
+                    {
+                        button.OnClick = (menu, data) =>
+                        {
+                            // Save selected team to game state
+                            _gameState.SelectedTeam = (Team)teamId;                            
+                            var pilotPage = CreatePilotMenu(teamId);
+                            menu.PushPage(pilotPage);
+                        };
+                        
+                        // Add preview info for ship
+                        button.ContentViewPort = new ContentPreview3DInfo(typeof(CategoryShip), index);
+                    }
                 }
-            });
+                
+                return menuPage;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error building team menu: {ex.Message}");
+                return CreateErrorPage("ERROR LOADING MENU");
+            }
         }
         
-        return page;
+        return CreateErrorPage("MENU SYSTEM ERROR");
     }
     
-    public static MenuPage CreatePilotMenu(string team)
+    public MenuPage CreatePilotMenu(int teamId)
     {
         var page = new MenuPage
         {
+            Id = MenuPageIds.Pilot,
             Title = "CHOOSE YOUR PILOT",
             LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
             TitlePos = new Vec2i(0, 30),
@@ -868,78 +885,102 @@ public static class MainMenuPages
             ItemsAnchor = UIAnchor.BottomCenter
         };
         
-        page.Items.Add(new MenuButton
+        // Get pilots for the selected team
+        if (_gameDataService != null)
         {
-            Label = $"{team} PILOT 1",
-            OnClick = (menu, data) =>
+            var allPilots = _gameDataService.GetPilots();
+            var teamPilots = allPilots.Where(p => p.TeamId == teamId).ToList();
+            
+            for (int i = 0; i < teamPilots.Count; i++)
             {
-                var circuitPage = CreateCircuitMenu();
-                menu.PushPage(circuitPage);
-            }
-        });
-        
-        page.Items.Add(new MenuButton
-        {
-            Label = $"{team} PILOT 2",
-            OnClick = (menu, data) =>
-            {
-                var circuitPage = CreateCircuitMenu();
-                menu.PushPage(circuitPage);
-            }
-        });
-        
-        return page;
-    }
-    
-    public static MenuPage CreateCircuitMenu()
-    {
-        var page = new MenuPage
-        {
-            Title = "SELECT RACING CIRCUT",  // Matching C typo: CIRCUT not CIRCUIT
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
-            TitlePos = new Vec2i(0, 30),
-            TitleAnchor = UIAnchor.TopCenter,
-            ItemsPos = new Vec2i(0, -100),  // -100 not -110 (different from other race menus)
-            ItemsAnchor = UIAnchor.BottomCenter
-        };
-        
-        var circuits = new[]
-        {
-            "ALTIMA VII",
-            "KARBONIS V",
-            "TERRAMAX",
-            "KORODERA",
-            "ARRIDOS IV",
-            "SILVERSTREAM",
-            "FIRESTAR"
-        };
-        
-        foreach (var circuit in circuits)
-        {
-            string circuitName = circuit;
-            page.Items.Add(new MenuButton
-            {
-                Label = circuit,
-                OnClick = (menu, data) =>
+                var pilot = teamPilots[i];
+                var pilotIndex = i;
+                
+                page.Items.Add(new MenuButton
                 {
-                    if (GameStateRef != null)
+                    Label = pilot.Name,
+                    Data = pilot.Id,  // Store pilot ID for preview rendering
+                    ContentViewPort = new ContentPreview3DInfo(typeof(CategoryPilot), pilot.LogoModelIndex),
+                    OnClick = (menu, data) =>
                     {
-                        GameStateRef.CurrentMode = GameMode.Racing;
-                        Console.WriteLine($"Starting race on {circuitName}");
+                        // Championship mode: Skip circuit selection (championship uses all circuits)
+                        if (_gameState != null && _gameState.SelectedRaceType == RaceType.Championship)
+                        {
+                            // TODO: Start championship or show championship info screen
+                            // For now, show empty menu (race not implemented yet)
+                            var emptyPage = new MenuPage
+                            {
+                                Title = "CHAMPIONSHIP STARTING...",
+                                LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.Fixed | MenuLayoutFlags.AlignCenter,
+                                TitlePos = new Vec2i(0, 0),
+                                TitleAnchor = UIAnchor.TopCenter
+                            };
+                            menu.PushPage(emptyPage);
+                        }
+                        else
+                        {
+                            // Single Race / Time Trial: Show circuit selection
+                            var circuitPage = CreateCircuitMenu();
+                            menu.PushPage(circuitPage);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         
         return page;
     }
+    
+    public MenuPage CreateCircuitMenu()
+    {
+        // Try using MenuBuilder if available (data-driven approach)
+        if (_menuBuilder != null && _gameState != null && _gameDataService != null)
+        {
+            try
+            {
+                var menuPage = _menuBuilder.BuildMenu("circuitSelectMenu");
+                menuPage.Id = MenuPageIds.Circuit;
+                // Connect OnClick callbacks for each circuit item
+                var circuitsList = _gameDataService.GetCircuits().ToList();
+                for (int i = 0; i < menuPage.Items.Count && i < circuitsList.Count; i++)
+                {
+                    var circuit = circuitsList[i];
+                    var circuitName = circuit.Name;
+                    var circuitIndex = i;
+                    
+                    if (menuPage.Items[i] is MenuButton button)
+                    {
+                        button.OnClick = (menu, data) =>
+                        {
+                            _gameState.SelectedCircuit = (Circuit)circuitIndex;
+                            _gameState.CurrentMode = GameMode.Racing;
+                            Console.WriteLine($"Starting race on {circuitName}");
+                        };
+                        
+                        // Set circuit preview image
+                        button.ContentViewPort = ContentPreview3DInfo.CreateTrackImagePreview(circuitIndex);
+                    }
+                }
+                
+                return menuPage;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error building circuit menu: {ex.Message}");
+                return CreateErrorPage("ERROR LOADING MENU");
+            }
+        }
+        
+        return CreateErrorPage("MENU SYSTEM ERROR");
+    }
 
     // ===== QUIT CONFIRMATION =====
     // Matching menu_confirm in C: MENU_HORIZONTAL, title + subtitle, centered
-    public static MenuPage CreateQuitConfirmation()
+    public MenuPage CreateQuitConfirmation()
     {
         var page = new MenuPage
         {
+            Id = MenuPageIds.QuitConfirmation,
             Title = "ARE YOU SURE YOU\nWANT TO QUIT",  // Two-line title (like C subtitle)
             LayoutFlags = MenuLayoutFlags.Horizontal | MenuLayoutFlags.AlignCenter,
             TitleAnchor = UIAnchor.MiddleCenter,
@@ -953,7 +994,7 @@ public static class MainMenuPages
             OnClick = (menu, data) =>
             {
                 // Close the game application
-                QuitGameAction?.Invoke();
+                QuitGameActionCallBack?.Invoke();
             }
         });
         
@@ -966,594 +1007,7 @@ public static class MainMenuPages
                 menu.PopPage();
             }
         });
-        
-        return page;
-    }
 
-    // ===== PAUSE MENU =====
-    // Structure: MENU_VERTICAL centered (not MENU_FIXED), dynamic positioning
-    public static MenuPage CreatePauseMenu()
-    {
-        var page = new MenuPage
-        {
-            Title = "PAUSED",
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // CONTINUE
-        page.Items.Add(new MenuButton
-        {
-            Label = "CONTINUE",
-            OnClick = (menu, data) =>
-            {
-                // Unpause - return to race
-                if (GameStateRef != null)
-                    GameStateRef.CurrentMode = GameMode.Racing;
-                menu.PopPage();
-            }
-        });
-        
-        // RESTART - shows confirmation
-        page.Items.Add(new MenuButton
-        {
-            Label = "RESTART",
-            OnClick = (menu, data) =>
-            {
-                var confirmPage = CreateRestartConfirmation();
-                menu.PushPage(confirmPage);
-            }
-        });
-        
-        // QUIT - shows confirmation
-        page.Items.Add(new MenuButton
-        {
-            Label = "QUIT",
-            OnClick = (menu, data) =>
-            {
-                var confirmPage = CreateQuitRaceConfirmation();
-                menu.PushPage(confirmPage);
-            }
-        });
-        
-        // MUSIC - goes to music submenu
-        page.Items.Add(new MenuButton
-        {
-            Label = "MUSIC",
-            OnClick = (menu, data) =>
-            {
-                var musicPage = CreateMusicMenu();
-                menu.PushPage(musicPage);
-            }
-        });
-        
         return page;
     }
-    
-    // ===== MUSIC MENU =====
-    // Structure: MENU_VERTICAL centered, shows music track selection
-    public static MenuPage CreateMusicMenu()
-    {
-        var page = new MenuPage
-        {
-            Title = "MUSIC",
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // TODO: Get actual music tracks from game data
-        var musicTracks = new[] 
-        {
-            "TRACK 1", "TRACK 2", "TRACK 3", "TRACK 4", 
-            "TRACK 5", "TRACK 6", "TRACK 7", "TRACK 8"
-        };
-        
-        foreach (var track in musicTracks)
-        {
-            var trackName = track;
-            page.Items.Add(new MenuButton
-            {
-                Label = trackName,
-                OnClick = (menu, data) =>
-                {
-                    // TODO: Change music track
-                    menu.PopPage();
-                }
-            });
-        }
-        
-        // RANDOM option
-        page.Items.Add(new MenuButton
-        {
-            Label = "RANDOM",
-            OnClick = (menu, data) =>
-            {
-                // TODO: Enable random music mode
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    // ===== RESTART CONFIRMATION =====
-    // Structure: MENU_HORIZONTAL, confirmation dialog
-    private static MenuPage CreateRestartConfirmation()
-    {
-        var page = new MenuPage
-        {
-            Title = "ARE YOU SURE YOU\nWANT TO RESTART",
-            LayoutFlags = MenuLayoutFlags.Horizontal | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        page.Items.Add(new MenuButton
-        {
-            Label = "YES",
-            Data = 1,
-            OnClick = (menu, data) =>
-            {
-                // TODO: Restart race
-                if (GameStateRef != null)
-                    GameStateRef.CurrentMode = GameMode.Racing;
-            }
-        });
-        
-        page.Items.Add(new MenuButton
-        {
-            Label = "NO",
-            Data = 0,
-            OnClick = (menu, data) =>
-            {
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    // ===== QUIT RACE CONFIRMATION =====
-    // Structure: MENU_HORIZONTAL, confirmation dialog
-    private static MenuPage CreateQuitRaceConfirmation()
-    {
-        var page = new MenuPage
-        {
-            Title = "ARE YOU SURE YOU\nWANT TO QUIT",
-            LayoutFlags = MenuLayoutFlags.Horizontal | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        page.Items.Add(new MenuButton
-        {
-            Label = "YES",
-            Data = 1,
-            OnClick = (menu, data) =>
-            {
-                if (GameStateRef != null)
-                    GameStateRef.CurrentMode = GameMode.Menu;
-                // Clear menu stack and return to main menu
-                while (menu.CurrentPage != null)
-                {
-                    if (!menu.HandleInput(MenuAction.Back))
-                        break;
-                }
-            }
-        });
-        
-        page.Items.Add(new MenuButton
-        {
-            Label = "NO",
-            Data = 0,
-            OnClick = (menu, data) =>
-            {
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-
-    // ===== GAME OVER MENU =====
-    // Structure: MENU_VERTICAL centered, single empty button to quit
-    public static MenuPage CreateGameOverMenu()
-    {
-        var page = new MenuPage
-        {
-            Title = "GAME OVER",
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Empty button - just press Enter to continue
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                if (GameStateRef != null)
-                    GameStateRef.CurrentMode = GameMode.Menu;
-            }
-        });
-        
-        return page;
-    }
-    
-    // ===== RACE STATS MENU =====
-    // Structure: MENU_FIXED, shows race results after finishing
-    // Title changes based on qualification status
-    public static MenuPage CreateRaceStatsMenu(bool qualified, bool isTimeTrial, int position, List<float> lapTimes, float bestLap, string pilotName)
-    {
-        string title;
-        if (isTimeTrial)
-            title = "";
-        else if (qualified)
-            title = "CONGRATULATIONS";
-        else
-            title = "FAILED TO QUALIFY";
-            
-        var page = new MenuPage
-        {
-            Title = title,
-            LayoutFlags = MenuLayoutFlags.Fixed,
-            TitlePos = new Vec2i(0, -100),
-            TitleAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Custom draw function to display race stats
-        page.DrawCallback = (renderer) =>
-        {
-            DrawRaceStats(renderer, qualified, isTimeTrial, position, lapTimes, bestLap, pilotName);
-        };
-        
-        // Empty button - just press Enter to continue
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                // Continue to next screen (points table or menu)
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    private static void DrawRaceStats(IMenuRenderer renderer, bool qualified, bool isTimeTrial, int position, List<float> lapTimes, float bestLap, string pilotName)
-    {
-        int startY = 0;
-        
-        // Draw pilot portrait if not time trial
-        // TODO: Draw pilot portrait texture here
-        
-        // Draw position
-        if (!isTimeTrial)
-        {
-            string positionText = $"POSITION: {position}";
-            Vec2i pos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered(positionText, pos, FontSizes.MenuTitle, UIColor.Accent);
-            startY += 30;
-        }
-        
-        // Draw lap times
-        Vec2i headerPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-        UIHelper.DrawTextCentered("LAP TIMES", headerPos, FontSizes.MenuItem, UIColor.Default);
-        startY += 20;
-        
-        for (int i = 0; i < lapTimes.Count; i++)
-        {
-            string lapText = $"LAP {i + 1}: {FormatTime(lapTimes[i])}";
-            Vec2i lapPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered(lapText, lapPos, FontSizes.MenuItem, UIColor.Default);
-            startY += 15;
-        }
-        
-        // Draw total time
-        float totalTime = lapTimes.Sum();
-        startY += 10;
-        Vec2i totalPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-        UIHelper.DrawTextCentered($"TOTAL TIME: {FormatTime(totalTime)}", totalPos, FontSizes.MenuItem, UIColor.Accent);
-        
-        // Draw best lap
-        startY += 20;
-        Vec2i bestPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-        UIHelper.DrawTextCentered($"BEST LAP: {FormatTime(bestLap)}", bestPos, FontSizes.MenuItem, UIColor.Accent);
-    }
-    
-    // ===== RACE POINTS TABLE =====
-    // Structure: MENU_FIXED, shows points awarded in race
-    public static MenuPage CreateRacePointsMenu(List<(string pilotName, int points, bool isPlayer)> pilots)
-    {
-        var page = new MenuPage
-        {
-            Title = "RACE POINTS",
-            LayoutFlags = MenuLayoutFlags.Fixed,
-            TitlePos = new Vec2i(0, -100),
-            TitleAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Custom draw function
-        page.DrawCallback = (renderer) =>
-        {
-            DrawPointsTable(renderer, pilots, "PILOT NAME", "POINTS");
-        };
-        
-        // Empty button - just press Enter to continue
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    // ===== CHAMPIONSHIP TABLE =====
-    // Structure: MENU_FIXED, shows championship standings
-    public static MenuPage CreateChampionshipTableMenu(List<(string pilotName, int points, bool isPlayer)> pilots)
-    {
-        var page = new MenuPage
-        {
-            Title = "CHAMPIONSHIP TABLE",
-            LayoutFlags = MenuLayoutFlags.Fixed,
-            TitlePos = new Vec2i(0, -100),
-            TitleAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Custom draw function
-        page.DrawCallback = (renderer) =>
-        {
-            DrawPointsTable(renderer, pilots, "PILOT NAME", "POINTS");
-        };
-        
-        // Empty button - just press Enter to continue
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    private static void DrawPointsTable(IMenuRenderer renderer, List<(string pilotName, int points, bool isPlayer)> pilots, string header1, string header2)
-    {
-        int startY = -50;
-        
-        // Draw table header
-        Vec2i headerPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(-100, startY));
-        UIHelper.DrawText(header1, headerPos, FontSizes.MenuItem, UIColor.Default);
-        
-        Vec2i pointsHeaderPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(100, startY));
-        UIHelper.DrawText(header2, pointsHeaderPos, FontSizes.MenuItem, UIColor.Default);
-        
-        startY += 25;
-        
-        // Draw each pilot
-        foreach (var (pilotName, points, isPlayer) in pilots)
-        {
-            var color = isPlayer ? UIColor.Accent : UIColor.Default;
-            
-            Vec2i namePos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(-100, startY));
-            UIHelper.DrawText(pilotName, namePos, FontSizes.MenuItem, color);
-            
-            Vec2i pointsPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(100, startY));
-            UIHelper.DrawText(points.ToString(), pointsPos, FontSizes.MenuItem, color);
-            
-            startY += 18;
-        }
-    }
-    
-    // ===== HALL OF FAME =====
-    // Structure: MENU_FIXED, interactive character-by-character name entry
-    private static string _hallOfFameName = "";
-    private static int _hallOfFameCharIndex = 0;
-    private static readonly char[] _hallOfFameChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".ToCharArray();
-    
-    public static MenuPage CreateHallOfFameMenu(int position, float time, List<(string name, float time)> existingEntries)
-    {
-        _hallOfFameName = "";
-        _hallOfFameCharIndex = 0;
-        
-        var page = new MenuPage
-        {
-            Title = "HALL OF FAME",
-            LayoutFlags = MenuLayoutFlags.Fixed,
-            TitlePos = new Vec2i(0, -100),
-            TitleAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Custom draw function
-        page.DrawCallback = (renderer) =>
-        {
-            DrawHallOfFame(renderer, position, time, existingEntries);
-        };
-        
-        // Empty button for navigation
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                // Cannot go back from Hall of Fame
-            }
-        });
-        
-        return page;
-    }
-    
-    private static void DrawHallOfFame(IMenuRenderer renderer, int position, float time, List<(string name, float time)> existingEntries)
-    {
-        int startY = -80;
-        
-        // Show all 5 entries with new entry inserted at correct position
-        var allEntries = new List<(string name, float time, bool isNew)>(existingEntries.Select(e => (e.name, e.time, false)));
-        allEntries.Insert(position - 1, (_hallOfFameName.PadRight(3, '_'), time, true));
-        
-        for (int i = 0; i < Math.Min(5, allEntries.Count); i++)
-        {
-            var (name, entryTime, isNew) = allEntries[i];
-            var color = isNew ? UIColor.Accent : UIColor.Default;
-            
-            string line = $"{i + 1}. {name,-3} {FormatTime(entryTime)}";
-            Vec2i pos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered(line, pos, FontSizes.MenuItem, color);
-            startY += 20;
-        }
-        
-        // Draw character selector
-        startY += 40;
-        
-        // Show current character being selected
-        if (_hallOfFameName.Length < 3)
-        {
-            Vec2i charPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered(_hallOfFameChars[_hallOfFameCharIndex].ToString(), charPos, FontSizes.MenuTitle, UIColor.Accent);
-            
-            startY += 30;
-            Vec2i instructionPos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered("UP/DOWN: SELECT  ENTER: CONFIRM", instructionPos, FontSizes.MenuItem, UIColor.Default);
-        }
-        else
-        {
-            Vec2i donePos = UIHelper.ScaledPos(UIAnchor.MiddleCenter, new Vec2i(0, startY));
-            UIHelper.DrawTextCentered("PRESS ENTER TO CONTINUE", donePos, FontSizes.MenuItem, UIColor.Accent);
-        }
-    }
-    
-    // Hall of Fame input handling (call from Game.cs)
-    public static void HandleHallOfFameInput(HallOfFameAction action)
-    {
-        switch (action)
-        {
-            case HallOfFameAction.Up:
-                _hallOfFameCharIndex = (_hallOfFameCharIndex - 1 + _hallOfFameChars.Length) % _hallOfFameChars.Length;
-                break;
-            case HallOfFameAction.Down:
-                _hallOfFameCharIndex = (_hallOfFameCharIndex + 1) % _hallOfFameChars.Length;
-                break;
-            case HallOfFameAction.Confirm:
-                if (_hallOfFameName.Length < 3)
-                {
-                    _hallOfFameName += _hallOfFameChars[_hallOfFameCharIndex];
-                    _hallOfFameCharIndex = 0;
-                }
-                break;
-            case HallOfFameAction.Delete:
-                if (_hallOfFameName.Length > 0)
-                    _hallOfFameName = _hallOfFameName.Substring(0, _hallOfFameName.Length - 1);
-                break;
-        }
-    }
-    
-    // ===== TEXT SCROLL MENU (for credits) =====
-    // Structure: Auto-scrolling text with '#' prefix for headers
-    
-    public static MenuPage CreateTextScrollMenu(string[] lines, string title = "")
-    {
-        var page = new MenuPage
-        {
-            Title = title,
-            LayoutFlags = MenuLayoutFlags.Vertical | MenuLayoutFlags.AlignCenter,
-            TitleAnchor = UIAnchor.MiddleCenter,
-            ItemsAnchor = UIAnchor.MiddleCenter
-        };
-        
-        // Custom draw function for auto-scrolling credits
-        page.DrawCallback = (renderer) =>
-        {
-            DrawTextScroll(renderer, lines);
-        };
-        
-        // Empty button
-        page.Items.Add(new MenuButton
-        {
-            Label = "",
-            OnClick = (menu, data) =>
-            {
-                menu.PopPage();
-            }
-        });
-        
-        return page;
-    }
-    
-    private static void DrawTextScroll(IMenuRenderer renderer, string[] lines)
-    {
-        // TODO: Get actual elapsed time from somewhere
-        float elapsedTime = 0; // This should come from system time
-        
-        int uiScale = 2;
-        int speed = 32;
-        float scrollY = elapsedTime * uiScale * speed;
-        
-        // Get screen dimensions
-        // TODO: Get actual screen height
-        int screenHeight = 720; // Default assumption
-        
-        float y = screenHeight - scrollY;
-        
-        foreach (var line in lines)
-        {
-            if (string.IsNullOrEmpty(line))
-            {
-                y += 12 * uiScale;
-                continue;
-            }
-            
-            if (line.StartsWith("#"))
-            {
-                y += 48 * uiScale;
-                
-                // Draw title (remove # prefix)
-                string titleText = line.Substring(1);
-                Vec2i pos = new Vec2i(screenHeight / 2, (int)y);
-                UIHelper.DrawTextCentered(titleText, pos, FontSizes.CreditsTitle, UIColor.Accent);
-                
-                y += 32 * uiScale;
-            }
-            else
-            {
-                // Draw normal text
-                Vec2i pos = new Vec2i(screenHeight / 2, (int)y);
-                UIHelper.DrawTextCentered(line, pos, FontSizes.CreditsText, UIColor.Default);
-                
-                y += 12 * uiScale;
-            }
-        }
-    }
-
-    // ===== VIDEO OPTIONS MENU (deprecated - alias for CreateVideoMenu) =====
-    public static MenuPage CreateVideoOptionsMenu()
-    {
-        return CreateVideoMenu();
-    }
-
-    // ===== AUDIO OPTIONS MENU (deprecated - alias for CreateAudioMenu) =====
-    public static MenuPage CreateAudioOptionsMenu()
-    {
-        return CreateAudioMenu();
-    }
-}
-
-/// <summary>
-/// Actions for Hall of Fame character entry
-/// </summary>
-public enum HallOfFameAction
-{
-    Up,
-    Down,
-    Confirm,
-    Delete
 }

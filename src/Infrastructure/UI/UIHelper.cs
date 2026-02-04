@@ -145,4 +145,6 @@ public static class UIHelper
             _ => UIConstants.Colors.MenuItemDefault
         };
     }
+    
 }
+

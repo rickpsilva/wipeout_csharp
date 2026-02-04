@@ -14,8 +14,8 @@ public class VideoSettingsTests
         Assert.Equal(0.0f, settings.InternalRoll);
         Assert.Equal(0u, settings.UIScale);  // 0 = AUTO mode (default)
         Assert.False(settings.ShowFPS);
-        Assert.Equal(0, settings.ScreenResolution);
-        Assert.Equal(0, settings.PostEffect);
+        Assert.Equal(ScreenResolutionType.Native, settings.ScreenResolution);
+        Assert.Equal(PostEffectType.None, settings.PostEffect);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class VideoSettingsTests
     [Fact]
     public void IsValid_WithInvalidScreenResolution_ReturnsFalse()
     {
-        var settings = new VideoSettings { ScreenResolution = 3 };
+        var settings = new VideoSettings { ScreenResolution = (ScreenResolutionType)3 };
 
         Assert.False(settings.IsValid());
     }
@@ -45,7 +45,7 @@ public class VideoSettingsTests
     [Fact]
     public void IsValid_WithInvalidPostEffect_ReturnsFalse()
     {
-        var settings = new VideoSettings { PostEffect = 2 };
+        var settings = new VideoSettings { PostEffect = (PostEffectType)2 };
 
         Assert.False(settings.IsValid());
     }
@@ -67,8 +67,8 @@ public class VideoSettingsTests
             InternalRoll = 45.0f,
             UIScale = 4,
             ShowFPS = true,
-            ScreenResolution = 2,
-            PostEffect = 1
+            ScreenResolution = ScreenResolutionType.Res480p,
+            PostEffect = PostEffectType.CRT
         };
 
         settings.ResetToDefaults();
@@ -77,8 +77,8 @@ public class VideoSettingsTests
         Assert.Equal(0.0f, settings.InternalRoll);
         Assert.Equal(0u, settings.UIScale);  // 0 = AUTO mode (default)
         Assert.False(settings.ShowFPS);
-        Assert.Equal(0, settings.ScreenResolution);
-        Assert.Equal(0, settings.PostEffect);
+        Assert.Equal(ScreenResolutionType.Native, settings.ScreenResolution);
+        Assert.Equal(PostEffectType.None, settings.PostEffect);
     }
 
     [Theory]
@@ -94,10 +94,10 @@ public class VideoSettingsTests
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    public void IsValid_WithValidScreenResolution_ReturnsTrue(int resolution)
+    [InlineData(ScreenResolutionType.Native)]
+    [InlineData(ScreenResolutionType.Res240p)]
+    [InlineData(ScreenResolutionType.Res480p)]
+    public void IsValid_WithValidScreenResolution_ReturnsTrue(ScreenResolutionType resolution)
     {
         var settings = new VideoSettings { ScreenResolution = resolution };
 

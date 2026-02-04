@@ -28,6 +28,109 @@ public class ModelTests
         _loader = new ModelLoader(NullLogger<ModelLoader>.Instance);
     }
 
+    private static Mesh CreateMockModel(string name, float scale = 1.0f)
+    {
+        var mesh = new Mesh(name)
+        {
+            Origin = new Vec3(0, 0, 0),
+            Radius = 500.0f * scale,
+            Flags = 0,
+            Vertices = new Vec3[]
+        {
+                new(0, 20 * scale, 500 * scale),
+                new(-25 * scale, -5 * scale, 450 * scale),
+                new(25 * scale, -5 * scale, 450 * scale),
+                new(0, 35 * scale, 450 * scale),
+                new(-50 * scale, 5 * scale, 350 * scale),
+                new(50 * scale, 5 * scale, 350 * scale),
+                new(0, 50 * scale, 350 * scale),
+                new(0, -10 * scale, 350 * scale),
+                new(-70 * scale, 10 * scale, 200 * scale),
+                new(70 * scale, 10 * scale, 200 * scale),
+                new(0, 55 * scale, 200 * scale),
+                new(0, -5 * scale, 200 * scale),
+                new(-180 * scale, 5 * scale, 150 * scale),
+                new(180 * scale, 5 * scale, 150 * scale),
+                new(-160 * scale, 0 * scale, 100 * scale),
+                new(160 * scale, 0 * scale, 100 * scale),
+                new(-60 * scale, 20 * scale, 80 * scale),
+                new(60 * scale, 20 * scale, 80 * scale),
+                new(-60 * scale, -10 * scale, 80 * scale),
+                new(60 * scale, -10 * scale, 80 * scale),
+                new(-55 * scale, 15 * scale, -50 * scale),
+                new(55 * scale, 15 * scale, -50 * scale),
+                new(-55 * scale, -10 * scale, -50 * scale),
+                new(55 * scale, -10 * scale, -50 * scale),
+                new(0, 45 * scale, 50 * scale),
+                new(0, -5 * scale, 50 * scale),
+                new(0, 60 * scale, -30 * scale),
+                new(0, 0 * scale, -30 * scale),
+        },
+
+            Normals = new Vec3[]
+        {
+                new(0, 1, 0),
+                new(0, -1, 0),
+                new(-1, 0, 0),
+                new(1, 0, 0),
+                new(0, 0, 1),
+                new(0, 0, -1),
+        }
+        };
+
+        var yellow = (r: (byte)255, g: (byte)220, b: (byte)0, a: (byte)255);
+        var orange = (r: (byte)255, g: (byte)100, b: (byte)0, a: (byte)255);
+        var red = (r: (byte)255, g: (byte)0, b: (byte)0, a: (byte)255);
+        var darkBlue = (r: (byte)0, g: (byte)50, b: (byte)150, a: (byte)255);
+        var white = (r: (byte)255, g: (byte)255, b: (byte)255, a: (byte)255);
+        var black = (r: (byte)40, g: (byte)40, b: (byte)40, a: (byte)255);
+
+        mesh.Primitives = new System.Collections.Generic.List<Primitive>
+            {
+                new F3 { CoordIndices = new short[] { 0, 3, 1 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 0, 2, 3 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 0, 1, 2 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 1, 3, 4 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 2, 5, 3 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 3, 6, 4 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 3, 5, 6 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 1, 4, 7 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 2, 7, 5 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 6, 10, 4 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 6, 5, 10 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 4, 8, 7 }, Color = black },
+                new F3 { CoordIndices = new short[] { 5, 7, 9 }, Color = black },
+                new F3 { CoordIndices = new short[] { 10, 8, 4 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 10, 9, 5 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 7, 8, 11 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 7, 11, 9 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 8, 12, 11 }, Color = red },
+                new F3 { CoordIndices = new short[] { 12, 14, 11 }, Color = red },
+                new F3 { CoordIndices = new short[] { 8, 10, 12 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 9, 11, 13 }, Color = red },
+                new F3 { CoordIndices = new short[] { 13, 11, 15 }, Color = red },
+                new F3 { CoordIndices = new short[] { 9, 13, 10 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 8, 16, 14 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 14, 16, 18 }, Color = black },
+                new F3 { CoordIndices = new short[] { 16, 20, 18 }, Color = red },
+                new F3 { CoordIndices = new short[] { 18, 20, 22 }, Color = red },
+                new F3 { CoordIndices = new short[] { 9, 15, 17 }, Color = darkBlue },
+                new F3 { CoordIndices = new short[] { 15, 19, 17 }, Color = black },
+                new F3 { CoordIndices = new short[] { 17, 19, 21 }, Color = red },
+                new F3 { CoordIndices = new short[] { 19, 23, 21 }, Color = red },
+                new F3 { CoordIndices = new short[] { 10, 24, 16 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 10, 17, 24 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 24, 26, 16 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 24, 17, 26 }, Color = orange },
+                new F3 { CoordIndices = new short[] { 20, 21, 26 }, Color = white },
+                new F3 { CoordIndices = new short[] { 20, 26, 22 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 21, 23, 26 }, Color = yellow },
+                new F3 { CoordIndices = new short[] { 22, 26, 23 }, Color = white },
+            };
+
+        return mesh;
+    }
+
     #region Mesh Structure Tests
 
     [Fact]
@@ -164,7 +267,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_ReturnsValidMesh()
     {
-        var mesh = _loader.CreateMockModel("Feisar");
+        var mesh = CreateMockModel("Feisar");
         
         Assert.NotNull(mesh);
         Assert.Equal("Feisar", mesh.Name);
@@ -177,7 +280,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasReasonableGeometry()
     {
-        var mesh = _loader.CreateMockModel("TestShip");
+        var mesh = CreateMockModel("TestShip");
         
         // Should have enough vertices for a recognizable ship
         Assert.InRange(mesh.Vertices.Length, 20, 100);
@@ -195,7 +298,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_AllVertexIndicesAreValid()
     {
-        var mesh = _loader.CreateMockModel("TestShip");
+        var mesh = CreateMockModel("TestShip");
         
         foreach (var primitive in mesh.Primitives)
         {
@@ -211,7 +314,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasValidColors()
     {
-        var mesh = _loader.CreateMockModel("TestShip");
+        var mesh = CreateMockModel("TestShip");
         
         foreach (var primitive in mesh.Primitives)
         {
@@ -229,7 +332,7 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModel_HasShipLikeShape()
     {
-        var mesh = _loader.CreateMockModel("TestShip");
+        var mesh = CreateMockModel("TestShip");
         
         // Should have vertices with positive Z (forward)
         Assert.Contains(mesh.Vertices, v => v.Z > 400);
@@ -253,8 +356,8 @@ public class ModelTests
     [Fact]
     public void CreateMockShipModelScaled_ScalesGeometry()
     {
-        var mesh1 = _loader.CreateMockModelScaled("Ship1", 1.0f);
-        var mesh2 = _loader.CreateMockModelScaled("Ship2", 2.0f);
+        var mesh1 = CreateMockModel("Ship1", 1.0f);
+        var mesh2 = CreateMockModel("Ship2", 2.0f);
         
         Assert.NotEqual(mesh1.Radius, mesh2.Radius);
         Assert.True(mesh2.Radius > mesh1.Radius);
@@ -665,9 +768,9 @@ public class ModelTests
     [Fact]
     public void ModelLoader_CanLoadMultipleMockModels()
     {
-        var mesh1 = _loader.CreateMockModel("Ship1");
-        var mesh2 = _loader.CreateMockModel("Ship2");
-        var mesh3 = _loader.CreateMockModel("Ship3");
+        var mesh1 = CreateMockModel("Ship1");
+        var mesh2 = CreateMockModel("Ship2");
+        var mesh3 = CreateMockModel("Ship3");
         
         Assert.NotNull(mesh1);
         Assert.NotNull(mesh2);
@@ -803,7 +906,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModel_WithEmptyName_CreatesValidMesh()
     {
-        var mesh = _loader.CreateMockModel("");
+        var mesh = CreateMockModel("");
         
         Assert.NotNull(mesh);
         Assert.Equal("", mesh.Name);
@@ -815,7 +918,7 @@ public class ModelTests
     public void CreateMockModel_WithNullName_CreatesValidMesh()
     {
         // Even with null name, should create a valid mesh
-        var mesh = _loader.CreateMockModel(null!);
+        var mesh = CreateMockModel(null!);
         
         Assert.NotNull(mesh);
         Assert.NotEmpty(mesh.Vertices);
@@ -825,7 +928,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_WithZeroScale_CreatesSmallMesh()
     {
-        var mesh = _loader.CreateMockModelScaled("Tiny", 0.0f);
+        var mesh = CreateMockModel("Tiny", 0.0f);
         
         Assert.NotNull(mesh);
         Assert.True(mesh.Radius >= 0);
@@ -842,7 +945,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_WithNegativeScale_CreatesValidMesh()
     {
-        var mesh = _loader.CreateMockModelScaled("Inverted", -1.0f);
+        var mesh = CreateMockModel("Inverted", -1.0f);
         
         Assert.NotNull(mesh);
         // With negative scale, radius will be negative in the initial assignment
@@ -854,8 +957,8 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_WithLargeScale_CreatesLargeMesh()
     {
-        var mesh1 = _loader.CreateMockModelScaled("Normal", 1.0f);
-        var mesh2 = _loader.CreateMockModelScaled("Large", 10.0f);
+        var mesh1 = CreateMockModel("Normal", 1.0f);
+        var mesh2 = CreateMockModel("Large", 10.0f);
         
         Assert.True(mesh2.Radius > mesh1.Radius);
         
@@ -909,8 +1012,8 @@ public class ModelTests
     [Fact]
     public void CreateMockModel_MultipleInstances_AreIndependent()
     {
-        var mesh1 = _loader.CreateMockModel("Ship1");
-        var mesh2 = _loader.CreateMockModel("Ship2");
+        var mesh1 = CreateMockModel("Ship1");
+        var mesh2 = CreateMockModel("Ship2");
         
         // Verify they are different instances
         Assert.NotSame(mesh1, mesh2);
@@ -921,7 +1024,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_VerifyPrimitiveColors()
     {
-        var mesh = _loader.CreateMockModelScaled("ColorTest", 1.0f);
+        var mesh = CreateMockModel("ColorTest", 1.0f);
         
         // Should have colored primitives
         Assert.NotEmpty(mesh.Primitives);
@@ -946,7 +1049,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_VerifyGeometryStructure()
     {
-        var mesh = _loader.CreateMockModelScaled("StructureTest", 1.0f);
+        var mesh = CreateMockModel("StructureTest", 1.0f);
         
         // Verify mesh has proper structure
         Assert.NotNull(mesh.Origin);
@@ -991,7 +1094,7 @@ public class ModelTests
     [Fact]
     public void CreateMockModelScaled_VerifyNormalCount()
     {
-        var mesh = _loader.CreateMockModelScaled("NormalTest", 1.0f);
+        var mesh = CreateMockModel("NormalTest", 1.0f);
         
         // Mock model should have normals defined
         Assert.NotEmpty(mesh.Normals);
@@ -1002,7 +1105,7 @@ public class ModelTests
     public void CreateMockModel_VerifyMeshName()
     {
         var testName = "TestShipName";
-        var mesh = _loader.CreateMockModel(testName);
+        var mesh = CreateMockModel(testName);
         
         Assert.Equal(testName, mesh.Name);
     }
@@ -1015,7 +1118,7 @@ public class ModelTests
         
         foreach (var scale in scales)
         {
-            var mesh = _loader.CreateMockModelScaled("ScaleTest", scale);
+            var mesh = CreateMockModel("ScaleTest", scale);
             
             if (scale > 0)
             {
