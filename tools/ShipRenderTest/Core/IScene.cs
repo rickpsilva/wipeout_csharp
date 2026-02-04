@@ -49,6 +49,24 @@ public interface IScene
     SceneObject? SelectedObject { get; set; }
 
     /// <summary>
+    /// Gets the collection of standalone textures loaded from CMP files.
+    /// Key is the CMP filename, value is the array of texture handles.
+    /// </summary>
+    IReadOnlyDictionary<string, int[]> StandaloneTextures { get; }
+
+    /// <summary>
+    /// Adds standalone textures from a CMP file.
+    /// </summary>
+    /// <param name="cmpFileName">The name of the CMP file (without path).</param>
+    /// <param name="textureHandles">The array of texture handles.</param>
+    void AddStandaloneTextures(string cmpFileName, int[] textureHandles);
+
+    /// <summary>
+    /// Clears all standalone textures.
+    /// </summary>
+    void ClearStandaloneTextures();
+
+    /// <summary>
     /// Adds a new object to the scene with the specified name and optional game object.
     /// </summary>
     /// <param name="name">The name of the object to add.</param>

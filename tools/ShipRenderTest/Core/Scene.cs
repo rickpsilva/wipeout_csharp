@@ -72,12 +72,15 @@ public class Scene : IScene
         }
     }
 
+    public IReadOnlyDictionary<string, int[]> StandaloneTextures => _standaloneTextures;
+
     #endregion 
 
     #region fields
     private readonly ICameraManager _cameraManager;
     private readonly ILightManager _lightManager;
     private readonly List<SceneObject> _objects;
+    private readonly Dictionary<string, int[]> _standaloneTextures;
     private SceneCamera? _selectedCamera;
     private DirectionalLight? _selectedLight;
     private SceneObject? _selectedObject;
@@ -88,6 +91,7 @@ public class Scene : IScene
         _cameraManager = cameraManager ?? throw new ArgumentNullException(nameof(cameraManager));
         _lightManager = lightManager ?? throw new ArgumentNullException(nameof(lightManager));
         _objects = new List<SceneObject>();
+        _standaloneTextures = new Dictionary<string, int[]>();
     }
 
     public SceneObject AddObject(string name, GameObject? ship = null)
@@ -111,6 +115,21 @@ public class Scene : IScene
         {
             _selectedObject = null;
         }
+    }
+
+    public void AddStandaloneTextures(string cmpFileName, int[] textureHandles)
+    {
+        if (string.IsNullOrEmpty(cmpFileName))
+            throw new ArgumentNullException(nameof(cmpFileName));
+        if (textureHandles == null || textureHandles.Length == 0)
+            throw new ArgumentException("Texture handles cannot be null or empty", nameof(textureHandles));
+
+        _standaloneTextures[cmpFileName] = textureHandles;
+    }
+
+    public void ClearStandaloneTextures()
+    {
+        _standaloneTextures.Clear();
     }
 }
 

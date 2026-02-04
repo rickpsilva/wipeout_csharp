@@ -1440,6 +1440,73 @@ public class ShipRenderWindow : GameWindow
                     OpenFolderDialog();
                 }
 
+                // --- Novas entradas para texturas ---
+                if (ImGui.MenuItem("Load Texture (CMP)..."))
+                {
+                    if (_fileDialogManager != null)
+                    {
+                        _fileDialogManager.ShowFileDialog(ModelFileDialog.GetModelDirectory(), "*.cmp", "Open CMP Texture File");
+                        _fileDialogManager.OnFilesSelected = files =>
+                        {
+                            if (files != null && files.Length > 0)
+                            {
+                                // Adiciona CMP ao painel de assets (Asset Browser)
+                                _modelBrowser.LoadSingleFile(files[0]);
+                            }
+                        };
+                    }
+                }
+                if (ImGui.MenuItem("Load Textures (Folder)..."))
+                {
+                    if (_fileDialogManager != null)
+                    {
+                        _fileDialogManager.ShowFolderDialog(ModelFileDialog.GetModelDirectory());
+                        _fileDialogManager.OnFolderSelected = folderPath =>
+                        {
+                            if (!string.IsNullOrEmpty(folderPath))
+                            {
+                                // Load all CMP files from folder into asset browser
+                                _modelBrowser.LoadCmpFilesFromFolder(folderPath);
+                                _logger.LogInformation($"[TEXTURE] Loaded CMP files from folder {folderPath} into asset browser");
+                            }
+                        };
+                    }
+                }
+
+                if (ImGui.MenuItem("Load Texture (TIM)..."))
+                {
+                    if (_fileDialogManager != null)
+                    {
+                        _fileDialogManager.ShowFileDialog(ModelFileDialog.GetModelDirectory(), "*.tim", "Open TIM Texture File");
+                        _fileDialogManager.OnFilesSelected = files =>
+                        {
+                            if (files != null && files.Length > 0)
+                            {
+                                // Adiciona TIM ao painel de assets (Asset Browser)
+                                _modelBrowser.LoadSingleFile(files[0]);
+                            }
+                        };
+                    }
+                }
+
+                if (ImGui.MenuItem("Load Textures TIM (Folder)..."))
+                {
+                    if (_fileDialogManager != null)
+                    {
+                        _fileDialogManager.ShowFolderDialog(ModelFileDialog.GetModelDirectory());
+                        _fileDialogManager.OnFolderSelected = folderPath =>
+                        {
+                            if (!string.IsNullOrEmpty(folderPath))
+                            {
+                                // Load all TIM files from folder into asset browser
+                                _modelBrowser.LoadTimFilesFromFolder(folderPath);
+                                _logger.LogInformation($"[TEXTURE] Loaded TIM files from folder {folderPath} into asset browser");
+                            }
+                        };
+                    }
+                }
+                // --- Fim das novas entradas ---
+
                 // Open Recent submenu
                 if (ImGui.BeginMenu("Open Recent", _recentFiles.RecentItems.Count > 0))
                 {

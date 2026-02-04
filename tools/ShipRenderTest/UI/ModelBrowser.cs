@@ -265,12 +265,6 @@ public class ModelBrowser : IModelBrowser
             return;
         }
 
-        if (!filePath.EndsWith(".prm", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogWarning("File is not a PRM file: {Path}", filePath);
-            return;
-        }
-
         _prmFiles.Clear();
 
         var fileInfo = new PrmFileInfo
@@ -279,29 +273,140 @@ public class ModelBrowser : IModelBrowser
             FileName = Path.GetFileName(filePath)
         };
 
-        // Scan the PRM file for objects
-        try
+        // Se for PRM, escaneia objetos normalmente
+        if (filePath.EndsWith(".prm", StringComparison.OrdinalIgnoreCase))
         {
-            var objects = _modelLoader.GetObjectsInPrmFile(filePath);
-            foreach (var (index, objName) in objects)
+            try
             {
-                fileInfo.Objects.Add(new PrmObjectInfo
+                var objects = _modelLoader.GetObjectsInPrmFile(filePath);
+                foreach (var (index, objName) in objects)
                 {
-                    Index = index,
-                    Name = string.IsNullOrWhiteSpace(objName) ? $"object {index}" : objName
-                });
+                    fileInfo.Objects.Add(new PrmObjectInfo
+                    {
+                        Index = index,
+                        Name = string.IsNullOrWhiteSpace(objName) ? $"object {index}" : objName
+                    });
+                }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load PRM file: {Path}", filePath);
+            }
+        }
+        else if (filePath.EndsWith(".cmp", StringComparison.OrdinalIgnoreCase))
+        {
+            // Para CMP, adiciona um objeto "CMP Textures" fake para seleção
+            fileInfo.Objects.Add(new PrmObjectInfo
+            {
+                Index = 0,
+                Name = "CMP Textures"
+            });
+        }
+        else if (filePath.EndsWith(".tim", StringComparison.OrdinalIgnoreCase))
+        {
+            // Para TIM, adiciona um objeto "TIM Texture" fake para seleção
+            fileInfo.Objects.Add(new PrmObjectInfo
+            {
+                Index = 0,
+                Name = "TIM Texture"
+            });
+        }
+
+        _prmFiles.Add(fileInfo);
+        _selectedFileIndex = 0;
+        _selectedObjectIndex = fileInfo.Objects.Count > 0 ? fileInfo.Objects[0].Index : 0;
+
+        _logger.LogInformation("Loaded single file: {Path}", filePath);
+    }
+
+    /// <summary>
+    /// Load all CMP files from a folder into the browser, replacing all existing files.
+    /// </summary>
+    public void LoadCmpFilesFromFolder(string folderPath)
+    {
+        if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
+        {
+            _logger.LogWarning("Invalid folder path: {Path}", folderPath);
+            return;
+        }
+
+        _prmFiles.Clear();
+
+        var cmpFiles = Directory.GetFiles(folderPath, "*.cmp", SearchOption.TopDirectoryOnly);
+        
+        if (cmpFiles.Length == 0)
+        {
+            _logger.LogWarning("No CMP files found in folder: {Path}", folderPath);
+            return;
+        }
+
+        foreach (var cmpPath in cmpFiles)
+        {
+            var fileInfo = new PrmFileInfo
+            {
+                FilePath = cmpPath,
+                FileName = Path.GetFileName(cmpPath)
+            };
+
+            // Para CMP, adiciona um objeto "CMP Textures" fake para seleção
+            fileInfo.Objects.Add(new PrmObjectInfo
+            {
+                Index = 0,
+                Name = "CMP Textures"
+            });
 
             _prmFiles.Add(fileInfo);
-            _selectedFileIndex = 0;
-            _selectedObjectIndex = fileInfo.Objects.Count > 0 ? fileInfo.Objects[0].Index : 0;
+        }
 
-            _logger.LogInformation("Loaded single PRM file: {Path}", filePath);
-        }
-        catch (Exception ex)
+        _selectedFileIndex = 0;
+        _selectedObjectIndex = 0;
+
+        _logger.LogInformation("Loaded {Count} CMP files from folder: {Path}", cmpFiles.Length, folderPath);
+    }
+
+    /// <summary>
+    /// Load all TIM files from a folder into the browser, replacing all existing files.
+    /// </summary>
+    public void LoadTimFilesFromFolder(string folderPath)
+    {
+        if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
         {
-            _logger.LogError(ex, "Failed to load PRM file: {Path}", filePath);
+            _logger.LogWarning("Invalid folder path: {Path}", folderPath);
+            return;
         }
+
+        _prmFiles.Clear();
+
+        var timFiles = Directory.GetFiles(folderPath, "*.tim", SearchOption.TopDirectoryOnly);
+        
+        if (timFiles.Length == 0)
+        {
+            _logger.LogWarning("No TIM files found in folder: {Path}", folderPath);
+            return;
+        }
+
+        foreach (var timPath in timFiles)
+        {
+            var fileInfo = new PrmFileInfo
+            {
+                FilePath = timPath,
+                FileName = Path.GetFileName(timPath)
+            };
+
+            // Para TIM, adiciona um objeto "TIM Texture" fake para seleção
+            fileInfo.Objects.Add(new PrmObjectInfo
+            {
+                Index = 0,
+                Name = "TIM Texture"
+            });
+
+            _prmFiles.Add(fileInfo);
+        }
+
+        _selectedFileIndex = 0;
+        _selectedObjectIndex = 0;
+
+        _logger.LogInformation("Loaded {Count} TIM files from folder: {Path}", timFiles.Length, folderPath);
     }
 
     /// <summary>

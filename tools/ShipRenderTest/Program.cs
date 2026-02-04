@@ -90,7 +90,15 @@ class Program
         services.AddSingleton<ISettingsPanel, SettingsPanel>();
         services.AddSingleton<IViewportInfoPanel, ViewportInfoPanel>();
         services.AddSingleton<IPropertiesPanel, PropertiesPanel>();
-        services.AddSingleton<IAssetBrowserPanel, AssetBrowserPanel>();
+        services.AddSingleton<IAssetBrowserPanel>(provider =>
+            new AssetBrowserPanel(
+                provider.GetRequiredService<ILogger<AssetBrowserPanel>>(),
+                provider.GetRequiredService<IModelBrowser>(),
+                provider.GetRequiredService<ITextureManager>(),
+                provider.GetRequiredService<IScene>(),
+                provider.GetRequiredService<ILogger<ShipRenderWindow>>()
+            )
+        );
         services.AddSingleton<ITexturePanel, TexturePanel>();
         services.AddSingleton<ITrackViewerPanel, TrackViewerPanel>();
         services.AddSingleton<ITrackDataPanel, TrackDataPanel>();

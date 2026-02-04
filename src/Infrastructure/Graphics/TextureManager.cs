@@ -193,4 +193,30 @@ public class TextureManager : ITextureManager
             return Array.Empty<int>();
         }
     }
+
+    public int LoadTextureFromTim(string timPath)
+    {
+        try
+        {
+            _logger?.LogInformation("Attempting to load TIM {TimPath}", timPath);
+            var (pixels, width, height) = _timLoader.LoadTim(timPath, false);
+            
+            if (pixels == null || pixels.Length == 0)
+            {
+                _logger?.LogWarning("No pixel data found in TIM: {TimPath}", timPath);
+                return 0;
+            }
+
+            _logger?.LogInformation("TIM loaded: size={Width}x{Height}", width, height);
+            int handle = CreateTexture(pixels, width, height);
+            _logger?.LogInformation("Mapped TIM {Path} -> GL handle {Handle}", timPath, handle);
+            
+            return handle;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load TIM texture from {TimPath}", timPath);
+            return 0;
+        }
+    }
 }

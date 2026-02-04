@@ -52,6 +52,14 @@ public interface IModelBrowser
     /// </summary>
     void LoadSingleFile(string filePath);
     /// <summary>
+    /// Load all CMP files from a folder into the browser.
+    /// </summary>
+    void LoadCmpFilesFromFolder(string folderPath);
+    /// <summary>
+    /// Load all TIM files from a folder into the browser.
+    /// </summary>
+    void LoadTimFilesFromFolder(string folderPath);
+    /// <summary>
     /// Refresh the list of available PRM models and scan for objects.
     /// </summary>
     void RefreshModelList();

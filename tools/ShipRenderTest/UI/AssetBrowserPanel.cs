@@ -1,5 +1,8 @@
+
 using ImGuiNET;
 using Microsoft.Extensions.Logging;
+using WipeoutRewrite.Tools.Core;
+using WipeoutRewrite.Infrastructure.Graphics;
 
 namespace WipeoutRewrite.Tools.UI;
 
@@ -16,6 +19,9 @@ public class AssetBrowserPanel : IAssetBrowserPanel, IUIPanel
 
     private readonly ILogger<AssetBrowserPanel> _logger;
     private readonly IModelBrowser _modelBrowser;
+    private readonly ITextureManager _textureManager;
+    private readonly IScene _scene;
+    private readonly ILogger _mainLogger;
     private string _searchFilter = "";
     private int _selectedModelIndex = -1;
     private bool _showOnlyTracks = false;
@@ -24,10 +30,16 @@ public class AssetBrowserPanel : IAssetBrowserPanel, IUIPanel
 
     public AssetBrowserPanel(
         ILogger<AssetBrowserPanel> logger,
-        IModelBrowser modelBrowser)
+        IModelBrowser modelBrowser,
+        ITextureManager textureManager,
+        IScene scene,
+        ILogger<ShipRenderWindow> mainLogger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _modelBrowser = modelBrowser ?? throw new ArgumentNullException(nameof(modelBrowser));
+        _textureManager = textureManager ?? throw new ArgumentNullException(nameof(textureManager));
+        _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+        _mainLogger = mainLogger ?? throw new ArgumentNullException(nameof(mainLogger));
     }
 
     public void Render()
@@ -72,51 +84,180 @@ public class AssetBrowserPanel : IAssetBrowserPanel, IUIPanel
                     {
                         ImGui.TextColored(new System.Numerics.Vector4(0.4f, 0.8f, 0.4f, 1.0f),
                             $"Selected: {selectedObj.Name}");
-                    }
 
-                    // Two buttons side by side
-                    float buttonWidth = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
-
-                    if (ImGui.Button("+ Add to Scene", new System.Numerics.Vector2(buttonWidth, 0)))
-                    {
-                        OnAddToSceneRequested?.Invoke(modelPath, objIdx);
-                    }
-
-                    ImGui.SameLine();
-
-                    if (ImGui.Button("+ Add All Models", new System.Numerics.Vector2(buttonWidth, 0)))
-                    {
-                        _logger.LogWarning("[UI] *** ADD ALL MODELS BUTTON CLICKED ***");
-                        _logger.LogWarning("[UI] Selected file: {File}, Objects count: {Count}", selectedFile.FileName, selectedFile.Objects.Count);
-
-                        // Check if this is scene.prm or sky.prm (these should ALWAYS use "load all" mode)
-                        bool isSceneOrSky = selectedFile.FileName.Equals("scene.prm", StringComparison.OrdinalIgnoreCase) ||
-                                           selectedFile.FileName.Equals("sky.prm", StringComparison.OrdinalIgnoreCase);
-
-                        _logger.LogWarning("[UI] IsSceneOrSky: {IsSceneOrSky}", isSceneOrSky);
-
-                        if (isSceneOrSky)
+                        // Se for CMP, botão para carregar texturas
+                        if (selectedFile.FileName.EndsWith(".cmp", StringComparison.OrdinalIgnoreCase))
                         {
-                            // For scene/sky files, trigger with index -1 to signal "load all"
-                            _logger.LogWarning("[UI] Loading ALL objects from scene/sky file: {File} (path: {Path})",
-                                selectedFile.FileName, selectedFile.FilePath);
-                            OnAddToSceneRequested?.Invoke(selectedFile.FilePath, -1); // -1 = load all
-                        }
-                        else
-                        {
-                            // For regular files, load each object individually
-                            _logger.LogInformation("[UI] Loading all {Count} models from {File}", selectedFile.Objects.Count, selectedFile.FileName);
+                            // Check if there are multiple CMP files loaded (from folder)
+                            int cmpCount = _modelBrowser.PrmFiles.Count(f => f.FileName.EndsWith(".cmp", StringComparison.OrdinalIgnoreCase));
 
-                            var objectsToLoad = selectedFile.Objects.ToList();
-                            var filePath = selectedFile.FilePath;
-                            Task.Run(() =>
+                            if (cmpCount > 1)
                             {
-                                foreach (var obj in objectsToLoad)
+                                // Multiple CMPs - show two buttons
+                                float buttonWidth = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+                                if (ImGui.Button("Load Texture", new System.Numerics.Vector2(buttonWidth, 0)))
                                 {
-                                    OnAddToSceneRequested?.Invoke(filePath, obj.Index);
-                                    System.Threading.Thread.Sleep(10);
+                                    // Load only selected CMP
+                                    var textures = TextureLoader.LoadTexturesFromCmpFile(_textureManager, selectedFile.FilePath);
+                                    if (textures.Length > 0)
+                                    {
+                                        _scene.AddStandaloneTextures(selectedFile.FileName, textures);
+                                        _mainLogger.LogInformation($"[TEXTURE] Loaded {textures.Length} textures from CMP: {selectedFile.FileName}");
+                                    }
+                                    else
+                                    {
+                                        _mainLogger.LogWarning($"[TEXTURE] No textures found in CMP: {selectedFile.FileName}");
+                                    }
                                 }
-                            });
+
+                                ImGui.SameLine();
+
+                                if (ImGui.Button("Load All Textures", new System.Numerics.Vector2(buttonWidth, 0)))
+                                {
+                                    // Load all CMPs in the list
+                                    int totalTextures = 0;
+                                    foreach (var cmpFile in _modelBrowser.PrmFiles.Where(f => f.FileName.EndsWith(".cmp", StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        var textures = TextureLoader.LoadTexturesFromCmpFile(_textureManager, cmpFile.FilePath);
+                                        if (textures.Length > 0)
+                                        {
+                                            _scene.AddStandaloneTextures(cmpFile.FileName, textures);
+                                            totalTextures += textures.Length;
+                                        }
+                                    }
+                                    _mainLogger.LogInformation($"[TEXTURE] Loaded {totalTextures} textures from {cmpCount} CMP files");
+                                }
+                            }
+                            else
+                            {
+                                // Single CMP - show one button
+                                if (ImGui.Button("Load Texture"))
+                                {
+                                    var textures = TextureLoader.LoadTexturesFromCmpFile(_textureManager, selectedFile.FilePath);
+                                    if (textures.Length > 0)
+                                    {
+                                        _scene.AddStandaloneTextures(selectedFile.FileName, textures);
+                                        _mainLogger.LogInformation($"[TEXTURE] Loaded {textures.Length} textures from CMP: {selectedFile.FileName}");
+                                    }
+                                    else
+                                    {
+                                        _mainLogger.LogWarning($"[TEXTURE] No textures found in CMP: {selectedFile.FileName}");
+                                    }
+                                }
+                            }
+                        }
+
+                        // Se for TIM, botão para carregar textura
+                        if (selectedFile.FileName.EndsWith(".tim", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Check if there are multiple TIM files loaded (from folder)
+                            int timCount = _modelBrowser.PrmFiles.Count(f => f.FileName.EndsWith(".tim", StringComparison.OrdinalIgnoreCase));
+
+                            if (timCount > 1)
+                            {
+                                // Multiple TIMs - show two buttons
+                                float buttonWidth = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+                                if (ImGui.Button("Load Texture", new System.Numerics.Vector2(buttonWidth, 0)))
+                                {
+                                    // Load only selected TIM
+                                    var handle = TextureLoader.LoadTextureFromTimFile(_textureManager, selectedFile.FilePath);
+                                    if (handle > 0)
+                                    {
+                                        _scene.AddStandaloneTextures(selectedFile.FileName, new[] { handle });
+                                        _mainLogger.LogInformation($"[TEXTURE] Loaded texture from TIM: {selectedFile.FileName}");
+                                    }
+                                    else
+                                    {
+                                        _mainLogger.LogWarning($"[TEXTURE] Failed to load TIM: {selectedFile.FileName}");
+                                    }
+                                }
+
+                                ImGui.SameLine();
+
+                                if (ImGui.Button("Load All Textures", new System.Numerics.Vector2(buttonWidth, 0)))
+                                {
+                                    // Load all TIMs in the list
+                                    int totalTextures = 0;
+                                    foreach (var timFile in _modelBrowser.PrmFiles.Where(f => f.FileName.EndsWith(".tim", StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        var handle = TextureLoader.LoadTextureFromTimFile(_textureManager, timFile.FilePath);
+                                        if (handle > 0)
+                                        {
+                                            _scene.AddStandaloneTextures(timFile.FileName, new[] { handle });
+                                            totalTextures++;
+                                        }
+                                    }
+                                    _mainLogger.LogInformation($"[TEXTURE] Loaded {totalTextures} textures from {timCount} TIM files");
+                                }
+                            }
+                            else
+                            {
+                                // Single TIM - show one button
+                                if (ImGui.Button("Load Texture"))
+                                {
+                                    var handle = TextureLoader.LoadTextureFromTimFile(_textureManager, selectedFile.FilePath);
+                                    if (handle > 0)
+                                    {
+                                        _scene.AddStandaloneTextures(selectedFile.FileName, new[] { handle });
+                                        _mainLogger.LogInformation($"[TEXTURE] Loaded texture from TIM: {selectedFile.FileName}");
+                                    }
+                                    else
+                                    {
+                                        _mainLogger.LogWarning($"[TEXTURE] Failed to load TIM: {selectedFile.FileName}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Two buttons side by side (mantém para PRM)
+                    if (selectedFile.FileName.EndsWith(".prm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        float buttonWidth = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+                        if (ImGui.Button("+ Add to Scene", new System.Numerics.Vector2(buttonWidth, 0)))
+                        {
+                            OnAddToSceneRequested?.Invoke(modelPath, objIdx);
+                        }
+
+                        ImGui.SameLine();
+
+                        if (ImGui.Button("+ Add All Models", new System.Numerics.Vector2(buttonWidth, 0)))
+                        {
+                            _logger.LogWarning("[UI] *** ADD ALL MODELS BUTTON CLICKED ***");
+                            _logger.LogWarning("[UI] Selected file: {File}, Objects count: {Count}", selectedFile.FileName, selectedFile.Objects.Count);
+
+                            // Check if this is scene.prm or sky.prm (these should ALWAYS use "load all" mode)
+                            bool isSceneOrSky = selectedFile.FileName.Equals("scene.prm", StringComparison.OrdinalIgnoreCase) ||
+                                               selectedFile.FileName.Equals("sky.prm", StringComparison.OrdinalIgnoreCase);
+
+                            _logger.LogWarning("[UI] IsSceneOrSky: {IsSceneOrSky}", isSceneOrSky);
+
+                            if (isSceneOrSky)
+                            {
+                                // For scene/sky files, trigger with index -1 to signal "load all"
+                                _logger.LogWarning("[UI] Loading ALL objects from scene/sky file: {File} (path: {Path})",
+                                    selectedFile.FileName, selectedFile.FilePath);
+                                OnAddToSceneRequested?.Invoke(selectedFile.FilePath, -1); // -1 = load all
+                            }
+                            else
+                            {
+                                // For regular files, load each object individually
+                                _logger.LogInformation("[UI] Loading all {Count} models from {File}", selectedFile.Objects.Count, selectedFile.FileName);
+
+                                var objectsToLoad = selectedFile.Objects.ToList();
+                                var filePath = selectedFile.FilePath;
+                                Task.Run(() =>
+                                {
+                                    foreach (var obj in objectsToLoad)
+                                    {
+                                        OnAddToSceneRequested?.Invoke(filePath, obj.Index);
+                                        System.Threading.Thread.Sleep(10);
+                                    }
+                                });
+                            }
                         }
                     }
                 }
